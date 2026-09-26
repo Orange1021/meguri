@@ -6,7 +6,7 @@
 // inside the card's link, where a labelled input has nowhere to put its label,
 // and the surrounding hit area already carries the same toggle.
 import { Check } from "lucide-react";
-import { useSelection } from "@/components/SelectionContext";
+import { useIsSelected, useSelectionMode } from "@/components/SelectionContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { FileRow } from "@/ipc/types";
 import { cn } from "@/lib/utils";
@@ -20,8 +20,10 @@ interface Props {
 
 export function SelectionCheck({ file, index, className }: Props) {
   const { t } = useI18n();
-  const selection = useSelection();
-  const checked = selection.isSelected(file);
+  // Per-value subscriptions: this box re-renders when its own row is picked or
+  // when selection mode turns on, not on every click elsewhere in the list.
+  const { active, click } = useSelectionMode();
+  const checked = useIsSelected(file);
   return (
     <button
       type="button"
@@ -29,7 +31,7 @@ export function SelectionCheck({ file, index, className }: Props) {
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        selection.click(file, index, e);
+        click(file, index, e);
       }}
       aria-pressed={checked}
       aria-label={checked ? t("select.deselectFile") : t("select.selectFile")}
@@ -41,7 +43,7 @@ export function SelectionCheck({ file, index, className }: Props) {
           : "border-fg/70 bg-bg/60 text-transparent opacity-0 backdrop-blur-[1px] focus-visible:opacity-100 group-hover:opacity-100",
         // Once selecting, every box stays out so the selection can be read at a
         // glance instead of one card at a time.
-        selection.active && "opacity-100",
+        active && "opacity-100",
         className,
       )}
     >

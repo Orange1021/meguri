@@ -138,6 +138,20 @@ export function invalidateTagSearches(qc: QueryClient): void {
  */
 export function invalidateTagCatalog(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: ["tags_list_all"] });
+  invalidateFileCaches(qc);
+}
+
+/**
+ * Re-read every cached view of the files themselves.
+ *
+ * For a write whose full effect the renderer cannot predict from the result. A
+ * bulk metadata edit is the case this exists for: the main process writes by
+ * `meta_key`, so a file sharing a content hash with a selected one changes too
+ * and is not in the selection to patch; and a file whose row had already gone
+ * comes back only as a `skipped` count, without saying which. Patching what is
+ * known keeps the response instant, and this reconciles the rest.
+ */
+export function invalidateFileCaches(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: ["files_search"] });
   void qc.invalidateQueries({ queryKey: ["files_random"] });
   void qc.invalidateQueries({ queryKey: ["file_get"] });

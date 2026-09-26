@@ -5,8 +5,16 @@
 // The rule: in selection mode every plain click picks the row; outside it only
 // a modified click does, which is what lets a selection start without first
 // aiming at the checkbox.
+//
+// Subscribes per value (this row's membership, and whether selection mode is on)
+// rather than to the selection as a whole, so building a selection does not
+// re-render rows whose own state has not moved.
 import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
-import { isSelectionClick, useSelection } from "@/components/SelectionContext";
+import {
+  isSelectionClick,
+  useIsSelected,
+  useSelectionMode,
+} from "@/components/SelectionContext";
 import type { FileRow } from "@/ipc/types";
 
 export interface SelectableClick {
@@ -24,16 +32,17 @@ export function useSelectableClick(
   /** Position in the loaded list — what a Shift-click ranges from. */
   index: number,
 ): SelectableClick {
-  const selection = useSelection();
+  const { active, click } = useSelectionMode();
+  const selected = useIsSelected(file);
   const onSelectableClick = useCallback(
     (e: ReactMouseEvent) => {
-      if (!isSelectionClick(selection.active, e)) return false;
+      if (!isSelectionClick(active, e)) return false;
       e.preventDefault();
       e.stopPropagation();
-      selection.click(file, index, e);
+      click(file, index, e);
       return true;
     },
-    [selection, file, index],
+    [active, click, file, index],
   );
-  return { selected: selection.isSelected(file), onSelectableClick };
+  return { selected, onSelectableClick };
 }

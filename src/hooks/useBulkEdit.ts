@@ -13,6 +13,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { bulkTargets } from "@/lib/bulkEdit";
 import {
   invalidateCollectionSearches,
+  invalidateFileCaches,
   syncFileRowAcrossCaches,
 } from "@/lib/queryCache";
 import type { FileRow } from "@/ipc/types";
@@ -66,10 +67,16 @@ export function useBulkEdit(
       return { result, written };
     },
     onSuccess: ({ result, written }, patch) => {
-      // Patched into the caches rather than invalidated: the new value is known
-      // for every row, so there is nothing to re-read — and refetching the
-      // list's pages to learn what we just wrote would be the expensive way to
-      // find out. Detail views of the same files follow through the same helper.
+      // Two steps, and both are needed.
+      //
+      // The patch is what makes the change instant: the new value is known for
+      // every row that was sent, so those rows need no re-read.
+      //
+      // The reconcile covers what the patch cannot know. The write goes by
+      // meta_key, so a file sharing a content hash with a selected one changed
+      // as well and is not in `written` to patch; and a file whose row had
+      // already gone is only reported as a count in `skipped`, so it would
+      // otherwise sit there showing a value that was never written.
       const rowPatch: Partial<FileRow> = {};
       if (patch.favorite !== undefined) {
         rowPatch.favorite = patch.favorite ? 1 : 0;
@@ -78,6 +85,7 @@ export function useBulkEdit(
       for (const row of written) {
         syncFileRowAcrossCaches(qc, row.workspaceId, row.id, rowPatch);
       }
+      invalidateFileCaches(qc);
       // One line per field the call actually set, so a future call that sets
       // both does not silently report only one of them.
       const lines: string[] = [];

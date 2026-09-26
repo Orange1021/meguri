@@ -29,13 +29,24 @@ export function useTagSuggestions(
       setSuggestions([]);
       return;
     }
+    // Cancelling the timer is not enough on its own: once a lookup is in flight,
+    // its answer can arrive after the input or the workspace has moved on and
+    // overwrite the suggestions for what the user is typing now.
+    let cancelled = false;
     const timer = setTimeout(() => {
       api
         .tagsList(workspaceId, prefix, LIMIT)
-        .then(setSuggestions)
-        .catch(() => setSuggestions([]));
+        .then((names) => {
+          if (!cancelled) setSuggestions(names);
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([]);
+        });
     }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [input, workspaceId]);
 
   return suggestions;

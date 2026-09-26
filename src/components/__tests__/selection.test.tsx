@@ -538,6 +538,25 @@ describe("selection", () => {
       });
     });
 
+    it("reconciles the file caches after a metadata write", async () => {
+      // The patch cannot know everything the write touched: main writes by
+      // meta_key, so a duplicate outside the selection changed too, and a file
+      // whose row had gone comes back only as a `skipped` count.
+      mocks.filesBulkMeta.mockResolvedValue({ files: 3, skipped: 1 });
+      const { queryClient } = renderWithProviders(
+        <Harness first={mixedFavorites} />,
+      );
+      selectAll();
+      const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+      fireEvent.click(inBar().getByTitle("Favorite"));
+      await waitFor(() => expect(mocks.filesBulkMeta).toHaveBeenCalled());
+      const keys = invalidate.mock.calls.map(
+        ([arg]) => arg?.queryKey?.[0] as string | undefined,
+      );
+      expect(keys).toContain("files_search");
+      expect(keys).toContain("file_get");
+    });
+
     it("defers the collection refresh while a file is open", async () => {
       // A docked side peek leaves this bar usable. Refetching a collection-scoped
       // list then drops the open file out of the prev/next order, so the refresh
