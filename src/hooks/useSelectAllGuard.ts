@@ -8,7 +8,12 @@ import { useEffect } from "react";
 // Chromium triggers select-all off the produced character, not the physical key:
 // on AZERTY the key labelled "A" is KeyQ, so a `code`-only test never fires there.
 // Match `key` first — the same shape as isHelpKey() in src/settings/keybindings.ts.
-function isSelectAllKey(e: KeyboardEvent): boolean {
+/**
+ * Exported so the list's "select all" binding and this guard agree on what
+ * Ctrl/Cmd+A is. The guard only suppresses the browser default; whichever
+ * surface gives the chord a meaning reads it from here.
+ */
+export function isSelectAllKey(e: KeyboardEvent): boolean {
   if (!e.ctrlKey && !e.metaKey) return false;
   // Ctrl+Shift+A / Ctrl+Alt+A are distinct chords that select-all never claims;
   // leaving them alone keeps future bindings on them working.

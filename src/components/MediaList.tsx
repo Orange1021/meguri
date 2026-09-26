@@ -18,6 +18,8 @@ import {
   type MediaReorder,
 } from "@/components/MediaReorder";
 import { mediaSortId } from "@/lib/mediaSortId";
+import { SelectionCheck } from "@/components/SelectionCheck";
+import { useSelectableClick } from "@/hooks/useSelectableClick";
 import type { FileRow } from "@/ipc/types";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { WatchLaterButton } from "@/components/WatchLaterButton";
@@ -237,6 +239,7 @@ export const MediaList = memo(function MediaList({
                 const row = (
                   <MediaRow
                     file={file}
+                    index={vr.index}
                     version={thumbVersion[mediaSortId(file)] ?? 0}
                     mediaBase={mediaBase}
                     onTagClick={onTagClick}
@@ -262,6 +265,7 @@ export const MediaList = memo(function MediaList({
 // Memoize so only rows whose version changed re-render (onTagClick is stabilized in the parent).
 const MediaRow = memo(function MediaRow({
   file,
+  index,
   version,
   mediaBase,
   onTagClick,
@@ -270,6 +274,8 @@ const MediaRow = memo(function MediaRow({
   watchLaterRef,
 }: {
   file: FileRow;
+  /** Position in the loaded list — what a Shift-click ranges from. */
+  index: number;
   version: number;
   mediaBase: string;
   onTagClick?: (name: string) => void;
@@ -284,19 +290,29 @@ const MediaRow = memo(function MediaRow({
   // thumbnail plays the track in the bottom bar instead of navigating, and the
   // metadata region opens the detail view without starting playback.
   const { onThumbnailClick } = useActivateFile();
+  const { selected, onSelectableClick } = useSelectableClick(file, index);
   return (
     <div
       aria-current={focused ? "true" : undefined}
       className={cn(
         "group flex gap-3 rounded-md border border-border bg-surface p-2 transition-colors hover:border-primary",
         focused && "border-primary ring-2 ring-primary",
+        selected && "border-primary ring-1 ring-primary",
       )}
     >
       <Link
         to={fileHref(file.id, file.workspaceId)}
-        onClick={onThumbnailClick(file)}
+        onClick={(e) => {
+          if (onSelectableClick(e)) return;
+          onThumbnailClick(file)(e);
+        }}
         className="group/thumb relative block aspect-video w-48 shrink-0 overflow-hidden rounded bg-overlay text-muted"
       >
+        <SelectionCheck
+          file={file}
+          index={index}
+          className="absolute left-1 top-1 z-10"
+        />
         <MediaThumbnail file={file} mediaBase={mediaBase} version={version} />
         {hasTimeline(file.kind) && file.duration && (
           <span className="absolute bottom-0.5 right-0.5 rounded bg-bg/70 px-1 text-[10px] text-fg">
@@ -307,6 +323,7 @@ const MediaRow = memo(function MediaRow({
 
       <Link
         to={fileHref(file.id, file.workspaceId, { autoplay: false })}
+        onClick={onSelectableClick}
         className="flex min-w-0 flex-1 flex-col gap-1 py-0.5"
       >
         <div className="flex items-center gap-2">

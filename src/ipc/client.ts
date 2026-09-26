@@ -76,6 +76,12 @@ export const api = {
     id: number,
     workspaceId: string,
   ) => invoke("collection_remove_file", { collectionId, id, workspaceId }),
+  /** Add or remove a whole selection's membership in one write. */
+  collectionSetMembership: (
+    collectionId: string,
+    targets: ChannelInput<"collection_set_membership">["targets"],
+    op: ChannelInput<"collection_set_membership">["op"],
+  ) => invoke("collection_set_membership", { collectionId, targets, op }),
   scanStart: (includeExcluded?: boolean, rebuild?: boolean) =>
     invoke("scan_start", { includeExcluded, rebuild }),
   scanCancel: (wsId?: string) => invoke("scan_cancel", { wsId }),
@@ -95,6 +101,17 @@ export const api = {
     invoke("file_add_tag", { id, workspaceId, name }),
   fileRemoveTag: (id: number, workspaceId: string, tagId: number) =>
     invoke("file_remove_tag", { id, workspaceId, tagId }),
+  /** One tag edit over a whole selection, grouped by workspace (see files_bulk_tag). */
+  filesBulkTag: (
+    targets: ChannelInput<"files_bulk_tag">["targets"],
+    add: string[],
+    remove: string[],
+  ) => invoke("files_bulk_tag", { targets, add, remove }),
+  /** Favorite / rating over a whole selection. Omitted fields are left alone. */
+  filesBulkMeta: (
+    targets: ChannelInput<"files_bulk_meta">["targets"],
+    patch: { favorite?: boolean; rating?: number },
+  ) => invoke("files_bulk_meta", { targets, ...patch }),
   tagsList: (workspaceId: string, prefix: string, limit?: number) =>
     invoke("tags_list", { workspaceId, prefix, limit }),
   /** Whole tag catalog for the tag management screen (scope follows the active view). */

@@ -48,7 +48,9 @@ import { useFilesSearch } from "@/hooks/useFilesSearch";
 import { filesSearchListOffset } from "@/lib/filesSearch";
 import { usePeekDocked } from "@/routes/MediaDetail/peekDocked";
 import { PEEK_INSET_DOCK_PROPS } from "@/routes/MediaDetail/usePeekResize";
+import { SelectionProvider } from "@/components/SelectionContext";
 import { HomeHeader } from "./HomeHeader";
+import { SelectionLayer } from "./SelectionLayer";
 import {
   VIEW_KEY,
   type ViewMode,
@@ -590,98 +592,109 @@ export default function Home() {
       {/* The list row: the detail side peek (see MediaModal) docks here as a
           flex sibling of the list, under the header and filter bar and above
           the player and status bars, and the list narrows to make room. */}
-      <div className="relative flex min-h-0 flex-1">
-        {/* min-w-60 = the 240px the side peek leaves the list (LIST_MIN_WIDTH
+      {/* The scope key drops the selection when the list itself changes
+          (workspace or filter), but not while paging within one list: rows
+          picked under a different list are off screen, and a bulk edit that
+          quietly included them would act on files the user cannot see. */}
+      <SelectionProvider
+        items={items}
+        scope={`${status.data?.workspaceId ?? ""}|${JSON.stringify(filter)}`}
+      >
+        <div className="relative flex min-h-0 flex-1">
+          {/* min-w-60 = the 240px the side peek leaves the list (LIST_MIN_WIDTH
           in usePeekResize); the two must agree. */}
-        <main id="list-main" className="min-h-0 min-w-60 flex-1">
-          {status.isFetched && !status.data?.ready ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted">
-              <FolderPlus className="size-10 opacity-60" />
-              <p className="text-sm">{t("home.noWorkspace")}</p>
-              <Button size="sm" onClick={() => void onAddWorkspace()}>
-                <FolderPlus />
-                {t("home.addDirectory")}
-              </Button>
-              <p className="text-xs opacity-70">{t("home.addFromSidebar")}</p>
-            </div>
-          ) : view === "list" ? (
-            <MediaList
-              items={items}
-              mediaBase={status.data?.mediaBase ?? ""}
-              workspaceId={status.data?.workspaceId ?? ""}
-              listOffset={listOffset}
-              loading={search.isLoading && (status.data?.ready ?? false)}
-              thumbVersion={thumbVersion}
-              onTagClick={onTagClick}
-              hasNextPage={search.hasNextPage}
-              fetchNextPage={fetchNextPage}
-              isFetchingNextPage={search.isFetchingNextPage}
-              hasPreviousPage={search.hasPreviousPage}
-              fetchPreviousPage={fetchPreviousPage}
-              isFetchingPreviousPage={search.isFetchingPreviousPage}
-              navActive={navActive}
-              watchLater={activeCollection?.id === WATCH_LATER_ID}
-              reorder={reorder}
-            />
-          ) : view === "table" ? (
-            <MediaTable
-              items={items}
-              mediaBase={status.data?.mediaBase ?? ""}
-              workspaceId={status.data?.workspaceId ?? ""}
-              listOffset={listOffset}
-              loading={search.isLoading && (status.data?.ready ?? false)}
-              thumbVersion={thumbVersion}
-              onTagClick={onTagClick}
-              hasNextPage={search.hasNextPage}
-              fetchNextPage={fetchNextPage}
-              isFetchingNextPage={search.isFetchingNextPage}
-              hasPreviousPage={search.hasPreviousPage}
-              fetchPreviousPage={fetchPreviousPage}
-              isFetchingPreviousPage={search.isFetchingPreviousPage}
-              navActive={navActive}
-              watchLater={activeCollection?.id === WATCH_LATER_ID}
-              reorder={reorder}
-            />
-          ) : (
-            <MediaGrid
-              items={items}
-              mediaBase={status.data?.mediaBase ?? ""}
-              workspaceId={status.data?.workspaceId ?? ""}
-              listOffset={listOffset}
-              loading={search.isLoading && (status.data?.ready ?? false)}
-              thumbVersion={thumbVersion}
-              onTagClick={onTagClick}
-              hasNextPage={search.hasNextPage}
-              fetchNextPage={fetchNextPage}
-              isFetchingNextPage={search.isFetchingNextPage}
-              hasPreviousPage={search.hasPreviousPage}
-              fetchPreviousPage={fetchPreviousPage}
-              isFetchingPreviousPage={search.isFetchingPreviousPage}
-              navActive={navActive}
-              watchLater={activeCollection?.id === WATCH_LATER_ID}
-              reorder={reorder}
-            />
-          )}
-        </main>
+          <main id="list-main" className="min-h-0 min-w-60 flex-1">
+            {status.isFetched && !status.data?.ready ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted">
+                <FolderPlus className="size-10 opacity-60" />
+                <p className="text-sm">{t("home.noWorkspace")}</p>
+                <Button size="sm" onClick={() => void onAddWorkspace()}>
+                  <FolderPlus />
+                  {t("home.addDirectory")}
+                </Button>
+                <p className="text-xs opacity-70">{t("home.addFromSidebar")}</p>
+              </div>
+            ) : view === "list" ? (
+              <MediaList
+                items={items}
+                mediaBase={status.data?.mediaBase ?? ""}
+                workspaceId={status.data?.workspaceId ?? ""}
+                listOffset={listOffset}
+                loading={search.isLoading && (status.data?.ready ?? false)}
+                thumbVersion={thumbVersion}
+                onTagClick={onTagClick}
+                hasNextPage={search.hasNextPage}
+                fetchNextPage={fetchNextPage}
+                isFetchingNextPage={search.isFetchingNextPage}
+                hasPreviousPage={search.hasPreviousPage}
+                fetchPreviousPage={fetchPreviousPage}
+                isFetchingPreviousPage={search.isFetchingPreviousPage}
+                navActive={navActive}
+                watchLater={activeCollection?.id === WATCH_LATER_ID}
+                reorder={reorder}
+              />
+            ) : view === "table" ? (
+              <MediaTable
+                items={items}
+                mediaBase={status.data?.mediaBase ?? ""}
+                workspaceId={status.data?.workspaceId ?? ""}
+                listOffset={listOffset}
+                loading={search.isLoading && (status.data?.ready ?? false)}
+                thumbVersion={thumbVersion}
+                onTagClick={onTagClick}
+                hasNextPage={search.hasNextPage}
+                fetchNextPage={fetchNextPage}
+                isFetchingNextPage={search.isFetchingNextPage}
+                hasPreviousPage={search.hasPreviousPage}
+                fetchPreviousPage={fetchPreviousPage}
+                isFetchingPreviousPage={search.isFetchingPreviousPage}
+                navActive={navActive}
+                watchLater={activeCollection?.id === WATCH_LATER_ID}
+                reorder={reorder}
+              />
+            ) : (
+              <MediaGrid
+                items={items}
+                mediaBase={status.data?.mediaBase ?? ""}
+                workspaceId={status.data?.workspaceId ?? ""}
+                listOffset={listOffset}
+                loading={search.isLoading && (status.data?.ready ?? false)}
+                thumbVersion={thumbVersion}
+                onTagClick={onTagClick}
+                hasNextPage={search.hasNextPage}
+                fetchNextPage={fetchNextPage}
+                isFetchingNextPage={search.isFetchingNextPage}
+                hasPreviousPage={search.hasPreviousPage}
+                fetchPreviousPage={fetchPreviousPage}
+                isFetchingPreviousPage={search.isFetchingPreviousPage}
+                navActive={navActive}
+                watchLater={activeCollection?.id === WATCH_LATER_ID}
+                reorder={reorder}
+              />
+            )}
+          </main>
 
-        {/* The /file/:id detail overlays here — as a modal over the window or as
+          {/* The /file/:id detail overlays here — as a modal over the window or as
           a side peek docked to this list area (the list stays mounted either
           way). Share the current list order so the detail can step prev/next. */}
-        <MediaNavProvider
-          value={{
-            items,
-            listOffset,
-            fetchNextPage,
-            hasNextPage: search.hasNextPage,
-            isFetchingNextPage: search.isFetchingNextPage,
-            fetchPreviousPage,
-            hasPreviousPage: search.hasPreviousPage,
-            isFetchingPreviousPage: search.isFetchingPreviousPage,
-          }}
-        >
-          <Outlet />
-        </MediaNavProvider>
-      </div>
+          <MediaNavProvider
+            value={{
+              items,
+              listOffset,
+              fetchNextPage,
+              hasNextPage: search.hasNextPage,
+              isFetchingNextPage: search.isFetchingNextPage,
+              fetchPreviousPage,
+              hasPreviousPage: search.hasPreviousPage,
+              isFetchingPreviousPage: search.isFetchingPreviousPage,
+            }}
+          >
+            <Outlet />
+          </MediaNavProvider>
+
+          <SelectionLayer active={navActive} />
+        </div>
+      </SelectionProvider>
 
       {/* The two FABs, wrapped so the side peek can publish its width on this
           element alone (see PEEK_INSET_DOCK_PROPS) rather than on <html>. */}

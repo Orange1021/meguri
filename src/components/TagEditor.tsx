@@ -2,9 +2,8 @@
 // can be removed). With onTagClick the label doubles as a filter link — this is
 // the one place generated tags are visible, so it is also the one place they can
 // be clicked.
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { X } from "lucide-react";
-import { api } from "@/ipc/client";
 import { MAX_TAG_NAME, tagSearchToken } from "@shared/tags";
 import type { TagInfo } from "@/ipc/types";
 import { cn } from "@/lib/utils";
@@ -12,6 +11,7 @@ import { tagColorClass } from "@/lib/tagColorClass";
 import { tagHumanLabel, tagSourceLabel } from "@/lib/tagLabel";
 import { TagChipLabel } from "@/components/TagChipLabel";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTagSuggestions } from "@/hooks/useTagSuggestions";
 
 interface Props {
   tags: TagInfo[];
@@ -35,26 +35,8 @@ export function TagEditor({
 }: Props) {
   const { t } = useI18n();
   const [input, setInput] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const suggestions = useTagSuggestions(workspaceId, input);
   const listId = useId();
-
-  // Fetch tag completion suggestions by input prefix (debounced).
-  useEffect(() => {
-    const v = input.trim();
-    if (!v) {
-      // Synchronously resetting on input clear, alongside the updates inside the debounced/async fetch, makes setState within this effect legitimate, so it is allowed.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSuggestions([]);
-      return;
-    }
-    const t = setTimeout(() => {
-      api
-        .tagsList(workspaceId, v, 8)
-        .then(setSuggestions)
-        .catch(() => setSuggestions([]));
-    }, 150);
-    return () => clearTimeout(t);
-  }, [input, workspaceId]);
 
   // maxLength on the field stops this being reachable by typing; the check is
   // here for a value that gets in another way (an IME commit, a paste the
@@ -67,7 +49,6 @@ export function TagEditor({
     if (v && !tooLong) {
       onAdd(v);
       setInput("");
-      setSuggestions([]);
     }
   };
 

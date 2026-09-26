@@ -7,6 +7,7 @@ import { PreferencesProvider } from "@/settings/PreferencesProvider";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { AudioPlayerProvider } from "@/audio/AudioPlayerProvider";
 import { ThemeProvider } from "@/themes/ThemeProvider";
+import { SelectionProvider } from "@/components/SelectionContext";
 
 export interface RenderWithProvidersOptions extends Omit<
   RenderOptions,
@@ -43,7 +44,13 @@ export function renderWithProviders(
                 {/* Outside the router, mirroring App.tsx: MediaDetail drives the
                     audio player bar through this provider. */}
                 <AudioPlayerProvider>
-                  <HashRouter>{children}</HashRouter>
+                  <HashRouter>
+                    {/* Home owns this in the app. Mounted here with an empty
+                        list so a view can be rendered on its own: single-row
+                        selection still works, range selection has nothing to
+                        range over — a test that needs it wraps its own. */}
+                    <SelectionProvider items={[]}>{children}</SelectionProvider>
+                  </HashRouter>
                 </AudioPlayerProvider>
               </ConfirmProvider>
             </PreferencesProvider>

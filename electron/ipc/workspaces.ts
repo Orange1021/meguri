@@ -6,6 +6,7 @@ import {
   Workspaces,
 } from "../core/workspaces.js";
 import type { IpcContext } from "./context.js";
+import { bulkTargetCores } from "./helpers.js";
 
 export function registerWorkspaceHandlers(ctx: IpcContext): void {
   const { ws, queryClient, emit } = ctx;
@@ -115,5 +116,23 @@ export function registerWorkspaceHandlers(ctx: IpcContext): void {
   handle("collection_remove_file", ({ collectionId, workspaceId, id }) => {
     ws.removeFromCollection(collectionId, workspaceId, id);
     emit("workspace:changed", { activeId: ws.activeId });
+  });
+
+  // Membership for a whole selection in one config write, and one event: the
+  // renderer refetches the workspace list off that, so emitting per file would
+  // make it refetch once per file.
+  //
+  // The targets are resolved first even though nothing here reads a database:
+  // collection items are written to config.json, which is the user's settings
+  // file, so an id that names no workspace must not be able to put an entry in
+  // it that nothing can ever resolve or clean up.
+  handle("collection_set_membership", ({ collectionId, targets, op }) => {
+    const files = bulkTargetCores(ws, targets).flatMap(
+      ({ workspaceId, fileIds }) =>
+        fileIds.map((fileId) => ({ workspaceId, fileId })),
+    );
+    const changed = ws.updateCollectionMembership(collectionId, files, op);
+    if (changed > 0) emit("workspace:changed", { activeId: ws.activeId });
+    return { changed };
   });
 }

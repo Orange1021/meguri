@@ -1,7 +1,7 @@
 // Operations on tags and meta_tags. Used for manual tags, plugin tags, and FTS sync.
 // Tags are keyed by the stable meta_key (resolved from a file id) rather than files.id,
 // so they survive rebuilding the files table.
-import type { DB } from "./db.js";
+import { resyncFtsForKeys, type DB } from "./db.js";
 import type { TagInfo } from "./types.js";
 import { RESERVED_TAG_ERROR, isReservedTagName } from "../../shared/tags.js";
 
@@ -57,6 +57,121 @@ export function removeManualTag(db: DB, fileId: number, tagId: number): void {
   db.prepare(
     "DELETE FROM meta_tags WHERE meta_key = ? AND tag_id = ? AND source = 'manual'",
   ).run(metaKey, tagId);
+}
+
+/** What one {@link bulkEditManualTags} call actually changed. */
+export interface BulkTagEdit {
+  /** Selected files whose tag set came out different. */
+  files: number;
+  /** Selected files whose row was already gone — not an error. */
+  skipped: number;
+  /**
+   * (meta_key, tag) pairs attached. Counted per meta_key, which is what the
+   * database stores: two selected copies of the same file share one row, so
+   * tagging both is one pair and two files.
+   */
+  added: number;
+  /** (meta_key, tag) pairs detached, counted the same way. */
+  removed: number;
+}
+
+/**
+ * Attach and detach user-created tags across many files in one transaction.
+ *
+ * Tags are addressed by name rather than by id because the caller works across
+ * workspaces, where the same tag is a different row in every database. Names to
+ * add are created where they do not exist yet; names to remove that no database
+ * row matches are simply no-ops — the caller aggregated them from a selection
+ * that may span several workspaces, so a name missing here is expected.
+ *
+ * The edit is expressed as a final state, not as a sequence: a name in both
+ * lists is treated as an addition and dropped from the removals, so the same
+ * request always converges on the same tags and reports no churn for a file
+ * that already had them.
+ *
+ * Work is done per meta_key, not per file id. Two files with the same content
+ * hash share one metadata identity, so writing per file would attach the tag
+ * once, see no change on the second, and leave that file's FTS row stale while
+ * its tags had in fact moved.
+ *
+ * Reserved names are rejected before anything is written: a bulk edit that
+ * stopped halfway is much harder to reason about than one that never started.
+ */
+export function bulkEditManualTags(
+  db: DB,
+  fileIds: number[],
+  add: string[],
+  remove: string[],
+): BulkTagEdit {
+  const addNames = [...new Set(add.map((n) => n.trim()).filter(Boolean))];
+  const removeNames = [
+    ...new Set(remove.map((n) => n.trim()).filter(Boolean)),
+  ].filter((name) => !addNames.includes(name));
+  for (const name of addNames) {
+    if (isReservedTagName(name)) {
+      throw new Error(`${RESERVED_TAG_ERROR}: ${name}`);
+    }
+  }
+  const ids = [...new Set(fileIds)];
+  const result: BulkTagEdit = { files: 0, skipped: 0, added: 0, removed: 0 };
+  if (ids.length === 0 || (addNames.length === 0 && removeNames.length === 0)) {
+    return result;
+  }
+
+  const selectId = db.prepare(
+    "SELECT id FROM tags WHERE namespace = '' AND name = ?",
+  );
+  const attach = db.prepare(
+    "INSERT INTO meta_tags (meta_key, tag_id, source, score) VALUES (?, ?, 'manual', NULL) ON CONFLICT(meta_key, tag_id, source) DO NOTHING",
+  );
+  const detach = db.prepare(
+    "DELETE FROM meta_tags WHERE meta_key = ? AND tag_id = ? AND source = 'manual'",
+  );
+
+  const run = db.transaction(() => {
+    // Names resolve to ids once, not once per file. Additions create the tag
+    // here so the id exists before the first attach; removals only look, since
+    // creating a tag in order to detach it would leave an unused row behind.
+    const addIds = addNames.map((name) => upsertTag(db, "", name));
+    const removeIds = removeNames
+      .map((name) => (selectId.get(name) as { id: number } | undefined)?.id)
+      .filter((id): id is number => id != null);
+
+    const keyOf = new Map<number, string>();
+    for (const fileId of ids) {
+      const metaKey = metaKeyOf(db, fileId);
+      if (metaKey) keyOf.set(fileId, metaKey);
+      else result.skipped++;
+    }
+
+    const changed = new Set<string>();
+    for (const metaKey of new Set(keyOf.values())) {
+      let touched = 0;
+      for (const tagId of removeIds) {
+        touched += detach.run(metaKey, tagId).changes;
+      }
+      const removedHere = touched;
+      for (const tagId of addIds) {
+        touched += attach.run(metaKey, tagId).changes;
+      }
+      if (touched === 0) continue;
+      result.removed += removedHere;
+      result.added += touched - removedHere;
+      changed.add(metaKey);
+    }
+
+    // Reported as "files the user selected that moved", so both copies of a
+    // duplicate count — which is what the selection showed them.
+    for (const metaKey of keyOf.values()) {
+      if (changed.has(metaKey)) result.files++;
+    }
+    // One set-based pass instead of a delete+insert per file: it also covers
+    // files behind a changed key that were never in the selection, whose tags
+    // moved all the same.
+    resyncFtsForKeys(db, [...changed]);
+  });
+  run();
+  return result;
 }
 
 export function clearTagsBySource(

@@ -77,6 +77,27 @@ export const MAX_TAG_NAME = 64;
 export const MAX_TAG_REF_NAME = 1024;
 
 /**
+ * Cap on the files one bulk edit may touch, shared by every channel that takes
+ * a selection (`files_bulk_tag`, `files_bulk_meta`,
+ * `collection_set_membership`).
+ *
+ * It is what "select everything the list has loaded" can reach: the renderer
+ * only ever selects rows it has, and a long enough scroll can hold tens of
+ * thousands. Each file costs at least one write inside one transaction, so the
+ * ceiling is there to keep a single call from parking the main process, not
+ * because a larger edit is meaningless — the UI refuses past it and says so.
+ */
+export const MAX_BULK_FILES = 5000;
+
+/**
+ * Cap on the tag names one bulk tag edit may carry — the other side of the
+ * cross product. Names resolve to tag ids once per call, but every
+ * (file, name) pair is still a statement. Additions and removals share the
+ * budget: what costs is how many names the edit carries, either way.
+ */
+export const MAX_BULK_TAG_NAMES = 32;
+
+/**
  * Sources whose tags a list row neither carries nor draws — `attachTags` leaves
  * them out of FileRow, and the chip row filters again for rows that arrive from
  * a cache patch or a fixture. The detail view is unaffected and still shows
