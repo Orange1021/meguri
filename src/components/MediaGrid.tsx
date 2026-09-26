@@ -29,6 +29,8 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { RatingButton } from "@/components/RatingButton";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { TagChips } from "@/components/TagChips";
+import { SelectionCheck } from "@/components/SelectionCheck";
+import { useSelectableClick } from "@/hooks/useSelectableClick";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -339,6 +341,7 @@ export const MediaGrid = memo(function MediaGrid({
                   const card = (
                     <MediaCard
                       file={f}
+                      index={vr.index * cols + localIndex}
                       version={thumbVersion[`${f.workspaceId}:${f.id}`] ?? 0}
                       mediaBase={mediaBase}
                       onTagClick={onTagClick}
@@ -369,6 +372,7 @@ export const MediaGrid = memo(function MediaGrid({
 // only re-render cards whose version changed (onTagClick is stabilized in the parent).
 const MediaCard = memo(function MediaCard({
   file,
+  index,
   version,
   mediaBase,
   onTagClick,
@@ -377,6 +381,8 @@ const MediaCard = memo(function MediaCard({
   watchLaterRef,
 }: {
   file: FileRow;
+  /** Position in the loaded list — what a Shift-click ranges from. */
+  index: number;
   version: number;
   mediaBase: string;
   onTagClick?: (name: string) => void;
@@ -391,6 +397,7 @@ const MediaCard = memo(function MediaCard({
   // thumbnail plays the track in the bottom bar instead of navigating, and the
   // metadata region opens the detail view without starting playback.
   const { onThumbnailClick } = useActivateFile();
+  const { selected, onSelectableClick } = useSelectableClick(file, index);
   return (
     <div
       data-testid="media-card"
@@ -398,14 +405,23 @@ const MediaCard = memo(function MediaCard({
       className={cn(
         "group flex flex-col overflow-hidden rounded-md border border-border bg-surface transition-colors hover:border-primary",
         focused && "border-primary ring-2 ring-primary",
+        selected && "border-primary ring-1 ring-primary",
       )}
     >
       <Link
         to={fileHref(file.id, file.workspaceId)}
-        onClick={onThumbnailClick(file)}
+        onClick={(e) => {
+          if (onSelectableClick(e)) return;
+          onThumbnailClick(file)(e);
+        }}
         data-thumb
         className="group/thumb relative block aspect-video overflow-hidden bg-overlay text-muted"
       >
+        <SelectionCheck
+          file={file}
+          index={index}
+          className="absolute left-1 top-1 z-10"
+        />
         <MediaThumbnail file={file} mediaBase={mediaBase} version={version} />
         {hasTimeline(file.kind) && file.duration && (
           <span className="absolute bottom-1 right-1 rounded bg-bg/70 px-1 text-[10px] text-fg">
@@ -441,6 +457,7 @@ const MediaCard = memo(function MediaCard({
           once per column count and derives the rest from the width. */}
       <Link
         to={fileHref(file.id, file.workspaceId, { autoplay: false })}
+        onClick={onSelectableClick}
         className="flex flex-col gap-1 border-t border-border px-2 py-1.5"
       >
         <div className="truncate text-xs text-fg" title={file.relPath}>

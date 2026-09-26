@@ -23,6 +23,8 @@ import {
   MediaReorderProvider,
   type MediaReorder,
 } from "@/components/MediaReorder";
+import { SelectionCheck } from "@/components/SelectionCheck";
+import { useSelectableClick } from "@/hooks/useSelectableClick";
 import { mediaSortId } from "@/lib/mediaSortId";
 import type { FileRow } from "@/ipc/types";
 import { FavoriteButton } from "@/components/FavoriteButton";
@@ -330,15 +332,20 @@ const MediaTableRow = memo(function MediaTableRow({
   // "metadata" click). The thumbnail cell stops propagation and opts in to
   // auto-play instead. The rating cell also stops propagation so accidental
   // clicks on its empty padding around the heart icon don't open the detail.
+  const { selected, onSelectableClick } = useSelectableClick(file, index);
   return (
     <div
       role="row"
       aria-current={focused ? "true" : undefined}
-      onClick={() => onOpen(index, false)}
+      onClick={(e) => {
+        if (onSelectableClick(e)) return;
+        onOpen(index, false);
+      }}
       ref={dnd?.ref}
       className={cn(
-        "absolute left-0 top-0 grid w-full cursor-pointer items-center border-b border-border transition-colors hover:bg-overlay/50",
+        "group absolute left-0 top-0 grid w-full cursor-pointer items-center border-b border-border transition-colors hover:bg-overlay/50",
         focused && "bg-primary/15 ring-2 ring-inset ring-primary",
+        selected && "bg-primary/10 ring-1 ring-inset ring-primary",
         dnd && "touch-none",
         dnd?.isDragging && "opacity-60",
       )}
@@ -356,12 +363,18 @@ const MediaTableRow = memo(function MediaTableRow({
       <div
         role="cell"
         onClick={(e) => {
+          if (onSelectableClick(e)) return;
           e.stopPropagation();
           onOpen(index, true);
         }}
         className="group/thumb flex items-center px-2"
       >
         <div className="relative aspect-video w-[180px] shrink-0 overflow-hidden rounded bg-overlay text-muted">
+          <SelectionCheck
+            file={file}
+            index={index}
+            className="absolute left-1 top-1 z-10"
+          />
           <MediaThumbnail
             file={file}
             mediaBase={mediaBase}

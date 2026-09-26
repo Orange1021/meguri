@@ -31,10 +31,97 @@ import {
   type EventChannel,
   type InvokeChannel,
 } from "./channelNames.js";
-import { MAX_TAG_LIST, MAX_TAG_NAME } from "../tags.js";
+import {
+  MAX_BULK_FILES,
+  MAX_BULK_TAG_NAMES,
+  MAX_TAG_LIST,
+  MAX_TAG_NAME,
+} from "../tags.js";
+import { MAX_WORKSPACE_ID } from "../workspaceIds.js";
 
 export { EVENT_CHANNELS, INVOKE_CHANNELS };
 export type { EventChannel, InvokeChannel };
+
+/**
+ * How many file ids a files_bulk_tag payload carries, counted off the RAW value
+ * before zod validates any of it.
+ *
+ * A cap expressed as `.max()` on the parsed array does not protect the main
+ * process: zod validates every element first and only then checks the length or
+ * runs a refine, so a payload of 5,000 groups x 5,000 ids costs ~800ms of
+ * synchronous validation before being refused — with better-sqlite3 and the
+ * media server on the same loop, that is the whole app frozen. Gating on the
+ * raw shape costs one pass over the groups, and bounds what the real schema
+ * then has to parse.
+ *
+ * A non-array, or a group whose fileIds is not an array, counts as nothing: the
+ * schema behind the gate is what reports those as type errors.
+ */
+function bulkTargetFileCount(raw: unknown): number {
+  if (!Array.isArray(raw)) return 0;
+  let n = 0;
+  for (const group of raw) {
+    const ids = (group as { fileIds?: unknown } | null)?.fileIds;
+    if (Array.isArray(ids)) n += ids.length;
+    if (n > MAX_BULK_FILES) return n;
+  }
+  return n;
+}
+
+/**
+ * Whether any group carries an over-long workspace id, checked on the raw value
+ * for the same reason the count is: a workspace id is a 16-character path hash,
+ * so a payload of 5,000 groups each naming a megabyte-long id is nothing but a
+ * way to make the main process handle megabytes. Counting files alone would let
+ * it through, since the count is what it claims to be.
+ */
+function hasOversizedWorkspaceId(raw: unknown): boolean {
+  if (!Array.isArray(raw)) return false;
+  return raw.some((group) => {
+    const id = (group as { workspaceId?: unknown } | null)?.workspaceId;
+    return typeof id === "string" && id.length > MAX_WORKSPACE_ID;
+  });
+}
+
+/**
+ * A selection addressed for a bulk edit: file ids grouped by the workspace that
+ * owns them, because a file id only means something inside its own database —
+ * the "All" view and collections routinely send several groups.
+ *
+ * The size gate runs on the raw value and short-circuits, so an oversized
+ * payload is refused before a single id is validated. Every group needs at
+ * least one id, so capping the group count at the same number as the ids is not
+ * a second rule — it is the same one.
+ */
+const BulkTargets = z
+  .unknown()
+  .refine(
+    (raw) =>
+      !Array.isArray(raw) ||
+      (raw.length <= MAX_BULK_FILES &&
+        bulkTargetFileCount(raw) <= MAX_BULK_FILES &&
+        !hasOversizedWorkspaceId(raw)),
+    { message: `too many files (max ${MAX_BULK_FILES})` },
+  )
+  .pipe(
+    z
+      .array(
+        z.object({
+          workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
+          // Positive: ids come from `files.id`, an INTEGER PRIMARY KEY. A
+          // negative or zero id matches nothing, so accepting one only means
+          // carrying work that cannot do anything.
+          fileIds: z
+            .array(z.number().int().positive())
+            .min(1)
+            .max(MAX_BULK_FILES),
+        }),
+      )
+      .min(1),
+  );
+
+/** The parsed shape, so both processes and the renderer name one type. */
+export type BulkTargets = z.infer<typeof BulkTargets>;
 
 // Most file-mutating channels share the same (workspaceId, fileId) target.
 const FileTarget = z.object({
@@ -76,6 +163,16 @@ export const ChannelInputs = {
   collection_rename: z.object({ id: z.string(), name: z.string().min(1) }),
   collection_add_file: FileTarget.extend({ collectionId: z.string() }),
   collection_remove_file: FileTarget.extend({ collectionId: z.string() }),
+  // Membership for many files at once. Collections live in config.json, which is
+  // rewritten on every change, so adding a selection one file at a time would
+  // mean one disk write per file. `op` names the direction rather than a boolean
+  // flag, matching the collection_add_file / collection_remove_file vocabulary
+  // this is the bulk form of.
+  collection_set_membership: z.object({
+    collectionId: z.string().min(1).max(MAX_WORKSPACE_ID),
+    targets: BulkTargets,
+    op: z.enum(["add", "remove"]),
+  }),
   // Renderer always sends an object; default-{} makes the schema tolerant of
   // future call sites that omit the arg entirely.
   scan_start: z
@@ -104,6 +201,40 @@ export const ChannelInputs = {
     name: z.string().min(1).max(MAX_TAG_NAME),
   }),
   file_remove_tag: FileTarget.extend({ tagId: z.number() }),
+  // One edit over many files, grouped by workspace because a file id only
+  // means something inside its own database — the "All" view routinely sends
+  // several groups. Tags are addressed by NAME rather than by id for the same
+  // reason: the same tag is a different row in every database.
+  files_bulk_tag: z
+    .object({
+      targets: BulkTargets,
+      /** Manual tag names to attach to every target. Created where missing. */
+      add: z.array(z.string().min(1).max(MAX_TAG_NAME)).max(MAX_BULK_TAG_NAMES),
+      /** Manual tag names to detach from every target. Unknown names are no-ops. */
+      remove: z
+        .array(z.string().min(1).max(MAX_TAG_NAME))
+        .max(MAX_BULK_TAG_NAMES),
+    })
+    // MAX_BULK_TAG_NAMES is a budget for the call, not for each list: the cost
+    // that matters is the cross product of files and names, and the dialog
+    // counts its staged additions and removals together against the same
+    // number.
+    .refine((v) => v.add.length + v.remove.length <= MAX_BULK_TAG_NAMES, {
+      message: `too many tag names (max ${MAX_BULK_TAG_NAMES})`,
+    }),
+  // Favorite and rating over a whole selection. One channel because both live in
+  // the same file_meta row and one upsert writes them: either may be omitted,
+  // and a call that sets both is reported as both.
+  files_bulk_meta: z
+    .object({
+      targets: BulkTargets,
+      favorite: z.boolean().optional(),
+      /** 0 clears the rating, matching the per-file control. */
+      rating: z.number().int().min(0).max(5).optional(),
+    })
+    .refine((v) => v.favorite !== undefined || v.rating !== undefined, {
+      message: "nothing to set",
+    }),
   tags_list: z.object({
     workspaceId: z.string(),
     prefix: z.string(),
@@ -195,6 +326,8 @@ export interface ChannelOutputs {
   collection_rename: void;
   collection_add_file: void;
   collection_remove_file: void;
+  /** Files whose membership actually changed (already-members are not counted). */
+  collection_set_membership: { changed: number };
   scan_start: string;
   scan_cancel: void;
   files_search: SearchResult;
@@ -209,6 +342,21 @@ export interface ChannelOutputs {
   history_clear: void;
   file_add_tag: number;
   file_remove_tag: void;
+  // `files` counts the rows actually edited; `skipped` counts targets whose
+  // file row was gone by the time the write ran (deleted or re-scanned away),
+  // which is not an error. `added`/`removed` are (file, tag) pairs that really
+  // changed, so re-applying a tag every file already has reports 0.
+  files_bulk_tag: {
+    files: number;
+    skipped: number;
+    added: number;
+    removed: number;
+  };
+  // `files` counts the rows written; `skipped` those whose file row was gone by
+  // the time the write ran. Unlike the tag counters these do not detect churn:
+  // setting a flag to what it already was is a write, and the UI has nothing to
+  // say about the difference.
+  files_bulk_meta: { files: number; skipped: number };
   tags_list: string[];
   tags_list_all: TagList;
   // The counters below are summed over the databases in scope, so in the "All"

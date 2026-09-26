@@ -429,6 +429,62 @@ export class Workspaces {
   }
 
   /**
+   * Add or remove many files at once, in one write.
+   *
+   * A diff, not a replacement — `op` says which direction, and files it is not
+   * given are left as they are. Named for that: setCollectionMembers would read
+   * as "make this the membership", which it is not.
+   *
+   * Collections live in config.json, which persist() rewrites whole, so driving
+   * a selection through addToCollection would mean one disk write per file.
+   * Returns how many files actually changed membership: adding a file already on
+   * the collection is not a change, and neither is removing one that is not.
+   */
+  updateCollectionMembership(
+    collectionId: string,
+    files: { workspaceId: string; fileId: number }[],
+    op: "add" | "remove",
+  ): number {
+    const collection = this.config.collections.find(
+      (c) => c.id === collectionId,
+    );
+    if (!collection) return 0;
+    const key = (workspaceId: string, fileId: number) =>
+      `${workspaceId}:${fileId}`;
+    const present = new Set(
+      collection.items.map((item) => key(item.workspaceId, item.fileId)),
+    );
+    const now = nowUnix();
+    let changed = 0;
+
+    if (op === "add") {
+      // Appended in the order given, for the same reason addToCollection
+      // appends: items[] is the collection's manual play order.
+      for (const { workspaceId, fileId } of files) {
+        const k = key(workspaceId, fileId);
+        if (present.has(k)) continue;
+        present.add(k);
+        collection.items.push({ workspaceId, fileId, addedAt: now });
+        changed++;
+      }
+    } else {
+      const drop = new Set(
+        files.map(({ workspaceId, fileId }) => key(workspaceId, fileId)),
+      );
+      const next = collection.items.filter(
+        (item) => !drop.has(key(item.workspaceId, item.fileId)),
+      );
+      changed = collection.items.length - next.length;
+      collection.items = next;
+    }
+
+    if (changed === 0) return 0;
+    collection.updatedAt = now;
+    this.persist();
+    return changed;
+  }
+
+  /**
    * Drop a file from the built-in Watch Later collection. Called wherever a
    * play is recorded (the `file_record_play` and `open_external` IPC handlers:
    * the in-app player's first `play` event, opening in an external player, and

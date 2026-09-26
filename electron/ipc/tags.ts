@@ -4,7 +4,12 @@ import * as tagAdmin from "../core/tagAdmin.js";
 import * as tags from "../core/tags.js";
 import type { TagList } from "../core/types.js";
 import type { IpcContext } from "./context.js";
-import { coreById, queryTargets, scopedCores } from "./helpers.js";
+import {
+  bulkTargetCores,
+  coreById,
+  queryTargets,
+  scopedCores,
+} from "./helpers.js";
 
 export function registerTagHandlers(ctx: IpcContext): void {
   const { ws, queryClient } = ctx;
@@ -19,6 +24,32 @@ export function registerTagHandlers(ctx: IpcContext): void {
     const db = coreById(ws, workspaceId).db;
     tags.removeManualTag(db, id, tagId);
     tags.syncFts(db, id);
+  });
+  // One edit over a multi-workspace selection.
+  //
+  // Rejections all happen before the first write: the groups are merged and
+  // every Core resolved up front, so an unknown workspace id fails the call
+  // rather than leaving the workspaces ahead of it in the list already edited,
+  // and bulkEditManualTags checks the names before it opens its transaction —
+  // every database gets the same names, so a reserved one stops the first Core
+  // having written nothing.
+  //
+  // What is NOT covered is a database error partway through: each workspace
+  // commits its own transaction, so a failure in the third one leaves the first
+  // two applied while the renderer sees a rejected call. Cross-database atomicity
+  // would mean one connection with the others ATTACHed, which is a bigger change
+  // than this screen justifies; the renderer refetches either way.
+  handle("files_bulk_tag", ({ targets, add, remove }) => {
+    const groups = bulkTargetCores(ws, targets);
+    const total = { files: 0, skipped: 0, added: 0, removed: 0 };
+    for (const { core, fileIds } of groups) {
+      const r = tags.bulkEditManualTags(core.db, fileIds, add, remove);
+      total.files += r.files;
+      total.skipped += r.skipped;
+      total.added += r.added;
+      total.removed += r.removed;
+    }
+    return total;
   });
   handle("tags_list", ({ workspaceId, prefix, limit }) =>
     tags.listTagNames(coreById(ws, workspaceId).db, prefix, limit ?? 20),

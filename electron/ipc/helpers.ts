@@ -22,6 +22,31 @@ export function coreById(ws: Workspaces, wsId: string): Core {
 }
 
 /**
+ * Resolve a bulk edit's targets into one entry per workspace, with its Core.
+ *
+ * Groups repeating a workspace are merged, so a payload that does not group its
+ * files the way the renderer does still costs one transaction per database. Every
+ * Core is resolved before this returns, so an unknown workspace id fails the call
+ * before anything is written rather than partway through the list.
+ */
+export function bulkTargetCores(
+  ws: Workspaces,
+  targets: { workspaceId: string; fileIds: number[] }[],
+): { workspaceId: string; core: Core; fileIds: number[] }[] {
+  const byWorkspace = new Map<string, number[]>();
+  for (const target of targets) {
+    const ids = byWorkspace.get(target.workspaceId);
+    if (ids) ids.push(...target.fileIds);
+    else byWorkspace.set(target.workspaceId, [...target.fileIds]);
+  }
+  return [...byWorkspace].map(([workspaceId, fileIds]) => ({
+    workspaceId,
+    core: coreById(ws, workspaceId),
+    fileIds,
+  }));
+}
+
+/**
  * Cores a catalog-wide query covers. A collection is a file set, not a query
  * scope (history, duplicates, the tag catalog): while one is active,
  * `queryCores()` returns nothing, so fall back to every workspace. Otherwise

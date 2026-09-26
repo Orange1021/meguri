@@ -128,12 +128,13 @@ export function invalidateTagSearches(qc: QueryClient): void {
 
 /**
  * Invalidate everything that embeds tag names, after a catalog-level edit
- * (rename / merge / delete).
+ * (rename / merge / delete) or a bulk edit over a selection.
  *
  * Deliberately broader than invalidateTagSearches: tag names are denormalized
- * into every row's `tags[]`, so there is no row to patch — the name itself
- * changed. These edits are rare and explicitly user-initiated, so a wide
- * invalidation is the right trade.
+ * into every row's `tags[]`, so there is no row to patch — either the name
+ * itself changed, or (for a bulk edit) the write returns counters rather than
+ * the rows it touched. These edits are rare and explicitly user-initiated, so a
+ * wide invalidation is the right trade.
  */
 export function invalidateTagCatalog(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: ["tags_list_all"] });

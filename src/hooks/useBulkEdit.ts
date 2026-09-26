@@ -1,0 +1,138 @@
+// The selection bar's write side: favorite, rating and Watch Later over the
+// whole selection.
+//
+// Each of these has a per-file control elsewhere (FavoriteButton, RatingButton,
+// WatchLaterButton) that owns its own mutation. The bulk equivalents cannot just
+// call those in a loop — favorite and rating would be one IPC round trip per
+// file, and Watch Later lives in config.json, which is rewritten whole on every
+// change — so each has a channel that takes the whole selection at once.
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "@/ipc/client";
+import { useI18n } from "@/i18n/I18nProvider";
+import { bulkTargets } from "@/lib/bulkEdit";
+import {
+  invalidateCollectionSearches,
+  syncFileRowAcrossCaches,
+} from "@/lib/queryCache";
+import type { FileRow } from "@/ipc/types";
+
+export interface BulkMetaPatch {
+  favorite?: boolean;
+  rating?: number;
+}
+
+export interface BulkEditActions {
+  /** Flip the whole selection's favorite flag. */
+  setFavorite: (favorite: boolean) => void;
+  /** Set the whole selection's rating (0 clears it). */
+  setRating: (rating: number) => void;
+  /** Add the whole selection to Watch Later, or take it off. */
+  setWatchLater: (member: boolean) => void;
+  /** True while any of the three is in flight. */
+  pending: boolean;
+}
+
+export function useBulkEdit(
+  rows: FileRow[],
+  /** Watch Later's collection id, or null while the workspace list is loading. */
+  watchLaterId: string | null,
+  /**
+   * Skip the collection-search invalidation, the way WatchLaterButton does while
+   * the detail view is open: refetching a collection-scoped list with a file open
+   * drops that file out of the prev/next order. MediaDetail flushes those caches
+   * when it closes, so the refresh is deferred rather than lost — which is why
+   * this must only be set while it is actually mounted.
+   */
+  deferListRefresh = false,
+): BulkEditActions {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+
+  const fail = (e: unknown) =>
+    toast.error(t("select.bulkFailed"), {
+      description: e instanceof Error ? e.message : String(e),
+    });
+
+  const meta = useMutation({
+    // The rows are captured here, when the click happens, and carried through
+    // to onSuccess. react-query hands an in-flight mutation the newest render's
+    // options, so reading `rows` in onSuccess would read the selection as it is
+    // when the write lands — patching files the write never touched (and, once
+    // they all read as favorites, flipping the next click to "unfavorite").
+    mutationFn: async (patch: BulkMetaPatch) => {
+      const written = rows;
+      const result = await api.filesBulkMeta(bulkTargets(written), patch);
+      return { result, written };
+    },
+    onSuccess: ({ result, written }, patch) => {
+      // Patched into the caches rather than invalidated: the new value is known
+      // for every row, so there is nothing to re-read — and refetching the
+      // list's pages to learn what we just wrote would be the expensive way to
+      // find out. Detail views of the same files follow through the same helper.
+      const rowPatch: Partial<FileRow> = {};
+      if (patch.favorite !== undefined) {
+        rowPatch.favorite = patch.favorite ? 1 : 0;
+      }
+      if (patch.rating !== undefined) rowPatch.rating = patch.rating;
+      for (const row of written) {
+        syncFileRowAcrossCaches(qc, row.workspaceId, row.id, rowPatch);
+      }
+      // One line per field the call actually set, so a future call that sets
+      // both does not silently report only one of them.
+      const lines: string[] = [];
+      if (patch.favorite !== undefined) {
+        lines.push(
+          patch.favorite
+            ? t("select.favoriteAdded", { count: result.files })
+            : t("select.favoriteRemoved", { count: result.files }),
+        );
+      }
+      if (patch.rating !== undefined) {
+        lines.push(
+          patch.rating === 0
+            ? t("select.ratingCleared", { count: result.files })
+            : t("select.ratingApplied", {
+                count: result.files,
+                rating: patch.rating,
+              }),
+        );
+      }
+      if (lines.length > 0) toast.success(lines.join(" / "));
+    },
+    onError: fail,
+  });
+
+  const watchLater = useMutation({
+    mutationFn: (member: boolean) => {
+      if (!watchLaterId) throw new Error("watch later is not available yet");
+      return api.collectionSetMembership(
+        watchLaterId,
+        bulkTargets(rows),
+        member ? "add" : "remove",
+      );
+    },
+    onSuccess: (result, member) => {
+      // Membership is not on the file rows — it lives on the collection in the
+      // workspace list, so that one query is what has to be re-read. The
+      // collection-scoped lists go with it: every other membership write in the
+      // app pairs these two, and a Watch Later view open while the selection is
+      // taken off it has to drop those rows.
+      void qc.invalidateQueries({ queryKey: ["workspaces_list"] });
+      if (!deferListRefresh) invalidateCollectionSearches(qc);
+      toast.success(
+        member
+          ? t("select.watchLaterAdded", { count: result.changed })
+          : t("select.watchLaterRemoved", { count: result.changed }),
+      );
+    },
+    onError: fail,
+  });
+
+  return {
+    setFavorite: (favorite: boolean) => meta.mutate({ favorite }),
+    setRating: (rating: number) => meta.mutate({ rating }),
+    setWatchLater: (member: boolean) => watchLater.mutate(member),
+    pending: meta.isPending || watchLater.isPending,
+  };
+}

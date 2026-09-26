@@ -7,7 +7,12 @@ import type {
   SearchResult,
 } from "../core/types.js";
 import type { IpcContext } from "./context.js";
-import { coreById, queryTargets, scopedCores } from "./helpers.js";
+import {
+  bulkTargetCores,
+  coreById,
+  queryTargets,
+  scopedCores,
+} from "./helpers.js";
 
 export function registerFileHandlers(ctx: IpcContext): void {
   const { ws, queryClient, emit } = ctx;
@@ -56,6 +61,19 @@ export function registerFileHandlers(ctx: IpcContext): void {
   handle("file_set_favorite", ({ id, workspaceId, favorite }) =>
     q.setFavorite(coreById(ws, workspaceId).db, id, favorite),
   );
+  // Favorite / rating over a whole selection. One transaction per database; the
+  // Cores are resolved before the first write, so an unknown workspace id fails
+  // the call rather than leaving the earlier workspaces already changed.
+  handle("files_bulk_meta", ({ targets, favorite, rating }) => {
+    const groups = bulkTargetCores(ws, targets);
+    const total = { files: 0, skipped: 0 };
+    for (const { core, fileIds } of groups) {
+      const r = q.bulkSetMeta(core.db, fileIds, { favorite, rating });
+      total.files += r.files;
+      total.skipped += r.skipped;
+    }
+    return total;
+  });
   handle("file_delete_from_index", async ({ id, workspaceId }) => {
     const deleted = q.deleteFromIndex(coreById(ws, workspaceId).db, id);
     // Await so the renderer's refetch after this resolves can't race a stale

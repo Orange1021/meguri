@@ -344,3 +344,98 @@ describe("removeFromWatchLater (auto-removal on play)", () => {
     expect(itemsOf(new Workspaces(), WATCH_LATER_ID)).toHaveLength(1);
   });
 });
+
+describe("updateCollectionMembership", () => {
+  const itemsOf = (ws: InstanceType<typeof Workspaces>, id: string) =>
+    ws.collections().find((c) => c.id === id)?.items ?? [];
+  const idsOf = (ws: InstanceType<typeof Workspaces>, id: string) =>
+    itemsOf(ws, id).map((item) => `${item.workspaceId}:${item.fileId}`);
+  const files = (workspaceId: string, ...fileIds: number[]) =>
+    fileIds.map((fileId) => ({ workspaceId, fileId }));
+
+  it("adds a whole selection in one write", () => {
+    const ws = new Workspaces();
+    expect(
+      ws.updateCollectionMembership(
+        WATCH_LATER_ID,
+        files("wsA", 1, 2, 3),
+        "add",
+      ),
+    ).toBe(3);
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsA:1", "wsA:2", "wsA:3"]);
+    // Persisted, not just held in memory.
+    expect(idsOf(new Workspaces(), WATCH_LATER_ID)).toEqual([
+      "wsA:1",
+      "wsA:2",
+      "wsA:3",
+    ]);
+  });
+
+  it("appends, leaving the existing manual order untouched", () => {
+    const ws = new Workspaces();
+    ws.addToCollection(WATCH_LATER_ID, "wsA", 9);
+    ws.updateCollectionMembership(WATCH_LATER_ID, files("wsA", 1, 2), "add");
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsA:9", "wsA:1", "wsA:2"]);
+  });
+
+  it("counts only the files whose membership changed", () => {
+    const ws = new Workspaces();
+    ws.addToCollection(WATCH_LATER_ID, "wsA", 1);
+    expect(
+      ws.updateCollectionMembership(WATCH_LATER_ID, files("wsA", 1, 2), "add"),
+    ).toBe(1);
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsA:1", "wsA:2"]);
+  });
+
+  it("removes a whole selection, ignoring files that were not on it", () => {
+    const ws = new Workspaces();
+    ws.updateCollectionMembership(WATCH_LATER_ID, files("wsA", 1, 2, 3), "add");
+    expect(
+      ws.updateCollectionMembership(
+        WATCH_LATER_ID,
+        files("wsA", 2, 3, 4),
+        "remove",
+      ),
+    ).toBe(2);
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsA:1"]);
+  });
+
+  it("keys membership by workspace, not by file id alone", () => {
+    const ws = new Workspaces();
+    ws.updateCollectionMembership(WATCH_LATER_ID, files("wsA", 1), "add");
+    expect(
+      ws.updateCollectionMembership(WATCH_LATER_ID, files("wsB", 1), "add"),
+    ).toBe(1);
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsA:1", "wsB:1"]);
+    ws.updateCollectionMembership(WATCH_LATER_ID, files("wsA", 1), "remove");
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsB:1"]);
+  });
+
+  it("reports nothing and writes nothing for an unknown collection", () => {
+    const ws = new Workspaces();
+    expect(
+      ws.updateCollectionMembership("no-such-id", files("wsA", 1), "add"),
+    ).toBe(0);
+  });
+
+  it("ignores a file repeated inside one call", () => {
+    const ws = new Workspaces();
+    expect(
+      ws.updateCollectionMembership(
+        WATCH_LATER_ID,
+        [...files("wsA", 1), ...files("wsA", 1, 2)],
+        "add",
+      ),
+    ).toBe(2);
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsA:1", "wsA:2"]);
+  });
+
+  it("leaves other collections alone", () => {
+    const ws = new Workspaces();
+    const mine = ws.addCollection("Mine");
+    ws.updateCollectionMembership(mine.id, files("wsA", 1, 2), "add");
+    ws.updateCollectionMembership(WATCH_LATER_ID, files("wsA", 1), "add");
+    expect(idsOf(ws, mine.id)).toEqual(["wsA:1", "wsA:2"]);
+    expect(idsOf(ws, WATCH_LATER_ID)).toEqual(["wsA:1"]);
+  });
+});
