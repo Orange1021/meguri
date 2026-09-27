@@ -155,6 +155,9 @@ export const api = {
   /** Open a folder of the folder view in the OS file manager. */
   folderOpenInFileManager: (workspaceId: string, path: string) =>
     invoke("folder_open_in_file_manager", { workspaceId, path }),
+  /** Copy a folder of the folder view's absolute path to the clipboard. */
+  folderCopyPath: (workspaceId: string, path: string) =>
+    invoke("folder_copy_path", { workspaceId, path }),
   copyFilePath: (id: number, workspaceId: string) =>
     invoke("copy_file_path", { id, workspaceId }),
   openUrl: (url: string) => invoke("open_url", { url }),

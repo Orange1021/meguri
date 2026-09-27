@@ -2,7 +2,7 @@ import { clipboard, shell } from "electron";
 import { spawn } from "node:child_process";
 import { handle } from "../core/ipcHandler.js";
 import log from "../core/logger.js";
-import { folderDirInsideRoot } from "../core/paths.js";
+import { folderDirInsideRoot, folderPathUnderRoot } from "../core/paths.js";
 import * as q from "../core/queries.js";
 import type { IpcContext } from "./context.js";
 import { coreById, ensureFileInsideRoot } from "./helpers.js";
@@ -58,6 +58,14 @@ export function registerShellHandlers(ctx: IpcContext): void {
       return;
     }
     openDetached(dir);
+  });
+
+  // The folder's path as the user knows it (the configured root, links left
+  // as they are), once it is confirmed to be a real directory inside the root.
+  handle("folder_copy_path", ({ workspaceId, path }) => {
+    const c = coreById(ws, workspaceId);
+    if (!folderDirInsideRoot(c.root, path)) throw new Error("folder not found");
+    clipboard.writeText(folderPathUnderRoot(c.root, path));
   });
 
   handle("copy_file_path", ({ id, workspaceId }) => {

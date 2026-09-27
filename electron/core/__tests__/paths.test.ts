@@ -7,8 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 // paths.ts pulls the base dir from Electron's `app`; stub it for the test.
 vi.mock("electron", () => ({ app: { getPath: () => "/base/userData" } }));
 
-const { pathHash, dataDirForRoot, isInsideRoot, folderDirInsideRoot } =
-  await import("../paths.js");
+const {
+  pathHash,
+  dataDirForRoot,
+  isInsideRoot,
+  folderDirInsideRoot,
+  folderPathUnderRoot,
+} = await import("../paths.js");
 
 describe("pathHash", () => {
   it("is a deterministic 16-hex-char digest", () => {
@@ -150,6 +155,15 @@ describe("folderDirInsideRoot", () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("folderPathUnderRoot", () => {
+  it("spells the folder under the root as configured", () => {
+    expect(folderPathUnderRoot("/media/videos", "")).toBe("/media/videos");
+    expect(folderPathUnderRoot("/media/videos", "Movie/2024")).toBe(
+      path.join("/media/videos", "Movie", "2024"),
+    );
   });
 });
 

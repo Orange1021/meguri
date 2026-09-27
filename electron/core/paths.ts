@@ -57,6 +57,16 @@ export function isInsideRoot(abs: string, root: string): boolean {
 
 /**
  * A workspace folder — "/"-separated relative to `root`, "" for the root
+ * itself — as a path under `root` spelled the way the user knows it (the
+ * root as configured, links not resolved). Not checked: pair it with
+ * folderDirInsideRoot before it leaves the process.
+ */
+export function folderPathUnderRoot(root: string, folder: string): string {
+  return folder === "" ? root : path.join(root, ...folder.split("/"));
+}
+
+/**
+ * A workspace folder — "/"-separated relative to `root`, "" for the root
  * itself — as the canonical (symlinks resolved) path of an existing directory
  * inside `root`, or null when there is none: gone since the last scan, a
  * file, or a link that leads outside the root.
@@ -76,7 +86,7 @@ export function folderDirInsideRoot(
   if (sep === "\\" && segments.some((s) => /[\\:]/.test(s))) return null;
   let real: string;
   try {
-    real = fs.realpathSync(path.join(root, ...segments));
+    real = fs.realpathSync(folderPathUnderRoot(root, folder));
   } catch {
     return null;
   }

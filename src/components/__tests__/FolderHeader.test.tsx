@@ -8,6 +8,7 @@ function render(path: string) {
   const onBack = vi.fn();
   const onUp = vi.fn();
   const onOpen = vi.fn();
+  const onCopy = vi.fn();
   renderWithProviders(
     <FolderHeader
       rootLabel="Videos"
@@ -17,6 +18,7 @@ function render(path: string) {
       onBack={onBack}
       onUp={onUp}
       onOpenInFileManager={onOpen}
+      onCopyPath={onCopy}
     />,
   );
   return {
@@ -24,6 +26,7 @@ function render(path: string) {
     onBack,
     onUp,
     onOpen,
+    onCopy,
     nav: screen.getByRole("navigation"),
   };
 }
@@ -31,14 +34,14 @@ function render(path: string) {
 describe("FolderHeader", () => {
   it("shows only the root, as the current level, at the root", () => {
     const { nav } = render("");
-    // Nothing to go back or up to, and no level to link: only the file
-    // manager button is live.
+    // Nothing to go back or up to, and no level to link: only the buttons
+    // that reach the folder outside the app are live.
     expect(
       within(nav)
         .queryAllByRole("button")
         .filter((b) => !(b as HTMLButtonElement).disabled)
         .map((b) => b.textContent),
-    ).toEqual(["Open in file manager"]);
+    ).toEqual(["Open in file manager", "Copy path"]);
     expect(within(nav).getByText("Videos").getAttribute("aria-current")).toBe(
       "page",
     );
@@ -88,6 +91,7 @@ describe("FolderHeader", () => {
         onBack={() => {}}
         onUp={() => {}}
         onOpenInFileManager={() => {}}
+        onCopyPath={() => {}}
         summary="7 folders · 8 files"
       />,
     );
@@ -100,5 +104,11 @@ describe("FolderHeader", () => {
       within(nav).getByRole("button", { name: "Open in file manager" }),
     );
     expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("copies the folder's path", () => {
+    const { nav, onCopy } = render("Movie");
+    fireEvent.click(within(nav).getByRole("button", { name: "Copy path" }));
+    expect(onCopy).toHaveBeenCalledTimes(1);
   });
 });

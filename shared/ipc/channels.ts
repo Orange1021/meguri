@@ -295,6 +295,11 @@ export const ChannelInputs = {
     workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
     path: FolderPathSchema,
   }),
+  // A folder of the folder view, its absolute path onto the clipboard.
+  folder_copy_path: z.object({
+    workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
+    path: FolderPathSchema,
+  }),
   copy_file_path: FileTarget,
   open_url: z.object({ url: z.string() }),
   open_devtools: z.void(),
@@ -404,6 +409,7 @@ export interface ChannelOutputs {
   open_external: void;
   open_folder: void;
   folder_open_in_file_manager: void;
+  folder_copy_path: void;
   copy_file_path: void;
   open_url: void;
   open_devtools: boolean;

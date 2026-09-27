@@ -366,6 +366,9 @@ export const es: Record<TranslationKey, string> = {
   "folder.summary": "Carpetas: {folders} · Archivos: {files}",
   "folder.openInFileManager": "Abrir en el gestor de archivos",
   "folder.openFailed": "No se pudo abrir la carpeta",
+  "folder.copyPath": "Copiar ruta",
+  "folder.pathCopied": "Ruta de la carpeta copiada",
+  "folder.copyFailed": "No se pudo copiar la ruta",
   "folder.open": 'Abrir la carpeta "{name}"',
   "folder.emptySearch": "Nada en esta carpeta coincide",
   "folder.emptySearchHint":

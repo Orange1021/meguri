@@ -1,13 +1,14 @@
 // The folder view's location, as a header: the folder shown, large and marked
 // with the folder colour, the path above it as a line of links back up, and
-// on the right what the folder holds and a way to open it in the OS file
-// manager. A deep path keeps the root and the
+// on the right what the folder holds and ways to reach it outside the app:
+// open it in the OS file manager, or copy its path. A deep path keeps the root and the
 // nearest level and folds the middle into a menu, so the line never wraps and
 // every level stays one click away.
 import {
   ArrowLeft,
   ArrowUp,
   ChevronRight,
+  Copy,
   Folder,
   FolderOpen,
   MoreHorizontal,
@@ -19,6 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ROOT_FOLDER, splitFolderPath } from "@shared/folderPath";
 
@@ -39,6 +42,7 @@ export function FolderHeader({
   onUp,
   summary,
   onOpenInFileManager,
+  onCopyPath,
 }: {
   /** What the workspace root is called (the workspace's display name). */
   rootLabel: string;
@@ -51,6 +55,8 @@ export function FolderHeader({
   summary?: string;
   /** Opens the folder shown in the OS file manager. */
   onOpenInFileManager: () => void;
+  /** Copies the folder's absolute path to the clipboard. */
+  onCopyPath: () => void;
 }) {
   const { t } = useI18n();
   const segments = splitFolderPath(path);
@@ -148,15 +154,27 @@ export function FolderHeader({
       {summary && (
         <span className="shrink-0 text-xs text-muted">{summary}</span>
       )}
-      <button
-        type="button"
-        onClick={onOpenInFileManager}
-        title={t("folder.openInFileManager")}
-        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-fg transition hover:bg-fg/10"
-      >
-        <FolderOpen aria-hidden className="size-3.5" />
-        {t("folder.openInFileManager")}
-      </button>
+      {/* Same group styling as the header's Scan button. */}
+      <ButtonGroup className="shrink-0 [&>button]:border [&>button]:border-muted/35 [&>button]:bg-surface [&>button:not(:first-child)]:relative [&>button:not(:first-child)]:z-[1]">
+        <Button
+          size="sm"
+          variant="outline"
+          className="border border-muted/35 bg-surface"
+          onClick={onOpenInFileManager}
+        >
+          <FolderOpen aria-hidden />
+          {t("folder.openInFileManager")}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="border border-muted/35 bg-surface"
+          onClick={onCopyPath}
+        >
+          <Copy aria-hidden />
+          {t("folder.copyPath")}
+        </Button>
+      </ButtonGroup>
     </nav>
   );
 }

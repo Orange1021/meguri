@@ -79,22 +79,25 @@ describe("folder_files payload", () => {
   });
 });
 
-describe("folder_open_in_file_manager payload", () => {
-  it.each(BAD)("rejects the malformed path %#", (path) => {
-    expect(
-      ChannelInputs.folder_open_in_file_manager.safeParse({
-        workspaceId: "w",
-        path,
-      }).success,
-    ).toBe(false);
-  });
+describe.each(["folder_open_in_file_manager", "folder_copy_path"] as const)(
+  "%s payload",
+  (channel) => {
+    it.each(BAD)("rejects the malformed path %#", (path) => {
+      expect(
+        ChannelInputs[channel].safeParse({
+          workspaceId: "w",
+          path,
+        }).success,
+      ).toBe(false);
+    });
 
-  it.each(GOOD)("accepts %j", (path) => {
-    expect(
-      ChannelInputs.folder_open_in_file_manager.safeParse({
-        workspaceId: "w",
-        path,
-      }).success,
-    ).toBe(true);
-  });
-});
+    it.each(GOOD)("accepts %j", (path) => {
+      expect(
+        ChannelInputs[channel].safeParse({
+          workspaceId: "w",
+          path,
+        }).success,
+      ).toBe(true);
+    });
+  },
+);

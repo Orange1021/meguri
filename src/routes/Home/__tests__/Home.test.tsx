@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   folderFiles: vi.fn<(ws: string, paths: string[]) => Promise<unknown>>(),
   folderOpenInFileManager:
     vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+  folderCopyPath: vi.fn<(ws: string, path: string) => Promise<unknown>>(),
 }));
 
 // Toasts are asserted on the call: no Toaster is mounted in these tests.
@@ -58,6 +59,8 @@ vi.mock("@/ipc/client", () => ({
     folderFiles: (ws: string, paths: string[]) => mocks.folderFiles(ws, paths),
     folderOpenInFileManager: (ws: string, path: string) =>
       mocks.folderOpenInFileManager(ws, path),
+    folderCopyPath: (ws: string, path: string) =>
+      mocks.folderCopyPath(ws, path),
     tagsList: vi.fn().mockResolvedValue([]),
     openExternal: vi.fn().mockResolvedValue(undefined),
     openFolder: vi.fn().mockResolvedValue(undefined),
@@ -534,6 +537,20 @@ describe("Home folder view", () => {
       expect(toasts.error).toHaveBeenCalledWith(
         "Couldn't open the folder",
         expect.objectContaining({ description: "folder not found" }),
+      ),
+    );
+  });
+
+  it("copies the folder's path and says so", async () => {
+    mocks.folderCopyPath.mockResolvedValue(undefined);
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(screen.getByRole("button", { name: "Copy path" }));
+    expect(mocks.folderCopyPath).toHaveBeenCalledWith(WS_ID, "");
+    await waitFor(() =>
+      expect(toasts.success).toHaveBeenCalledWith(
+        "Copied the folder path",
+        expect.anything(),
       ),
     );
   });

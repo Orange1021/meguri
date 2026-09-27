@@ -683,6 +683,20 @@ export default function Home() {
                 }),
               );
           }}
+          onCopyPath={() => {
+            api.folderCopyPath(workspaceId ?? "", folderNav.path).then(
+              () =>
+                toast.success(t("folder.pathCopied"), {
+                  id: "folder-path-copied",
+                }),
+              (error: unknown) =>
+                toast.error(t("folder.copyFailed"), {
+                  id: "folder-copy-failed",
+                  description:
+                    error instanceof Error ? error.message : String(error),
+                }),
+            );
+          }}
           summary={
             // What the folder itself holds; a search shows its own results.
             // (and only once the listing is the folder named: a vanished

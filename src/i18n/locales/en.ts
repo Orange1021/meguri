@@ -358,6 +358,9 @@ export const en: Record<TranslationKey, string> = {
   "folder.summary": "Folders: {folders} · Files: {files}",
   "folder.openInFileManager": "Open in file manager",
   "folder.openFailed": "Couldn't open the folder",
+  "folder.copyPath": "Copy path",
+  "folder.pathCopied": "Copied the folder path",
+  "folder.copyFailed": "Couldn't copy the path",
   "folder.open": 'Open folder "{name}"',
   "folder.emptySearch": "Nothing in this folder matches",
   "folder.emptySearchHint":
