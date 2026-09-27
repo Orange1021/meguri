@@ -76,8 +76,28 @@ playback is unaffected.
 
 Data fetching uses `@tanstack/react-query`. The file list is an
 `useInfiniteQuery` combined with `@tanstack/react-virtual` for infinite scroll
-plus virtualization (`src/components/MediaGrid.tsx`). Three view modes — grid,
-list, and table — are switchable.
+plus virtualization (`src/components/MediaGrid.tsx`). Four view modes — grid,
+list, table and folder — are switchable.
+
+A fourth mode, the folder view, browses one workspace like a file manager: the
+current folder's child folders as cards (`FolderCard`, a mosaic of up to four
+thumbnails), then its direct files, with a breadcrumb above
+(`FolderBreadcrumb`). It reuses `MediaGrid`: folder cards are packed ahead of
+the files in the same virtualized rows and share the media card's outer
+dimensions, because the grid sizes every row from one measured row. Where the
+view is is held by `useFolderNav` in memory (per workspace, with a back stack),
+not in the URL — Home stays mounted under its child-route modals, so the
+location survives opening and closing them, whereas a query parameter on `/`
+would be dropped by the first navigation to `/file/:id`. With a search or filter
+active, the folder view searches everything below the current folder instead
+(`hasFilterConditions`). Over `All` or a collection it is drawn as the grid
+(`effectiveViewMode`) without overwriting the stored choice.
+
+Selecting a folder card selects every file below it: `SelectionContext` fetches
+them through `folder_files` when the folder is picked, because the selection bar
+and the bulk tag dialog are computed from rows. Until they arrive the selection
+is `pending` and the bulk actions wait; the selection's `count` includes files
+beyond the cap so the bar can refuse an oversized edit.
 
 Toggling a favorite patches both the list and detail react-query caches so they
 stay in sync without a refetch. Discover pulls videos with `randomFiles`

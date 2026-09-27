@@ -1,5 +1,6 @@
 import {
   DatabaseBackup,
+  FolderTree,
   Grid3X3,
   HelpCircle,
   List,
@@ -24,8 +25,7 @@ import {
 } from "@/components/ui/command";
 import { useI18n, type TFunc } from "@/i18n/I18nProvider";
 import type { TranslationKey } from "@/i18n/locales/ja";
-
-type ViewMode = "grid" | "list" | "table";
+import type { ViewMode } from "@/routes/Home/utils";
 
 interface CommandMenuProps {
   open: boolean;
@@ -37,6 +37,8 @@ interface CommandMenuProps {
   onScan: (includeExcluded?: boolean) => void;
   onRebuild: () => void;
   onSetView: (view: ViewMode) => void;
+  /** Folder view needs one real workspace open (not All or a collection). */
+  folderAvailable?: boolean;
   onDiscover: () => void;
   onTags: () => void;
   onSettings: () => void;
@@ -81,6 +83,7 @@ export function CommandMenu({
   onScan,
   onRebuild,
   onSetView,
+  folderAvailable = false,
   onDiscover,
   onTags,
   onSettings,
@@ -171,6 +174,12 @@ export function CommandMenu({
       id: "view-table",
       icon: Table2,
       run: () => closeThen(() => onSetView("table")),
+    }),
+    action(t, "view.folder", {
+      id: "view-folder",
+      icon: FolderTree,
+      disabled: !folderAvailable,
+      run: () => closeThen(() => onSetView("folder")),
     }),
   ];
 

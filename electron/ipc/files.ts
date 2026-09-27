@@ -26,7 +26,9 @@ export function registerFileHandlers(ctx: IpcContext): void {
       ? queryClient.run<SearchResult>({
           kind: "search",
           targets: queryTargets(ws.allCores()),
-          query,
+          // Folders belong to one workspace; a collection spans several and
+          // has no folder view, so a folder scope has nothing to mean here.
+          query: { ...query, folder: undefined },
           refs: collection.items,
         })
       : queryClient.run<SearchResult>({

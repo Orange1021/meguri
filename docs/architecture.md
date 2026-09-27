@@ -157,6 +157,38 @@ workspace. It has no database of its own;
 query results from each `Core` in memory (a single-workspace set takes a fast
 path that skips merging). Scanning never targets `All`.
 
+### Folders
+
+A workspace's subfolders are never stored. The folder view derives them from
+`files.rel_path` on every request (`electron/core/queries/folders.ts`), so moves,
+renames, exclusions and rebuilds need no bookkeeping.
+
+- **Path form.** Over IPC and in the renderer a folder is a `/`-separated path
+  relative to the workspace, with the root as `""` (`shared/folderPath.ts`,
+  validated by `FolderPathSchema`). `rel_path` itself comes from
+  `path.relative()` and uses the OS separator, so the main process converts at
+  the SQL boundary and nothing else splits on `\`.
+- **Range, not LIKE.** "Under `Movie`" is the half-open range
+  `["Movie/", "Movie0")` — `0` being the code point after `/`
+  (`electron/core/queries/folderRange.ts`). Ending the prefix at the separator
+  keeps a sibling such as `Movies` out, needs no escaping of `%` and `_`, and
+  stays on `idx_files_alive_rel_path`. Direct children add
+  `instr(substr(rel_path, start), sep) = 0`; `start` is counted in code points,
+  as SQLite's `substr()` counts characters.
+- **Pinned index.** Workspace databases are never `ANALYZE`d, and without
+  statistics SQLite prefers `idx_files_alive` (`deleted_at IS NULL`) over the
+  range — a walk over every live file, per child folder for the mosaic. The
+  folder queries therefore name `INDEXED BY idx_files_alive_rel_path`.
+- **Channels.** `folders_list` returns a folder's child folders (with recursive
+  counts and up to four preview files each) and its direct file count; a folder
+  with no live files left resolves to its nearest ancestor that has some.
+  `folder_files` expands selected folders into their files for a bulk edit,
+  spending one `MAX_BULK_FILES + 1` row budget across the call. The file list
+  itself is the ordinary `files_search` with `SearchQuery.folder`
+  (`{ path, recursive }`). All three run on the query worker.
+- **Scope.** Folders exist inside one real workspace only. The renderer does not
+  offer the folder view over `All` or a collection.
+
 ## Collections
 
 Two unrelated mechanisms group files. They differ in where they persist and who

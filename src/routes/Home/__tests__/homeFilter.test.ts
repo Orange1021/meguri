@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addSearchTokens } from "@/routes/Home/utils";
+import { addSearchTokens, effectiveViewMode } from "@/routes/Home/utils";
 
 describe("addSearchTokens", () => {
   it("puts the token into the query when there is none", () => {
@@ -56,5 +56,26 @@ describe("addSearchTokens", () => {
   it("ignores empty tokens", () => {
     const before = { q: "tag:beach" };
     expect(addSearchTokens(before, [""])).toBe(before);
+  });
+});
+
+describe("effectiveViewMode", () => {
+  it("draws the folder view where folders exist", () => {
+    expect(effectiveViewMode("folder", { folderAvailable: true })).toBe(
+      "folder",
+    );
+  });
+
+  it("falls back to the grid over All or a collection", () => {
+    expect(effectiveViewMode("folder", { folderAvailable: false })).toBe(
+      "grid",
+    );
+  });
+
+  it("leaves the other views alone", () => {
+    for (const view of ["grid", "list", "table"] as const) {
+      expect(effectiveViewMode(view, { folderAvailable: false })).toBe(view);
+      expect(effectiveViewMode(view, { folderAvailable: true })).toBe(view);
+    }
   });
 });

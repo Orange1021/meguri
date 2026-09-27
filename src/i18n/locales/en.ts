@@ -343,6 +343,26 @@ export const en: Record<TranslationKey, string> = {
   "view.grid": "Grid view",
   "view.list": "List view",
   "view.table": "Table view",
+
+  // folder view
+  "view.folder": "Folder view",
+  "view.folderUnavailable":
+    "Folder view is available only while a workspace is open",
+  "folder.breadcrumbLabel": "Folder path",
+  "folder.root": "Workspace",
+  "folder.back": "Back",
+  "folder.up": "Up one level",
+  "folder.more": "Show hidden levels",
+  "folder.itemCount": "{count} items",
+  "folder.open": 'Open folder "{name}"',
+  "folder.emptySearch": "Nothing in this folder matches",
+  "folder.emptySearchHint":
+    "Try other conditions, or search from a folder further up.",
+  "folder.moved": "The folder you were viewing is gone, so you were moved up.",
+  "shortcuts.folderBack": "Back to the previous folder (folder view)",
+  "shortcuts.folderUp": "Up one level (folder view)",
+  "select.folderCount": "including {count} folders",
+  "select.folderLoading": "Loading folder contents",
   "table.name": "Name",
 
   // discovery (random recommendations)

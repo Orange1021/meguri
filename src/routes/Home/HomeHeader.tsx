@@ -3,6 +3,7 @@ import {
   CopyCheck,
   DatabaseBackup,
   FolderOpen,
+  FolderTree,
   History,
   LayoutGrid,
   List,
@@ -49,6 +50,7 @@ export function HomeHeader({
   onEditWorkspace,
   view,
   onSetView,
+  folderAvailable,
   scanning,
   ready,
   onScan,
@@ -64,8 +66,11 @@ export function HomeHeader({
   /** The active real workspace, when one is selected (null for a collection or "All"). */
   workspace: WorkspaceInfo | null;
   onEditWorkspace: () => void;
+  /** The view being drawn (the stored choice after any fallback). */
   view: ViewMode;
   onSetView: (v: ViewMode) => void;
+  /** Folder view needs one real workspace open (not All or a collection). */
+  folderAvailable: boolean;
   scanning: boolean;
   ready: boolean;
   onScan: () => void;
@@ -165,6 +170,12 @@ export function HomeHeader({
                 mode: "table",
                 label: t("view.table"),
                 Icon: Table2,
+                rounded: "",
+              },
+              {
+                mode: "folder",
+                label: t("view.folder"),
+                Icon: FolderTree,
                 rounded: "rounded-r-md",
               },
             ] as const
@@ -175,9 +186,14 @@ export function HomeHeader({
               onClick={() => onSetView(mode)}
               aria-label={label}
               aria-pressed={view === mode}
-              title={label}
+              disabled={mode === "folder" && !folderAvailable}
+              title={
+                mode === "folder" && !folderAvailable
+                  ? t("view.folderUnavailable")
+                  : label
+              }
               className={cn(
-                "flex size-7 items-center justify-center transition",
+                "flex size-7 items-center justify-center transition disabled:cursor-not-allowed disabled:opacity-40",
                 rounded,
                 view === mode
                   ? "bg-primary/20 text-fg"

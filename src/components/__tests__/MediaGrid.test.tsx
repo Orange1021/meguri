@@ -418,4 +418,120 @@ describe("MediaGrid", () => {
       await expectNoToggle();
     });
   });
+
+  describe("folder cards", () => {
+    const folder = (name: string, count = 2) => ({
+      name,
+      path: name,
+      count,
+      previews: [sampleFileRow],
+    });
+
+    it("draws folder cards ahead of the files and opens them on click", async () => {
+      const onOpenFolder = vi.fn();
+      renderWithProviders(
+        <MediaGrid
+          items={[sampleFileRow]}
+          mediaBase="http://127.0.0.1:17345"
+          workspaceId={WS_ID}
+          loading={false}
+          thumbVersion={{}}
+          folders={[folder("Movie"), folder("Photos", 7)]}
+          onOpenFolder={onOpenFolder}
+        />,
+      );
+      const cards = await screen.findAllByTestId(/^(folder|media)-card$/);
+      expect(cards.map((c) => c.dataset.testid)).toEqual([
+        "folder-card",
+        "folder-card",
+        "media-card",
+      ]);
+      expect(screen.getAllByText("7 items").length).toBeGreaterThan(0);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: 'Open folder "Movie"' }),
+      );
+      expect(onOpenFolder).toHaveBeenCalledWith("Movie");
+      // Opening a folder is not opening a file.
+      expect(window.location.hash).not.toContain("/file/");
+    });
+
+    it("opens the focused folder with Enter", async () => {
+      const onOpenFolder = vi.fn();
+      renderWithProviders(
+        <MediaGrid
+          items={[sampleFileRow]}
+          mediaBase="http://127.0.0.1:17345"
+          workspaceId={WS_ID}
+          loading={false}
+          thumbVersion={{}}
+          navActive
+          folders={[folder("Movie")]}
+          onOpenFolder={onOpenFolder}
+        />,
+      );
+      await screen.findByTestId("folder-card");
+      act(() => {
+        fireEvent.keyDown(window, { key: "ArrowRight", code: "ArrowRight" });
+      });
+      act(() => {
+        fireEvent.keyDown(window, { key: "Enter", code: "Enter" });
+      });
+      expect(onOpenFolder).toHaveBeenCalledWith("Movie");
+    });
+
+    it("drops the folder cards from a window that starts past the top", async () => {
+      renderWithProviders(
+        <MediaGrid
+          items={[sampleFileRow]}
+          mediaBase="http://127.0.0.1:17345"
+          workspaceId={WS_ID}
+          loading={false}
+          thumbVersion={{}}
+          listOffset={100}
+          folders={[folder("Movie")]}
+        />,
+      );
+      await screen.findByTestId("media-card");
+      expect(screen.queryByTestId("folder-card")).toBeNull();
+    });
+
+    it("builds the mosaic from the previews it is given", async () => {
+      renderWithProviders(
+        <MediaGrid
+          items={[]}
+          mediaBase="http://127.0.0.1:17345"
+          workspaceId={WS_ID}
+          loading={false}
+          thumbVersion={{}}
+          folders={[
+            {
+              ...folder("Many", 9),
+              previews: [1, 2, 3].map((id) => ({
+                ...sampleFileRow,
+                id,
+                relPath: `Many/${id}.mp4`,
+              })),
+            },
+          ]}
+        />,
+      );
+      const mosaic = await screen.findByTestId("folder-mosaic");
+      expect(mosaic.querySelectorAll("img")).toHaveLength(3);
+    });
+
+    it("says a folder search found nothing", () => {
+      renderWithProviders(
+        <MediaGrid
+          items={[]}
+          mediaBase="http://127.0.0.1:17345"
+          workspaceId={WS_ID}
+          loading={false}
+          thumbVersion={{}}
+          inFolder
+        />,
+      );
+      expect(screen.getByText("Nothing in this folder matches")).toBeTruthy();
+    });
+  });
 });

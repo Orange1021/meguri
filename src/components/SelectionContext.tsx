@@ -17,6 +17,12 @@
 // the dialog's totals can never drift apart. Reading a row prefers the version
 // the list currently holds, so an edit landing in the query cache is reflected
 // without the selection having to be told about it.
+//
+// In the folder view a folder card can be selected too. It stands for every
+// file below it, fetched (expandFolders) the moment it is picked: the bar and
+// the tag dialog are built from rows, and a folder they could not read would be
+// a number the user cannot act on. Until its files arrive the selection is
+// `pending` and the bulk actions wait.
 import {
   createContext,
   useContext,
@@ -26,10 +32,11 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import type { FileRow } from "@/ipc/types";
+import type { FileRow, FolderEntry, FolderFilesResult } from "@/ipc/types";
 // The same identity drag-and-drop keys rows by: file ids are unique only
 // within a workspace.
 import { mediaSortId as selectionKey } from "@/lib/mediaSortId";
+import { MAX_FOLDER_FILES_PATHS } from "@shared/folderPath";
 
 /** Modifier keys that change what a click on a card means. */
 export interface SelectionClickMods {
@@ -42,10 +49,22 @@ export interface SelectionClickMods {
 export interface SelectionView {
   /** Selection mode is on: cards show their checkbox and clicks select. */
   active: boolean;
+  /**
+   * Files the selection covers. Equal to rows.length, except that a folder
+   * whose files were cut short at the bulk-edit cap counts all of them — which
+   * is what tells the bar the edit is too large.
+   */
   count: number;
-  /** Selected rows, in the order they were selected. */
+  /** Selected rows, in the order they were selected; selected folders' files after. */
   rows: FileRow[];
+  /** A selected folder's files are still being fetched. */
+  pending: boolean;
+  /** How many folder cards are selected. */
+  folderCount: number;
 }
+
+/** Fetches selected folders' files (folder_files), injected by the provider. */
+export type ExpandFolders = (paths: string[]) => Promise<FolderFilesResult>;
 
 export interface SelectionApi extends SelectionView {
   isSelected: (file: FileRow) => boolean;
@@ -57,6 +76,8 @@ export interface SelectionApi extends SelectionView {
   deselectAll: () => void;
   /** Leave selection mode and drop everything. */
   exit: () => void;
+  /** A click on a folder card while selecting, or a modified click that starts it. */
+  toggleFolder: (entry: FolderEntry) => void;
 }
 
 /**
@@ -73,7 +94,20 @@ export function isSelectionClick(
 }
 
 const NO_ROWS: FileRow[] = [];
-const EMPTY_VIEW: SelectionView = { active: false, count: 0, rows: NO_ROWS };
+const EMPTY_VIEW: SelectionView = {
+  active: false,
+  count: 0,
+  rows: NO_ROWS,
+  pending: false,
+  folderCount: 0,
+};
+
+interface FolderPick {
+  entry: FolderEntry;
+  /** Null until the folder's files have arrived. */
+  rows: FileRow[] | null;
+  total: number;
+}
 
 class SelectionStore {
   /** The list as currently loaded. Ranges and "select all" work on it. */
@@ -81,6 +115,10 @@ class SelectionStore {
   private scope: string | null = null;
   private active = false;
   private selected = new Map<string, FileRow>();
+  /** Folder cards on screen: what "select all" adds besides the loaded rows. */
+  private folderItems: FolderEntry[] = [];
+  private folders = new Map<string, FolderPick>();
+  private expand: ExpandFolders | null = null;
   /**
    * Where a Shift-click measures its range from: the last row clicked without
    * Shift, held by key rather than by index. The list is a sliding window —
@@ -107,6 +145,12 @@ class SelectionStore {
   isSelected = (file: FileRow): boolean =>
     this.selected.has(selectionKey(file));
 
+  isFolderSelected = (path: string): boolean => this.folders.has(path);
+
+  /** Whether the folder is selected and its files have not arrived yet. */
+  isFolderPending = (path: string): boolean =>
+    this.folders.get(path)?.rows === null;
+
   /** Read on its own, so entering or leaving selection mode is all a row sees. */
   isActive = (): boolean => this.active;
 
@@ -119,14 +163,22 @@ class SelectionStore {
    * screen, and a bulk edit that silently included them would act on files the
    * user cannot see. Paging within one list must NOT change it.
    */
-  syncList(items: FileRow[], scope: string): void {
+  syncList(
+    items: FileRow[],
+    scope: string,
+    folderView: { folders?: FolderEntry[]; expand?: ExpandFolders } = {},
+  ): void {
     const listChanged = this.items !== items;
     this.items = items;
+    this.folderItems = folderView.folders ?? [];
+    this.expand = folderView.expand ?? null;
     if (this.scope !== scope) {
-      const had = this.active || this.selected.size > 0;
+      const had =
+        this.active || this.selected.size > 0 || this.folders.size > 0;
       this.scope = scope;
       this.active = false;
       this.selected = new Map();
+      this.folders = new Map();
       this.anchorKey = null;
       if (had) this.rebuild(true);
       return;
@@ -180,11 +232,36 @@ class SelectionStore {
       this.items.map((row) => [selectionKey(row), row] as const),
     );
     this.anchorKey = null;
+    // Folder cards on screen join too; those already picked keep their files.
+    const added: FolderEntry[] = [];
+    const next = new Map(this.folders);
+    for (const entry of this.folderItems) {
+      if (next.has(entry.path)) continue;
+      next.set(entry.path, { entry, rows: null, total: entry.count });
+      added.push(entry);
+    }
+    this.folders = next;
     this.rebuild(false);
+    this.fetchFolders(added.map((e) => e.path));
+  };
+
+  toggleFolder = (entry: FolderEntry): void => {
+    const next = new Map(this.folders);
+    const picking = !next.has(entry.path);
+    if (picking) {
+      next.set(entry.path, { entry, rows: null, total: entry.count });
+    } else {
+      next.delete(entry.path);
+    }
+    this.active = true;
+    this.folders = next;
+    this.rebuild(false);
+    if (picking) this.fetchFolders([entry.path]);
   };
 
   deselectAll = (): void => {
     this.selected = new Map();
+    this.folders = new Map();
     this.anchorKey = null;
     this.rebuild(false);
   };
@@ -192,25 +269,90 @@ class SelectionStore {
   exit = (): void => {
     this.active = false;
     this.selected = new Map();
+    this.folders = new Map();
     this.anchorKey = null;
     this.rebuild(false);
   };
 
+  /**
+   * Fetch picked folders' files and fill them in. A result is dropped when the
+   * pick it answers is gone — deselected, re-picked, or swept away by a list
+   * change — so a slow answer can never resurrect a selection. A failed fetch
+   * un-picks its folders rather than leaving them pending forever.
+   */
+  private fetchFolders(paths: string[]): void {
+    const expand = this.expand;
+    if (paths.length === 0) return;
+    if (!expand) {
+      this.dropFolders(paths);
+      return;
+    }
+    for (let i = 0; i < paths.length; i += MAX_FOLDER_FILES_PATHS) {
+      const batch = paths.slice(i, i + MAX_FOLDER_FILES_PATHS);
+      const picks = new Map(batch.map((p) => [p, this.folders.get(p)]));
+      expand(batch).then(
+        (results) => {
+          let changed = false;
+          const next = new Map(this.folders);
+          for (const { path, rows, total } of results) {
+            const pick = next.get(path);
+            if (!pick || pick !== picks.get(path)) continue;
+            next.set(path, { ...pick, rows, total });
+            changed = true;
+          }
+          if (!changed) return;
+          this.folders = next;
+          this.rebuild(false);
+        },
+        () => {
+          this.dropFolders(
+            batch.filter((p) => this.folders.get(p) === picks.get(p)),
+          );
+        },
+      );
+    }
+  }
+
+  private dropFolders(paths: string[]): void {
+    if (paths.length === 0) return;
+    const next = new Map(this.folders);
+    for (const p of paths) next.delete(p);
+    this.folders = next;
+    this.rebuild(false);
+  }
+
   private rebuild(duringRender: boolean): void {
-    if (this.selected.size === 0) {
-      this.view = this.active
-        ? { active: true, count: 0, rows: NO_ROWS }
-        : EMPTY_VIEW;
+    if (this.selected.size === 0 && this.folders.size === 0) {
+      this.view = this.active ? { ...EMPTY_VIEW, active: true } : EMPTY_VIEW;
     } else {
       const byKey = new Map(
         this.items.map((item) => [selectionKey(item), item] as const),
       );
+      const rows = new Map<string, FileRow>();
+      for (const [key, snapshot] of this.selected) {
+        rows.set(key, byKey.get(key) ?? snapshot);
+      }
+      let pending = false;
+      // Files a folder holds beyond the rows fetched for it: only past the
+      // bulk-edit cap, where the fetch stops early.
+      let uncounted = 0;
+      for (const pick of this.folders.values()) {
+        if (pick.rows === null) {
+          pending = true;
+          continue;
+        }
+        for (const row of pick.rows) {
+          const key = selectionKey(row);
+          if (!rows.has(key)) rows.set(key, byKey.get(key) ?? row);
+        }
+        uncounted += Math.max(0, pick.total - pick.rows.length);
+      }
       this.view = {
         active: this.active,
-        count: this.selected.size,
-        rows: [...this.selected].map(
-          ([key, snapshot]) => byKey.get(key) ?? snapshot,
-        ),
+        count: rows.size + uncounted,
+        rows: [...rows.values()],
+        pending,
+        folderCount: this.folders.size,
       };
     }
     if (duringRender) this.deferred = true;
@@ -242,6 +384,7 @@ export function useSelection(): SelectionApi {
       selectAll: store.selectAll,
       deselectAll: store.deselectAll,
       exit: store.exit,
+      toggleFolder: store.toggleFolder,
     }),
     [view, store],
   );
@@ -265,6 +408,30 @@ export function useSelectionMode(): {
   return { active, click: store.click };
 }
 
+/** A folder card's view of the selection: picked, and still being fetched. */
+export function useFolderSelection(path: string): {
+  active: boolean;
+  selected: boolean;
+  pending: boolean;
+  toggle: SelectionApi["toggleFolder"];
+} {
+  const store = useStore();
+  const active = useSyncExternalStore(store.subscribe, store.isActive);
+  const readSelected = () => store.isFolderSelected(path);
+  const readPending = () => store.isFolderPending(path);
+  const selected = useSyncExternalStore(
+    store.subscribe,
+    readSelected,
+    readSelected,
+  );
+  const pending = useSyncExternalStore(
+    store.subscribe,
+    readPending,
+    readPending,
+  );
+  return { active, selected, pending, toggle: store.toggleFolder };
+}
+
 /** Whether this one row is selected, as its own subscription. */
 export function useIsSelected(file: FileRow): boolean {
   const store = useStore();
@@ -275,18 +442,24 @@ export function useIsSelected(file: FileRow): boolean {
 export function SelectionProvider({
   items,
   scope = "",
+  folders,
+  expandFolders,
   children,
 }: {
   /** The list as currently loaded. Range selection and "select all" work on it. */
   items: FileRow[];
   /** Identifies which list `items` is; see SelectionStore.syncList. */
   scope?: string;
+  /** Folder cards on screen (folder view), which "select all" also picks. */
+  folders?: FolderEntry[];
+  /** Fetches a picked folder's files. Without it folders cannot be selected. */
+  expandFolders?: ExpandFolders;
   children: ReactNode;
 }) {
   const [store] = useState(() => new SelectionStore());
   // Read while rendering so the views below never paint one frame with a
   // selection that belongs to the previous list; announced after the commit.
-  store.syncList(items, scope);
+  store.syncList(items, scope, { folders, expand: expandFolders });
   useEffect(() => store.flush());
   return (
     <StoreContext.Provider value={store}>{children}</StoreContext.Provider>

@@ -344,6 +344,25 @@ export const ja = {
   "view.grid": "グリッド表示",
   "view.list": "リスト表示",
   "view.table": "テーブル表示",
+
+  // フォルダ表示
+  "view.folder": "フォルダ表示",
+  "view.folderUnavailable":
+    "フォルダ表示はワークスペースを開いているときだけ使えます",
+  "folder.breadcrumbLabel": "フォルダの階層",
+  "folder.root": "ワークスペース",
+  "folder.back": "戻る",
+  "folder.up": "上の階層へ",
+  "folder.more": "途中の階層を表示",
+  "folder.itemCount": "{count}件",
+  "folder.open": "フォルダ「{name}」を開く",
+  "folder.emptySearch": "このフォルダ内に該当するメディアはありません",
+  "folder.emptySearchHint": "検索条件を変えるか、上の階層で探してください。",
+  "folder.moved": "表示中のフォルダが見つからないため、上の階層へ移動しました",
+  "shortcuts.folderBack": "前のフォルダに戻る（フォルダ表示）",
+  "shortcuts.folderUp": "上の階層へ（フォルダ表示）",
+  "select.folderCount": "フォルダ{count}件を含む",
+  "select.folderLoading": "フォルダの中身を読み込み中",
   "table.name": "名前",
 
   // ディスカバリー（ランダムおすすめ）

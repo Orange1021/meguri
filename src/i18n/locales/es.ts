@@ -351,6 +351,27 @@ export const es: Record<TranslationKey, string> = {
   "view.grid": "Vista de cuadrícula",
   "view.list": "Vista de lista",
   "view.table": "Vista de tabla",
+
+  // folder view
+  "view.folder": "Vista de carpetas",
+  "view.folderUnavailable":
+    "La vista de carpetas solo está disponible con un espacio de trabajo abierto",
+  "folder.breadcrumbLabel": "Ruta de la carpeta",
+  "folder.root": "Espacio de trabajo",
+  "folder.back": "Atrás",
+  "folder.up": "Subir un nivel",
+  "folder.more": "Mostrar niveles ocultos",
+  "folder.itemCount": "{count} elementos",
+  "folder.open": 'Abrir la carpeta "{name}"',
+  "folder.emptySearch": "Nada en esta carpeta coincide",
+  "folder.emptySearchHint":
+    "Prueba otras condiciones o busca desde una carpeta superior.",
+  "folder.moved":
+    "La carpeta que estabas viendo ya no existe; se ha subido de nivel.",
+  "shortcuts.folderBack": "Volver a la carpeta anterior (vista de carpetas)",
+  "shortcuts.folderUp": "Subir un nivel (vista de carpetas)",
+  "select.folderCount": "incluye {count} carpetas",
+  "select.folderLoading": "Cargando el contenido de la carpeta",
   "table.name": "Nombre",
 
   // discovery (random recommendations)

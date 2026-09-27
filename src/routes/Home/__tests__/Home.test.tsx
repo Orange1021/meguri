@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router";
 import "@/test/mockVirtualizer";
@@ -13,6 +13,8 @@ import {
   WS_ID,
 } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import { applyTagFilter } from "@/lib/ui-events";
+import { VIEW_KEY } from "@/routes/Home/utils";
 
 const mocks = vi.hoisted(() => ({
   appStatus: vi.fn(),
@@ -24,6 +26,8 @@ const mocks = vi.hoisted(() => ({
   fileRecordPlay: vi.fn(),
   scanStart: vi.fn(),
   workspaceStats: vi.fn(),
+  foldersList: vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+  folderFiles: vi.fn<(ws: string, paths: string[]) => Promise<unknown>>(),
 }));
 
 vi.mock("@/ipc/client", () => ({
@@ -37,6 +41,8 @@ vi.mock("@/ipc/client", () => ({
     fileRecordPlay: (...args: unknown[]) => mocks.fileRecordPlay(...args),
     scanStart: (...args: unknown[]) => mocks.scanStart(...args),
     workspaceStats: () => mocks.workspaceStats(),
+    foldersList: (ws: string, path: string) => mocks.foldersList(ws, path),
+    folderFiles: (ws: string, paths: string[]) => mocks.folderFiles(ws, paths),
     tagsList: vi.fn().mockResolvedValue([]),
     openExternal: vi.fn().mockResolvedValue(undefined),
     openFolder: vi.fn().mockResolvedValue(undefined),
@@ -337,5 +343,146 @@ describe("Home + MediaDetail integration", () => {
     );
     // A single visit records exactly once despite refetches/re-renders.
     expect(mocks.fileRecordPlay).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Home folder view", () => {
+  const movie = {
+    name: "Movie",
+    path: "Movie",
+    count: 3,
+    previews: [sampleFileRow],
+  };
+  const lastSearch = () => {
+    const calls = mocks.filesSearch.mock.calls;
+    return calls[calls.length - 1][0] as Record<string, unknown>;
+  };
+
+  afterEach(() => localStorage.removeItem(VIEW_KEY));
+
+  beforeEach(() => {
+    localStorage.setItem(VIEW_KEY, "folder");
+    mocks.appStatus.mockResolvedValue(defaultAppStatus);
+    mocks.workspacesList.mockResolvedValue(defaultWorkspacesList);
+    mocks.filesSearch.mockReset();
+    mocks.filesSearch.mockResolvedValue({
+      items: [sampleFileRow],
+      nextCursor: null,
+    });
+    mocks.foldersList.mockReset();
+    mocks.foldersList.mockImplementation((_ws: string, path: string) =>
+      Promise.resolve({
+        path,
+        folders: path === "" ? [movie] : [],
+        fileCount: 1,
+      }),
+    );
+    mocks.workspaceStats.mockResolvedValue({ fileCount: 1, lastScanAt: null });
+  });
+
+  it("lists the root's folders and direct files, then walks into a folder", async () => {
+    renderWithProviders(<AppRoutes />);
+
+    await screen.findByTestId("folder-card");
+    expect(lastSearch().folder).toEqual({ path: "", recursive: false });
+    expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "Movie"),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false }),
+    );
+    const crumbs = screen.getByRole("navigation", { name: "Folder path" });
+    expect(within(crumbs).getByText("Movie").getAttribute("aria-current")).toBe(
+      "page",
+    );
+
+    // Back up through the breadcrumb.
+    fireEvent.click(within(crumbs).getByRole("button", { name: "Media" }));
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: false }),
+    );
+  });
+
+  it("searches everything below the folder, without its folder cards", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+
+    applyTagFilter(["tag:beach"]);
+
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: true }),
+    );
+    await waitFor(() => expect(screen.queryByTestId("folder-card")).toBeNull());
+    expect(
+      screen.getByRole("navigation", { name: "Folder path" }),
+    ).toBeTruthy();
+  });
+
+  it("moves up when the folder shown has gone away", async () => {
+    mocks.foldersList.mockImplementation((_ws: string, path: string) =>
+      Promise.resolve({
+        path: path === "Movie" ? "" : path,
+        folders: path === "" ? [movie] : [],
+        fileCount: 1,
+      }),
+    );
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "Movie"),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: false }),
+    );
+  });
+
+  it("draws the grid over All without forgetting the folder choice", async () => {
+    mocks.appStatus.mockResolvedValue({
+      ...defaultAppStatus,
+      root: "All",
+      workspaceId: "__all__",
+    });
+    renderWithProviders(<AppRoutes />);
+
+    await screen.findByText("sample.mp4");
+    expect(lastSearch().folder).toBeUndefined();
+    expect(mocks.foldersList).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Folder view" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Grid view" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(localStorage.getItem(VIEW_KEY)).toBe("folder");
+  });
+
+  it("drops a grid selection when switching to the folder view at the root", async () => {
+    localStorage.setItem(VIEW_KEY, "grid");
+    renderWithProviders(<AppRoutes />);
+    const name = await screen.findByText("sample.mp4");
+    fireEvent.click(name.closest("a")!, { ctrlKey: true });
+    expect(
+      screen.getByRole("region", { name: "Selection actions" }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Folder view" }));
+
+    await screen.findByTestId("folder-card");
+    expect(
+      screen.queryByRole("region", { name: "Selection actions" }),
+    ).toBeNull();
   });
 });

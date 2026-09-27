@@ -342,6 +342,25 @@ export const ko: Record<TranslationKey, string> = {
   "view.grid": "그리드 보기",
   "view.list": "리스트 보기",
   "view.table": "테이블 보기",
+
+  // folder view
+  "view.folder": "폴더 보기",
+  "view.folderUnavailable":
+    "폴더 보기는 워크스페이스를 열었을 때만 사용할 수 있습니다",
+  "folder.breadcrumbLabel": "폴더 경로",
+  "folder.root": "워크스페이스",
+  "folder.back": "뒤로",
+  "folder.up": "상위 폴더로",
+  "folder.more": "숨겨진 단계 표시",
+  "folder.itemCount": "{count}개",
+  "folder.open": '"{name}" 폴더 열기',
+  "folder.emptySearch": "이 폴더에 일치하는 미디어가 없습니다",
+  "folder.emptySearchHint": "조건을 바꾸거나 상위 폴더에서 검색해 보세요.",
+  "folder.moved": "보고 있던 폴더를 찾을 수 없어 상위 폴더로 이동했습니다",
+  "shortcuts.folderBack": "이전 폴더로 돌아가기 (폴더 보기)",
+  "shortcuts.folderUp": "상위 폴더로 (폴더 보기)",
+  "select.folderCount": "폴더 {count}개 포함",
+  "select.folderLoading": "폴더 내용을 불러오는 중",
   "table.name": "이름",
 
   // discovery (random recommendations)

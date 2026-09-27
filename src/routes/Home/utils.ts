@@ -8,10 +8,23 @@ import type { SearchQuery } from "@/ipc/types";
 export const DISCOVER_FILTER_PARAM = "filter";
 export const VIEW_KEY = "meguri.view";
 
-export type ViewMode = "grid" | "list" | "table";
+export type ViewMode = "grid" | "list" | "table" | "folder";
 
 export function isViewMode(v: string | null): v is ViewMode {
-  return v === "grid" || v === "list" || v === "table";
+  return v === "grid" || v === "list" || v === "table" || v === "folder";
+}
+
+/**
+ * The view actually drawn. Folders exist only inside one real workspace, so
+ * over "All" or a collection the folder view falls back to the grid — without
+ * touching the stored choice, which takes over again on returning to a
+ * workspace.
+ */
+export function effectiveViewMode(
+  view: ViewMode,
+  { folderAvailable }: { folderAvailable: boolean },
+): ViewMode {
+  return view === "folder" && !folderAvailable ? "grid" : view;
 }
 
 export function cleanDiscoverFilter(filter: SearchQuery): SearchQuery {

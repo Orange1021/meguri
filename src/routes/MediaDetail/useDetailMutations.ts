@@ -166,6 +166,9 @@ export function useDetailMutations({
     qc.removeQueries({ queryKey: ["file_get", wsId, deleted.id] });
     void qc.invalidateQueries({ queryKey: ["files_search"] });
     void qc.invalidateQueries({ queryKey: ["files_random"] });
+    // A folder's count and mosaic include the file, and its last file going
+    // takes the folder with it.
+    void qc.invalidateQueries({ queryKey: ["folders_list", wsId] });
     onDeleteFinished?.();
   };
 

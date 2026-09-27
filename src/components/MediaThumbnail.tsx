@@ -22,6 +22,8 @@ interface Props {
   playIconSize?: string;
   /** Set to false to omit the play overlay (e.g. compact table rows). */
   showPlayOverlay?: boolean;
+  /** Set to false to turn off the hover scrub preview (e.g. a folder card's mosaic tile). */
+  scrubPreview?: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export function MediaThumbnail({
   playOverlaySize = "size-10",
   playIconSize = "size-5",
   showPlayOverlay = true,
+  scrubPreview = true,
 }: Props) {
   // Keys on whether a thumbnail file actually exists, not on kind: audio is
   // marked thumb_status 'done' whether or not it embeds cover art, so status
@@ -64,7 +67,9 @@ export function MediaThumbnail({
   const { hoverPreview } = usePreferences();
   const { previewSrc, scrubFraction, onMouseEnter, onMouseMove, onMouseLeave } =
     useHoverFramePreview({
-      enabled: Boolean(hoverPreview && hasThumb && file.kind === "video"),
+      enabled: Boolean(
+        scrubPreview && hoverPreview && hasThumb && file.kind === "video",
+      ),
       frameUrl: (t) =>
         `${mediaBase}/ws/${file.workspaceId}/frame/${file.id}?t=${t}`,
       duration: file.duration,

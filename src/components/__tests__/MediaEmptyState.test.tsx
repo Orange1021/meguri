@@ -19,4 +19,12 @@ describe("MediaEmptyState", () => {
     expect(screen.queryByText(/Scan/i)).toBeNull();
     expect(screen.getByText(/clock icon/i)).toBeTruthy();
   });
+
+  it("says a folder search found nothing, without prompting a scan", () => {
+    renderWithProviders(<MediaEmptyState inFolder />);
+
+    expect(screen.getByText("Nothing in this folder matches")).toBeTruthy();
+    expect(screen.getByText(/folder further up/i)).toBeTruthy();
+    expect(screen.queryByText(/Scan/i)).toBeNull();
+  });
 });

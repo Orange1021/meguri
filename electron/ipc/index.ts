@@ -4,6 +4,7 @@
 import type { IpcContext } from "./context.js";
 import { registerBookmarkHandlers } from "./bookmarks.js";
 import { registerFileHandlers } from "./files.js";
+import { registerFolderHandlers } from "./folders.js";
 import { registerLogoHandlers } from "./logo.js";
 import { registerScanHandlers } from "./scan.js";
 import { registerShellHandlers } from "./shell.js";
@@ -20,6 +21,7 @@ export function registerIpc(ctx: IpcContext): void {
   registerWorkspaceHandlers(ctx);
   registerScanHandlers(ctx);
   registerFileHandlers(ctx);
+  registerFolderHandlers(ctx);
   registerTagHandlers(ctx);
   registerBookmarkHandlers(ctx);
   registerThumbHandlers(ctx);

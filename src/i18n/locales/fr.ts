@@ -351,6 +351,27 @@ export const fr: Record<TranslationKey, string> = {
   "view.grid": "Vue en grille",
   "view.list": "Vue en liste",
   "view.table": "Vue en tableau",
+
+  // folder view
+  "view.folder": "Vue par dossiers",
+  "view.folderUnavailable":
+    "La vue par dossiers n'est disponible que lorsqu'un espace de travail est ouvert",
+  "folder.breadcrumbLabel": "Chemin du dossier",
+  "folder.root": "Espace de travail",
+  "folder.back": "Retour",
+  "folder.up": "Remonter d'un niveau",
+  "folder.more": "Afficher les niveaux masqués",
+  "folder.itemCount": "{count} éléments",
+  "folder.open": "Ouvrir le dossier « {name} »",
+  "folder.emptySearch": "Rien ne correspond dans ce dossier",
+  "folder.emptySearchHint":
+    "Essayez d'autres critères ou cherchez depuis un dossier parent.",
+  "folder.moved":
+    "Le dossier affiché n'existe plus ; vous avez été ramené au niveau supérieur.",
+  "shortcuts.folderBack": "Revenir au dossier précédent (vue par dossiers)",
+  "shortcuts.folderUp": "Remonter d'un niveau (vue par dossiers)",
+  "select.folderCount": "dont {count} dossiers",
+  "select.folderLoading": "Chargement du contenu du dossier",
   "table.name": "Nom",
 
   // discovery (random recommendations)

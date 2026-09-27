@@ -49,6 +49,8 @@ export function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
     { label: t("shortcuts.watchLater"), keys: "W" },
     { label: t("shortcuts.selectAll"), keys: "Ctrl+A / Cmd+A" },
     { label: t("shortcuts.bulkTags"), keys: "T" },
+    { label: t("shortcuts.folderBack"), keys: "Alt+← / Backspace" },
+    { label: t("shortcuts.folderUp"), keys: "Alt+↑" },
     { label: t("shortcuts.scrollDown"), keys: formatChords(b.pageDown) },
     { label: t("shortcuts.scrollUp"), keys: formatChords(b.pageUp) },
     { label: t("shortcuts.help"), keys: "?" },

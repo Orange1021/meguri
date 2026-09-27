@@ -10,6 +10,8 @@ import { countFiles, lastScanAt } from "./queries.js";
 import type {
   DuplicatesResult,
   FileRow,
+  FolderFilesResult,
+  FolderListing,
   HistoryPage,
   HistoryQuery,
   SearchQuery,
@@ -40,7 +42,17 @@ export type QueryRequest =
   | { kind: "history"; targets: QueryTarget[]; query: HistoryQuery }
   | { kind: "duplicates"; targets: QueryTarget[] }
   | { kind: "tagsList"; targets: QueryTarget[] }
-  | { kind: "stats"; targets: QueryTarget[] };
+  | { kind: "stats"; targets: QueryTarget[] }
+  // Folder view: one real workspace only (the view is off for All and
+  // collections), so these take the first target and ignore the rest.
+  | { kind: "folders"; targets: QueryTarget[]; path: string }
+  | {
+      kind: "folderFiles";
+      targets: QueryTarget[];
+      paths: string[];
+      /** Rows to return across the whole call (see folderFiles). */
+      limit: number;
+    };
 
 export type QueryResponse =
   | SearchResult
@@ -48,7 +60,9 @@ export type QueryResponse =
   | HistoryPage
   | DuplicatesResult
   | TagList
-  | WorkspaceStats;
+  | WorkspaceStats
+  | FolderListing
+  | FolderFilesResult;
 
 const DUP_REFS_CACHE_TTL_MS = 5_000;
 const DUP_REFS_CACHE_MAX_ENTRIES = 16;
@@ -199,6 +213,18 @@ export class QueryExecutor {
           if (t != null && (scanAt == null || t > scanAt)) scanAt = t;
         }
         return { fileCount, lastScanAt: scanAt };
+      }
+      case "folders": {
+        const target = cores[0];
+        if (!target) return { path: "", folders: [], fileCount: 0 };
+        return cw.listFoldersWorkspace(target, req.path);
+      }
+      case "folderFiles": {
+        const target = cores[0];
+        if (!target) {
+          return req.paths.map((path) => ({ path, total: 0, rows: [] }));
+        }
+        return cw.folderFilesWorkspace(target, req.paths, req.limit);
       }
     }
   }

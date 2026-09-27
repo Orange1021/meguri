@@ -336,6 +336,24 @@ export const zhCN: Record<TranslationKey, string> = {
   "view.grid": "网格视图",
   "view.list": "列表视图",
   "view.table": "表格视图",
+
+  // folder view
+  "view.folder": "文件夹视图",
+  "view.folderUnavailable": "仅在打开工作区时可使用文件夹视图",
+  "folder.breadcrumbLabel": "文件夹路径",
+  "folder.root": "工作区",
+  "folder.back": "返回",
+  "folder.up": "上一级",
+  "folder.more": "显示隐藏的层级",
+  "folder.itemCount": "{count} 项",
+  "folder.open": "打开文件夹“{name}”",
+  "folder.emptySearch": "此文件夹中没有匹配的媒体",
+  "folder.emptySearchHint": "请更改条件，或在上级文件夹中搜索。",
+  "folder.moved": "正在查看的文件夹已不存在，已移至上一级。",
+  "shortcuts.folderBack": "返回上一个文件夹（文件夹视图）",
+  "shortcuts.folderUp": "上一级（文件夹视图）",
+  "select.folderCount": "含 {count} 个文件夹",
+  "select.folderLoading": "正在加载文件夹内容",
   "table.name": "名称",
 
   // discovery (random recommendations)

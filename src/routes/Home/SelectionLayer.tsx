@@ -6,6 +6,7 @@
 // live anyway (it is positioned against the list area).
 import { useCallback, useEffect, useState } from "react";
 import { BulkTagDialog } from "@/components/BulkTagDialog";
+import { MAX_BULK_FILES } from "@shared/tags";
 import { SelectionBar } from "@/components/SelectionBar";
 import { useSelection } from "@/components/SelectionContext";
 import { isSelectAllKey } from "@/hooks/useSelectAllGuard";
@@ -65,7 +66,14 @@ export function SelectionLayer({ active }: Props) {
         e.key === "T" ||
         (e.key.length !== 1 && e.code === "KeyT");
       if (isTagKey && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        if (selection.count === 0) return;
+        // Not while a picked folder is still fetching its files, nor past
+        // the cap: the dialog would open onto an edit it cannot apply.
+        if (
+          selection.count === 0 ||
+          selection.pending ||
+          selection.count > MAX_BULK_FILES
+        )
+          return;
         e.preventDefault();
         setTagsOpen(true);
       }

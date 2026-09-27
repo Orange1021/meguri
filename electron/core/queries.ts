@@ -8,3 +8,5 @@ export * from "./queries/scanRoots.js";
 export * from "./queries/history.js";
 export * from "./queries/duplicates.js";
 export * from "./queries/settings.js";
+export * from "./queries/folderRange.js";
+export * from "./queries/folders.js";

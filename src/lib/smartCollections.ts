@@ -45,6 +45,18 @@ export function hasSearchConditions(query: SearchQuery): boolean {
   return Object.keys(cleanSearchQuery(query)).length > 0;
 }
 
+/**
+ * Whether the query narrows the list at all — anything but the sort. The folder
+ * view keys off it: with nothing narrowing, a folder shows its own contents;
+ * with a condition, it searches everything below it.
+ */
+export function hasFilterConditions(query: SearchQuery): boolean {
+  const rest = cleanSearchQuery(query);
+  delete rest.sort;
+  delete rest.sortDir;
+  return Object.keys(rest).length > 0;
+}
+
 export function parseSmartCollections(raw: string | null): SmartCollection[] {
   if (!raw) return [];
   try {

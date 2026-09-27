@@ -26,6 +26,8 @@ export const INVOKE_CHANNELS = [
   "scan_cancel",
   "files_search",
   "files_random",
+  "folders_list",
+  "folder_files",
   "file_get",
   "file_set_rating",
   "file_set_favorite",
