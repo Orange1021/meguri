@@ -60,7 +60,8 @@ import {
   type ViewMode,
   addSearchTokens,
   discoverPath,
-  effectiveViewMode,
+  GRID_FOLDERS_KEY,
+  isFolderView,
   isViewMode,
   scrollListByPage,
 } from "./utils";
@@ -91,6 +92,11 @@ export default function Home() {
     "grid",
     (raw) => (isViewMode(raw) ? raw : "grid"),
   );
+  const [gridFolders, setGridFolders] = useLocalStorage<boolean>(
+    GRID_FOLDERS_KEY,
+    false,
+    (raw) => raw === "true",
+  );
 
   const status = useAppStatus();
   const workspaces = useQuery({
@@ -115,16 +121,26 @@ export default function Home() {
     null,
   );
 
-  // Folder view lives inside one real workspace: over "All" or a collection
-  // the stored choice is drawn as the grid (see effectiveViewMode).
+  // The grid's "show by folder" option works inside one real workspace: over
+  // "All" or a collection the grid is drawn flat (see isFolderView).
   const workspaceId = status.data?.workspaceId ?? null;
   const folderAvailable =
     (status.data?.ready ?? false) &&
     !!workspaceId &&
     workspaceId !== ALL_ID &&
     !workspaceId.startsWith(COLLECTION_ID_PREFIX);
-  const shownView = effectiveViewMode(view, { folderAvailable });
-  const folderView = shownView === "folder";
+  const folderView = isFolderView({ view, gridFolders, folderAvailable });
+  // The one way the option changes, from the header and the command menu. The
+  // command menu works from any view: the option belongs to the grid, so
+  // turning it on from the list or table also shows the grid.
+  const toggleGridFolders = useCallback(() => {
+    if (view !== "grid") {
+      setViewMode("grid");
+      setGridFolders(true);
+    } else {
+      setGridFolders((on) => !on);
+    }
+  }, [view, setViewMode, setGridFolders]);
   const folderNav = useFolderNav(workspaceId);
   // With nothing narrowing the list a folder shows its own contents (child
   // folders as cards, then its direct files); a search or filter covers
@@ -636,8 +652,10 @@ export default function Home() {
         onEditCollection={() => setEditCollection(activeCollection)}
         workspace={activeWorkspace}
         onEditWorkspace={() => setEditWorkspace(activeWorkspace)}
-        view={shownView}
+        view={view}
         onSetView={setViewMode}
+        folderView={folderView}
+        onToggleGridFolders={toggleGridFolders}
         folderAvailable={folderAvailable}
         scanning={scanning}
         ready={status.data?.ready ?? false}
@@ -724,6 +742,8 @@ export default function Home() {
         onScan={(includeExcluded) => void onScan(includeExcluded)}
         onRebuild={() => void onRebuild()}
         onSetView={setViewMode}
+        onToggleGridFolders={toggleGridFolders}
+        folderView={folderView}
         folderAvailable={folderAvailable}
         onDiscover={openDiscover}
         onTags={openTags}
@@ -765,7 +785,7 @@ export default function Home() {
                 </Button>
                 <p className="text-xs opacity-70">{t("home.addFromSidebar")}</p>
               </div>
-            ) : shownView === "list" ? (
+            ) : view === "list" ? (
               <MediaList
                 items={items}
                 mediaBase={status.data?.mediaBase ?? ""}
@@ -784,7 +804,7 @@ export default function Home() {
                 watchLater={activeCollection?.id === WATCH_LATER_ID}
                 reorder={reorder}
               />
-            ) : shownView === "table" ? (
+            ) : view === "table" ? (
               <MediaTable
                 items={items}
                 mediaBase={status.data?.mediaBase ?? ""}
@@ -804,8 +824,8 @@ export default function Home() {
                 reorder={reorder}
               />
             ) : (
-              // Grid and folder view: the folder view is the grid with its
-              // folder cards ahead of the files (folders is unset otherwise).
+              // The grid, by folder or flat: by folder it gets the folder
+              // cards ahead of the files (folders is unset otherwise).
               <MediaGrid
                 items={items}
                 mediaBase={status.data?.mediaBase ?? ""}

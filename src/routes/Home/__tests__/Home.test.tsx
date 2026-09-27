@@ -14,7 +14,7 @@ import {
 } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { applyTagFilter } from "@/lib/ui-events";
-import { VIEW_KEY } from "@/routes/Home/utils";
+import { GRID_FOLDERS_KEY, VIEW_KEY } from "@/routes/Home/utils";
 
 const mocks = vi.hoisted(() => ({
   appStatus: vi.fn(),
@@ -377,10 +377,14 @@ describe("Home folder view", () => {
     return calls[calls.length - 1][0] as Record<string, unknown>;
   };
 
-  afterEach(() => localStorage.removeItem(VIEW_KEY));
+  afterEach(() => {
+    localStorage.removeItem(VIEW_KEY);
+    localStorage.removeItem(GRID_FOLDERS_KEY);
+  });
 
   beforeEach(() => {
-    localStorage.setItem(VIEW_KEY, "folder");
+    localStorage.setItem(VIEW_KEY, "grid");
+    localStorage.setItem(GRID_FOLDERS_KEY, "true");
     mocks.appStatus.mockResolvedValue(defaultAppStatus);
     mocks.workspacesList.mockResolvedValue(defaultWorkspacesList);
     mocks.filesSearch.mockReset();
@@ -467,7 +471,7 @@ describe("Home folder view", () => {
     );
   });
 
-  it("draws the grid over All without forgetting the folder choice", async () => {
+  it("draws the grid flat over All without forgetting the folder option", async () => {
     mocks.appStatus.mockResolvedValue({
       ...defaultAppStatus,
       root: "All",
@@ -478,20 +482,19 @@ describe("Home folder view", () => {
     await screen.findByText("sample.mp4");
     expect(lastSearch().folder).toBeUndefined();
     expect(mocks.foldersList).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Folder view" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    expect(
+      screen.getByRole("button", { name: "Show by folder" }),
+    ).toHaveProperty("disabled", true);
     expect(
       screen
         .getByRole("button", { name: "Grid view" })
         .getAttribute("aria-pressed"),
     ).toBe("true");
-    expect(localStorage.getItem(VIEW_KEY)).toBe("folder");
+    expect(localStorage.getItem(GRID_FOLDERS_KEY)).toBe("true");
   });
 
-  it("drops a grid selection when switching to the folder view at the root", async () => {
-    localStorage.setItem(VIEW_KEY, "grid");
+  it("drops a grid selection when turning on the folder option at the root", async () => {
+    localStorage.setItem(GRID_FOLDERS_KEY, "false");
     renderWithProviders(<AppRoutes />);
     const name = await screen.findByText("sample.mp4");
     fireEvent.click(name.closest("a")!, { ctrlKey: true });
@@ -499,7 +502,7 @@ describe("Home folder view", () => {
       screen.getByRole("region", { name: "Selection actions" }),
     ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Folder view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show by folder" }));
 
     await screen.findByTestId("folder-card");
     expect(
@@ -553,5 +556,51 @@ describe("Home folder view", () => {
         expect.anything(),
       ),
     );
+  });
+
+  it("offers the folder option with the grid only", async () => {
+    localStorage.setItem(VIEW_KEY, "list");
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+    expect(screen.queryByRole("button", { name: "Show by folder" })).toBeNull();
+    expect(mocks.foldersList).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Grid view" }));
+    // Back on the grid, the remembered option draws it by folder again.
+    await screen.findByTestId("folder-card");
+    expect(
+      screen
+        .getByRole("button", { name: "Show by folder" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("toggles the option from the command menu, showing the grid first", async () => {
+    localStorage.setItem(VIEW_KEY, "list");
+    localStorage.setItem(GRID_FOLDERS_KEY, "false");
+    // cmdk scrolls the highlighted option into view; jsdom has no layout.
+    if (!("scrollIntoView" in Element.prototype)) {
+      Object.defineProperty(Element.prototype, "scrollIntoView", {
+        configurable: true,
+        value: () => {},
+      });
+    }
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+
+    const run = async (name: string) => {
+      fireEvent.keyDown(window, { key: "k", code: "KeyK", ctrlKey: true });
+      fireEvent.click(await screen.findByRole("option", { name }));
+    };
+
+    // From the list: the grid appears, by folder.
+    await run("Show by folder");
+    await screen.findByTestId("folder-card");
+    expect(localStorage.getItem(VIEW_KEY)).toBe("grid");
+
+    // Now on, the same command is named for undoing it.
+    await run("Stop showing by folder");
+    await waitFor(() => expect(screen.queryByTestId("folder-card")).toBeNull());
+    expect(localStorage.getItem(GRID_FOLDERS_KEY)).toBe("false");
   });
 });

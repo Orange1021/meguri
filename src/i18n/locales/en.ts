@@ -345,9 +345,10 @@ export const en: Record<TranslationKey, string> = {
   "view.table": "Table view",
 
   // folder view
-  "view.folder": "Folder view",
+  "view.folder": "Show by folder",
+  "view.folderOff": "Stop showing by folder",
   "view.folderUnavailable":
-    "Folder view is available only while a workspace is open",
+    "Showing by folder is available only while a workspace is open",
   "folder.breadcrumbLabel": "Folder path",
   "folder.root": "Workspace",
   "folder.back": "Back",
@@ -366,8 +367,8 @@ export const en: Record<TranslationKey, string> = {
   "folder.emptySearchHint":
     "Try other conditions, or search from a folder further up.",
   "folder.moved": "The folder you were viewing is gone, so you were moved up.",
-  "shortcuts.folderBack": "Back to the previous folder (folder view)",
-  "shortcuts.folderUp": "Up one level (folder view)",
+  "shortcuts.folderBack": "Back to the previous folder (showing by folder)",
+  "shortcuts.folderUp": "Up one level (showing by folder)",
   "select.folderCount": "including {count} folders",
   "select.folderLoading": "Loading folder contents",
   "select.selectFolder": "Select everything in this folder",

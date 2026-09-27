@@ -50,6 +50,8 @@ export function HomeHeader({
   onEditWorkspace,
   view,
   onSetView,
+  folderView,
+  onToggleGridFolders,
   folderAvailable,
   scanning,
   ready,
@@ -66,10 +68,12 @@ export function HomeHeader({
   /** The active real workspace, when one is selected (null for a collection or "All"). */
   workspace: WorkspaceInfo | null;
   onEditWorkspace: () => void;
-  /** The view being drawn (the stored choice after any fallback). */
   view: ViewMode;
   onSetView: (v: ViewMode) => void;
-  /** Folder view needs one real workspace open (not All or a collection). */
+  /** The grid is being drawn by folder (see isFolderView). */
+  folderView: boolean;
+  onToggleGridFolders: () => void;
+  /** Folders need one real workspace open (not All or a collection). */
   folderAvailable: boolean;
   scanning: boolean;
   ready: boolean;
@@ -170,12 +174,6 @@ export function HomeHeader({
                 mode: "table",
                 label: t("view.table"),
                 Icon: Table2,
-                rounded: "",
-              },
-              {
-                mode: "folder",
-                label: t("view.folder"),
-                Icon: FolderTree,
                 rounded: "rounded-r-md",
               },
             ] as const
@@ -186,14 +184,9 @@ export function HomeHeader({
               onClick={() => onSetView(mode)}
               aria-label={label}
               aria-pressed={view === mode}
-              disabled={mode === "folder" && !folderAvailable}
-              title={
-                mode === "folder" && !folderAvailable
-                  ? t("view.folderUnavailable")
-                  : label
-              }
+              title={label}
               className={cn(
-                "flex size-7 items-center justify-center transition disabled:cursor-not-allowed disabled:opacity-40",
+                "flex size-7 items-center justify-center transition",
                 rounded,
                 view === mode
                   ? "bg-primary/20 text-fg"
@@ -204,6 +197,29 @@ export function HomeHeader({
             </button>
           ))}
         </div>
+        {/* An option of the grid, so it is offered only with the grid. Shown
+            but disabled over All or a collection, where there are no folders
+            to show; the stored choice is kept for the next workspace. */}
+        {view === "grid" && (
+          <button
+            type="button"
+            onClick={onToggleGridFolders}
+            aria-label={t("view.folder")}
+            aria-pressed={folderView}
+            disabled={!folderAvailable}
+            title={
+              folderAvailable ? t("view.folder") : t("view.folderUnavailable")
+            }
+            className={cn(
+              "flex size-7 items-center justify-center rounded-md border border-border transition disabled:cursor-not-allowed disabled:opacity-40",
+              folderView
+                ? "bg-primary/20 text-fg"
+                : "text-muted hover:bg-fg/10 hover:text-fg",
+            )}
+          >
+            <FolderTree className="size-4" />
+          </button>
+        )}
         <ButtonGroup className="[&>button]:border [&>button]:border-muted/35 [&>button]:bg-surface [&>button:not(:first-child)]:relative [&>button:not(:first-child)]:z-[1]">
           <Button
             size="sm"

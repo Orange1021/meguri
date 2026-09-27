@@ -159,9 +159,10 @@ path that skips merging). Scanning never targets `All`.
 
 ### Folders
 
-A workspace's subfolders are never stored. The folder view derives them from
-`files.rel_path` on every request (`electron/core/queries/folders.ts`), so moves,
-renames, exclusions and rebuilds need no bookkeeping.
+A workspace's subfolders are never stored. The grid's "show by folder" option
+derives them from `files.rel_path` on every request
+(`electron/core/queries/folders.ts`), so moves, renames, exclusions and rebuilds
+need no bookkeeping.
 
 - **Path form.** Over IPC and in the renderer a folder is a `/`-separated path
   relative to the workspace, with the root as `""` (`shared/folderPath.ts`,
@@ -187,7 +188,7 @@ renames, exclusions and rebuilds need no bookkeeping.
   itself is the ordinary `files_search` with `SearchQuery.folder`
   (`{ path, recursive }`). All three run on the query worker.
 - **Scope.** Folders exist inside one real workspace only. The renderer does not
-  offer the folder view over `All` or a collection.
+  offer the grid's "show by folder" option over `All` or a collection.
 
 ## Collections
 

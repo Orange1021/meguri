@@ -353,9 +353,10 @@ export const es: Record<TranslationKey, string> = {
   "view.table": "Vista de tabla",
 
   // folder view
-  "view.folder": "Vista de carpetas",
+  "view.folder": "Mostrar por carpetas",
+  "view.folderOff": "Dejar de mostrar por carpetas",
   "view.folderUnavailable":
-    "La vista de carpetas solo está disponible con un espacio de trabajo abierto",
+    "Mostrar por carpetas solo está disponible con un espacio de trabajo abierto",
   "folder.breadcrumbLabel": "Ruta de la carpeta",
   "folder.root": "Espacio de trabajo",
   "folder.back": "Atrás",
@@ -375,8 +376,9 @@ export const es: Record<TranslationKey, string> = {
     "Prueba otras condiciones o busca desde una carpeta superior.",
   "folder.moved":
     "La carpeta que estabas viendo ya no existe; se ha subido de nivel.",
-  "shortcuts.folderBack": "Volver a la carpeta anterior (vista de carpetas)",
-  "shortcuts.folderUp": "Subir un nivel (vista de carpetas)",
+  "shortcuts.folderBack":
+    "Volver a la carpeta anterior (al mostrar por carpetas)",
+  "shortcuts.folderUp": "Subir un nivel (al mostrar por carpetas)",
   "select.folderCount": "incluye {count} carpetas",
   "select.folderLoading": "Cargando el contenido de la carpeta",
   "select.selectFolder": "Seleccionar todo en esta carpeta",

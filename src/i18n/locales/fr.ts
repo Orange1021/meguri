@@ -353,9 +353,10 @@ export const fr: Record<TranslationKey, string> = {
   "view.table": "Vue en tableau",
 
   // folder view
-  "view.folder": "Vue par dossiers",
+  "view.folder": "Afficher par dossier",
+  "view.folderOff": "Ne plus afficher par dossier",
   "view.folderUnavailable":
-    "La vue par dossiers n'est disponible que lorsqu'un espace de travail est ouvert",
+    "L'affichage par dossier n'est disponible que lorsqu'un espace de travail est ouvert",
   "folder.breadcrumbLabel": "Chemin du dossier",
   "folder.root": "Espace de travail",
   "folder.back": "Retour",
@@ -375,8 +376,9 @@ export const fr: Record<TranslationKey, string> = {
     "Essayez d'autres critères ou cherchez depuis un dossier parent.",
   "folder.moved":
     "Le dossier affiché n'existe plus ; vous avez été ramené au niveau supérieur.",
-  "shortcuts.folderBack": "Revenir au dossier précédent (vue par dossiers)",
-  "shortcuts.folderUp": "Remonter d'un niveau (vue par dossiers)",
+  "shortcuts.folderBack":
+    "Revenir au dossier précédent (affichage par dossier)",
+  "shortcuts.folderUp": "Remonter d'un niveau (affichage par dossier)",
   "select.folderCount": "dont {count} dossiers",
   "select.folderLoading": "Chargement du contenu du dossier",
   "select.selectFolder": "Sélectionner tout le contenu du dossier",

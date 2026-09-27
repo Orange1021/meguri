@@ -346,9 +346,10 @@ export const ja = {
   "view.table": "テーブル表示",
 
   // フォルダ表示
-  "view.folder": "フォルダ表示",
+  "view.folder": "フォルダごとに表示",
+  "view.folderOff": "フォルダごとの表示を解除",
   "view.folderUnavailable":
-    "フォルダ表示はワークスペースを開いているときだけ使えます",
+    "フォルダごとの表示はワークスペースを開いているときだけ使えます",
   "folder.breadcrumbLabel": "フォルダの階層",
   "folder.root": "ワークスペース",
   "folder.back": "戻る",
@@ -366,8 +367,8 @@ export const ja = {
   "folder.emptySearch": "このフォルダ内に該当するメディアはありません",
   "folder.emptySearchHint": "検索条件を変えるか、上の階層で探してください。",
   "folder.moved": "表示中のフォルダが見つからないため、上の階層へ移動しました",
-  "shortcuts.folderBack": "前のフォルダに戻る（フォルダ表示）",
-  "shortcuts.folderUp": "上の階層へ（フォルダ表示）",
+  "shortcuts.folderBack": "前のフォルダに戻る（フォルダごとの表示中）",
+  "shortcuts.folderUp": "上の階層へ（フォルダごとの表示中）",
   "select.folderCount": "フォルダ{count}件を含む",
   "select.folderLoading": "フォルダの中身を読み込み中",
   "select.selectFolder": "フォルダ内をすべて選択",
