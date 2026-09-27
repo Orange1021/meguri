@@ -383,6 +383,7 @@ export const ko: Record<TranslationKey, string> = {
   "discover.play": "재생",
   "discover.open": "열기",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "“{path}” 안에서 고르는 중",
   "discover.empty": "추천할 미디어가 없습니다.",
   "discover.emptyHint":
     "「스캔」으로 동영상과 이미지를 가져오면 여기에서 무작위로 추천됩니다.",

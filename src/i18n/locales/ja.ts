@@ -385,6 +385,7 @@ export const ja = {
   "discover.play": "再生",
   "discover.open": "開く",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "「{path}」の中から選んでいます",
   "discover.empty": "おすすめできるメディアがありません。",
   "discover.emptyHint":
     "「スキャン」で動画や画像を取り込むと、ここでランダムにおすすめされます。",

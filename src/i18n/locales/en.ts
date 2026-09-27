@@ -385,6 +385,7 @@ export const en: Record<TranslationKey, string> = {
   "discover.play": "Play",
   "discover.open": "Open",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "Picking from “{path}”",
   "discover.empty": "No media to recommend.",
   "discover.emptyHint":
     'Run "Scan" to import videos and images, and they\'ll be recommended here at random.',

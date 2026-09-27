@@ -612,4 +612,23 @@ describe("Home folder view", () => {
     await waitFor(() => expect(screen.queryByTestId("folder-row")).toBeNull());
     expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
   });
+
+  it("opens Discovery scoped to the folder shown", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    const discover = () =>
+      screen.getByRole("link", { name: "Discovery" }).getAttribute("href") ??
+      "";
+    // At the root the whole workspace is the pool: no folder in the link.
+    expect(decodeURIComponent(discover())).not.toContain("folder");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    await waitFor(() =>
+      expect(decodeURIComponent(discover())).toContain(
+        '"folder":{"path":"Movie","recursive":true}',
+      ),
+    );
+  });
 });

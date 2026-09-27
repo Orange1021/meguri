@@ -5,7 +5,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Maximize2, Minimize2, RefreshCw, Sparkles, X } from "lucide-react";
+import {
+  Folder,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { api, events } from "@/ipc/client";
 import { useAppStatus } from "@/hooks/useAppStatus";
 import { useWatchLater } from "@/hooks/useWatchLater";
@@ -23,6 +30,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { useI18n } from "@/i18n/I18nProvider";
+import { splitFolderPath } from "@shared/folderPath";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import { NAV_BINDINGS, matchAny } from "@/settings/keybindings";
@@ -243,6 +251,10 @@ export default function Discover() {
 
   const ready = status.data?.ready ?? false;
   const loading = queue.isLoading && ready;
+  // The folder the queue is drawn from, spelled as a path ("Movie / 2024").
+  const folderLabel = discoverFilter.folder?.path
+    ? splitFolderPath(discoverFilter.folder.path).join(" / ")
+    : null;
 
   return (
     <DiscoverModal onClose={() => void onClose()} size={modalSize}>
@@ -258,6 +270,22 @@ export default function Discover() {
               current: current + 1,
               total: items.length,
             })}
+          </span>
+        )}
+        {/* Opened from a folder: the queue is drawn from below it only, which
+            also explains a short queue. */}
+        {folderLabel && (
+          <span
+            data-testid="discover-folder"
+            title={t("discover.inFolder", { path: folderLabel })}
+            aria-label={t("discover.inFolder", { path: folderLabel })}
+            className="pointer-events-auto flex min-w-0 max-w-[40%] items-center gap-1.5 rounded-full border border-border/60 bg-bg/60 px-2.5 py-0.5 text-xs text-bright-fg backdrop-blur-md"
+          >
+            <Folder
+              aria-hidden
+              className="size-3.5 shrink-0 fill-accent2 text-accent2"
+            />
+            <span className="truncate">{folderLabel}</span>
           </span>
         )}
         <div className="pointer-events-auto ml-auto flex items-center gap-2">

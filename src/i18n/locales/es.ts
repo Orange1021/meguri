@@ -395,6 +395,7 @@ export const es: Record<TranslationKey, string> = {
   "discover.play": "Reproducir",
   "discover.open": "Abrir",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "Eligiendo de «{path}»",
   "discover.empty": "No hay medios para recomendar.",
   "discover.emptyHint":
     "Ejecuta «Escanear» para importar vídeos e imágenes y se recomendarán aquí al azar.",

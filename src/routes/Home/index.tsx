@@ -460,9 +460,18 @@ export default function Home() {
     input?.select();
   }, []);
 
+  // Discovery picks from where the view is: below the current folder when
+  // shown by folder (the root being the whole workspace anyway).
+  const discoverFilter = useMemo<SearchQuery>(
+    () =>
+      folderView && folderNav.path
+        ? { ...filter, folder: { path: folderNav.path, recursive: true } }
+        : filter,
+    [filter, folderView, folderNav.path],
+  );
   const openDiscover = useCallback(() => {
-    void navigate(discoverPath(filter));
-  }, [filter, navigate]);
+    void navigate(discoverPath(discoverFilter));
+  }, [discoverFilter, navigate]);
 
   const openTags = useCallback(() => {
     void navigate("/tags");
@@ -884,7 +893,7 @@ export default function Home() {
         </Link>
 
         <Link
-          to={discoverPath(filter)}
+          to={discoverPath(discoverFilter)}
           title={t("discover.title")}
           aria-label={t("discover.title")}
           aria-disabled={!status.data?.ready}

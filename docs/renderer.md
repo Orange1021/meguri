@@ -93,8 +93,10 @@ a back stack), not in the URL — Home stays mounted under its child-route
 modals, so the location survives opening and closing them, whereas a query
 parameter on `/` would be dropped by the first navigation to `/file/:id`. With a
 search or filter active, it searches everything below the current folder
-instead (`hasFilterConditions`). Over `All` or a collection the view is drawn
-flat (`isFolderView`) without overwriting the stored option.
+instead (`hasFilterConditions`). Discovery opened from below the root draws its
+queue from the current folder too, and its header names that folder. Over `All`
+or a collection the view is drawn flat (`isFolderView`) without overwriting the
+stored option.
 
 Selecting a folder selects every file below it: `SelectionContext` fetches
 them through `folder_files` when the folder is picked, because the selection bar

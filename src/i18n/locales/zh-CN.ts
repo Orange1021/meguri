@@ -375,6 +375,7 @@ export const zhCN: Record<TranslationKey, string> = {
   "discover.play": "播放",
   "discover.open": "打开",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "正在从“{path}”中挑选",
   "discover.empty": "没有可推荐的媒体。",
   "discover.emptyHint": "执行“扫描”导入视频和图片后，这里会随机推荐。",
   "discover.sceneHint": "悬停放大 · 点击从该时间点播放",
