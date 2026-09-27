@@ -552,6 +552,7 @@ export const ja = {
   // プレイリスト再生（自動再生）
   "sort.manual": "手動順",
   "playlist.start": "プレイリスト再生",
+  "playlist.inFolder": "「{path}」を再生しています",
   "playlist.play": "再生 (Space)",
   "playlist.pause": "一時停止 (Space)",
   "playlist.next": "次へ (N)",

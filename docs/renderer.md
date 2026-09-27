@@ -93,8 +93,14 @@ a back stack), not in the URL — Home stays mounted under its child-route
 modals, so the location survives opening and closing them, whereas a query
 parameter on `/` would be dropped by the first navigation to `/file/:id`. With a
 search or filter active, it searches everything below the current folder
-instead (`hasFilterConditions`). Discovery opened from below the root draws its
-queue from the current folder too, and its header names that folder. Over `All`
+instead (`hasFilterConditions`). Browsing a folder, the playlist and Discovery
+both draw from its whole subtree rather than the direct files shown: the player
+through its own order (`PlaylistNavContext`, in the list's sort or by name),
+Discovery through its filter. Both name the folder they draw from
+(`FolderScopeChip`, spelled from the workspace down — the workspace alone for
+its root). Both buttons are
+enabled on the same rule — something to draw from, which by folder is the
+listing's direct files plus its child folders' counts. Over `All`
 or a collection the view is drawn flat (`isFolderView`) without overwriting the
 stored option.
 

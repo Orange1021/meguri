@@ -532,6 +532,7 @@ export const zhCN: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "手动排序",
   "playlist.start": "作为播放列表播放",
+  "playlist.inFolder": "正在播放“{path}”",
   "playlist.play": "播放 (Space)",
   "playlist.pause": "暂停 (Space)",
   "playlist.next": "下一个 (N)",

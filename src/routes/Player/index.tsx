@@ -50,6 +50,8 @@ import { useFullscreen } from "./useFullscreen";
 import { usePlayerKeys } from "./usePlayerKeys";
 import { usePlaylistAudio } from "./usePlaylistAudio";
 import { useStageTransition } from "./useStageTransition";
+import { useFolderScopeLabel } from "@/hooks/useFolderScopeLabel";
+import { usePlaybackNav } from "@/components/MediaNavContext";
 
 /**
  * Half of one item-to-item transition: the outgoing item fades out over this
@@ -110,6 +112,8 @@ export default function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The folder the order covers, when it is a folder's subtree.
+  const playbackFolder = usePlaybackNav()?.folder;
   const queue = usePlaybackQueue({
     shuffle: playlistShuffle,
     repeat: playlistRepeat,
@@ -349,6 +353,8 @@ export default function Player() {
   }, [queue.ended, queue.total, queue.unplayable, exit]);
 
   const title = file ? fileNameOf(file.relPath) : "";
+  // Playing a folder's subtree: name the folder, from the workspace down.
+  const folderLabel = useFolderScopeLabel(playbackFolder);
   // Whether an audio item has cover art on screen (the spectrum lays itself
   // out around it, or takes its place).
   const hasArt = Boolean(file && hasThumbFile(file) && thumbSrc);
@@ -475,6 +481,7 @@ export default function Player() {
       {!empty && !queue.unplayable && (
         <PlayerChrome
           title={title}
+          folderLabel={folderLabel}
           position={queue.position}
           total={queue.total}
           playing={playing}

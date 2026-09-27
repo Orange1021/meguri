@@ -48,14 +48,23 @@ describe("Discovery from a folder", () => {
         }),
       ),
     );
-    const chip = await screen.findByTestId("discover-folder");
-    expect(chip.textContent).toBe("Movie / 2024");
-    expect(chip.getAttribute("aria-label")).toBe("Picking from “Movie / 2024”");
+    const chip = await screen.findByTestId("folder-scope");
+    // Named from the workspace down, once its name has loaded.
+    await waitFor(() => expect(chip.textContent).toBe("Media / Movie / 2024"));
+    expect(chip.getAttribute("aria-label")).toBe(
+      "Picking from “Media / Movie / 2024”",
+    );
+  });
+
+  it("names the workspace for its root folder", async () => {
+    renderAt({ folder: { path: "", recursive: true } });
+    const chip = await screen.findByTestId("folder-scope");
+    await waitFor(() => expect(chip.textContent).toBe("Media"));
   });
 
   it("names no folder when opened from the whole library", async () => {
     renderAt(null);
     await waitFor(() => expect(mocks.filesRandom).toHaveBeenCalled());
-    expect(screen.queryByTestId("discover-folder")).toBeNull();
+    expect(screen.queryByTestId("folder-scope")).toBeNull();
   });
 });

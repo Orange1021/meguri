@@ -43,6 +43,8 @@ interface CommandMenuProps {
   /** Folders need one real workspace open (not All or a collection). */
   folderAvailable?: boolean;
   onDiscover: () => void;
+  /** Discovery has something to pick from (the same rule as its button). */
+  canDiscover?: boolean;
   onTags: () => void;
   onSettings: () => void;
   onHelp: () => void;
@@ -90,6 +92,7 @@ export function CommandMenu({
   folderView = false,
   folderAvailable = false,
   onDiscover,
+  canDiscover = ready,
   onTags,
   onSettings,
   onHelp,
@@ -111,7 +114,7 @@ export function CommandMenu({
     action(t, "discover.title", {
       id: "discover",
       icon: Sparkles,
-      disabled: !ready,
+      disabled: !canDiscover,
       run: () => closeThen(onDiscover),
     }),
     action(t, "tags.title", {

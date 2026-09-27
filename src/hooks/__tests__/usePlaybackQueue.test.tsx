@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { MediaNavProvider, type MediaNav } from "@/components/MediaNavContext";
+import {
+  MediaNavProvider,
+  PlaylistNavProvider,
+  type MediaNav,
+} from "@/components/MediaNavContext";
 import { usePlaybackQueue } from "@/hooks/usePlaybackQueue";
 import type { FileRow } from "@/ipc/types";
 import { sampleFileRow } from "@/test/fixtures";
@@ -152,5 +156,91 @@ describe("usePlaybackQueue", () => {
     expect(q.result.current).toBeNull();
     expect(q.result.total).toBe(0);
     expect(q.result.ended).toBe(true);
+  });
+});
+
+describe("usePlaybackQueue with a playlist order of its own", () => {
+  function mountPlaylist(
+    list: MediaNav,
+    playlist: MediaNav,
+    options: Parameters<typeof usePlaybackQueue>[0] = {
+      shuffle: false,
+      repeat: false,
+    },
+  ) {
+    let latest: ReturnType<typeof usePlaybackQueue> | undefined;
+    function Probe() {
+      latest = usePlaybackQueue(options);
+      return null;
+    }
+    const tree = (p: MediaNav) => (
+      <MediaNavProvider value={list}>
+        <PlaylistNavProvider value={p}>
+          <Probe />
+        </PlaylistNavProvider>
+      </MediaNavProvider>
+    );
+    const { rerender } = render(tree(playlist));
+    return {
+      get result() {
+        return latest!;
+      },
+      setPlaylist(p: MediaNav) {
+        act(() => rerender(tree(p)));
+      },
+    };
+  }
+
+  it("plays the playlist order over the list, pages included", () => {
+    const listNext = vi.fn();
+    const fetchNextPage = vi.fn();
+    // The list shows two direct files; the folder holds five and more.
+    const q = mountPlaylist(
+      nav(rows(1, 2), { hasNextPage: true, fetchNextPage: listNext }),
+      nav(rows(10, 14), { hasNextPage: true, fetchNextPage }),
+    );
+    expect(q.result.current?.fileId).toBe(10);
+    expect(q.result.total).toBe(5);
+    act(() => q.result.next());
+    act(() => q.result.next());
+    expect(fetchNextPage).toHaveBeenCalled();
+    expect(listNext).not.toHaveBeenCalled();
+  });
+
+  it("waits, rather than ending, while the order loads its first page", () => {
+    const q = mountPlaylist(nav(rows(1, 2)), nav([], { isLoading: true }));
+    expect(q.result.ended).toBe(false);
+    expect(q.result.waiting).toBe(true);
+    q.setPlaylist(nav(rows(10, 12)));
+    expect(q.result.current?.fileId).toBe(10);
+  });
+
+  it("holds the seed until the start item's page arrives", () => {
+    const fetchNextPage = vi.fn();
+    const q = mountPlaylist(
+      nav(rows(1, 2)),
+      nav(rows(10, 12), { hasNextPage: true, fetchNextPage }),
+      {
+        shuffle: false,
+        repeat: false,
+        startAt: { workspaceId: sampleFileRow.workspaceId, fileId: 21 },
+      },
+    );
+    // Not on the first page: nothing plays yet, and the next page is asked for.
+    expect(q.result.current).toBeNull();
+    expect(q.result.ended).toBe(false);
+    expect(fetchNextPage).toHaveBeenCalled();
+
+    q.setPlaylist(nav([...rows(10, 12), ...rows(20, 22)]));
+    expect(q.result.current?.fileId).toBe(21);
+  });
+
+  it("starts from the head when the start item never turns up", () => {
+    const q = mountPlaylist(nav(rows(1, 2)), nav(rows(10, 12)), {
+      shuffle: false,
+      repeat: false,
+      startAt: { workspaceId: sampleFileRow.workspaceId, fileId: 99 },
+    });
+    expect(q.result.current?.fileId).toBe(10);
   });
 });

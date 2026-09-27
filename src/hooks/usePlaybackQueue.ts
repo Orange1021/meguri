@@ -4,8 +4,13 @@
 // modal uses for prev/next — so the player inherits whatever sort and filter the
 // list has, works from any list (not just collections), and keeps growing past
 // the loaded tail as more pages arrive.
+//
+// Browsing by folder, the order comes from PlaylistNavContext instead (see
+// usePlaybackNav): the folder's whole subtree, not only the direct files the
+// list shows. That order is fetched when the player opens, so the first seed
+// may have to wait for it — and for the page holding the start item.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMediaNav } from "@/components/MediaNavContext";
+import { usePlaybackNav } from "@/components/MediaNavContext";
 import {
   advance,
   back,
@@ -73,13 +78,16 @@ function toQueueItems(
 export function usePlaybackQueue(
   options: UsePlaybackQueueOptions,
 ): UsePlaybackQueueResult {
-  const nav = useMediaNav();
+  // The playlist's own order where there is one (browsing by folder, the
+  // folder's whole subtree), else the list as shown.
+  const nav = usePlaybackNav();
   const navItems = useMemo(() => nav?.items ?? [], [nav?.items]);
   const items = useMemo(() => toQueueItems(navItems), [navItems]);
 
   // The queue is seeded once and then only ever extended. Re-seeding on list
   // changes would restart playback every time a page loads.
   const seeded = useRef(false);
+  const [holding, setHolding] = useState(true);
   const [queue, setQueue] = useState<PlaybackQueue>(() =>
     createQueue([], { shuffle: options.shuffle, repeat: options.repeat }),
   );
@@ -89,9 +97,11 @@ export function usePlaybackQueue(
   // seeding effect re-run when the caller passes a fresh object literal.
   const startAtRef = useRef(startAt);
   const restoreRef = useRef(restore);
+  const hasNextPageRef = useRef(nav?.hasNextPage ?? false);
   useEffect(() => {
     startAtRef.current = startAt;
     restoreRef.current = restore;
+    hasNextPageRef.current = nav?.hasNextPage ?? false;
   });
 
   // One effect owns the queue's reaction to the outside world: newly loaded list
@@ -108,6 +118,7 @@ export function usePlaybackQueue(
         // same list the queue came from — the player checks that by naming the
         // parked file in the URL before it hands one back.
         seeded.current = true;
+        setHolding(false);
         setQueue(
           setQueueRepeat(
             setQueueShuffle(extend(previous, items), shuffle),
@@ -117,33 +128,51 @@ export function usePlaybackQueue(
         return;
       }
       if (items.length === 0) return;
+      // Asked to start on an item that has not loaded yet: hold the seed
+      // until its page arrives (the prefetch below pulls pages meanwhile), or
+      // start from the head once the order has no more pages to give.
+      const start = startAtRef.current;
+      const startLoaded =
+        !start ||
+        items.some(
+          (it) =>
+            it.fileId === start.fileId && it.workspaceId === start.workspaceId,
+        );
+      if (!startLoaded && hasNextPageRef.current) return;
       seeded.current = true;
-      setQueue(
-        createQueue(items, { shuffle, repeat, startAt: startAtRef.current }),
-      );
+      setHolding(false);
+      setQueue(createQueue(items, { shuffle, repeat, startAt: start }));
       return;
     }
     setQueue((q) =>
       setQueueRepeat(setQueueShuffle(extend(q, items), shuffle), repeat),
     );
-  }, [items, shuffle, repeat]);
+  }, [items, shuffle, repeat, nav?.hasNextPage]);
 
   // Pull the next page in before the queue runs dry, so playback never stalls
   // at the tail of what happens to be loaded. Measured up to the wrap, not
   // over the whole pool: a pass started mid-list still has the items before
   // its start to come round to, but those are not what the next page extends.
   const ahead = useMemo(() => poolAhead(queue), [queue]);
+  // Also pulled while a seed is held for its start item's page.
   useEffect(() => {
     if (!nav?.hasNextPage || nav.isFetchingNextPage) return;
-    if (ahead > PREFETCH_THRESHOLD) return;
+    if (!holding || navItems.length === 0) {
+      if (ahead > PREFETCH_THRESHOLD) return;
+    }
     nav.fetchNextPage();
-  }, [ahead, nav]);
+  }, [ahead, nav, holding, navItems.length]);
 
   const next = useCallback(() => setQueue((q) => advance(q)), []);
   const prev = useCallback(() => setQueue((q) => back(q)), []);
   const skipCurrent = useCallback(() => setQueue((q) => skip(q)), []);
 
-  const morePending = nav?.hasNextPage ?? false;
+  // Not over yet while the order is still loading its first page or a seed
+  // is held for its start item: an empty queue then means "wait".
+  const morePending =
+    (nav?.hasNextPage ?? false) ||
+    (holding && (nav?.isLoading ?? false)) ||
+    (holding && navItems.length > 0);
   return {
     current: queue.current,
     upcoming: queue.pool[0] ?? null,

@@ -67,7 +67,9 @@ and repeat are one click away, collections can be dragged into the order you
 want, and pressing `I` steps out to the current file's detail view —
 coming back resumes right where it left off. It works the other way round
 too: any file's detail view can start the playlist from that file, and
-whatever is playing there carries straight on.
+whatever is playing there carries straight on. Browsing by folder, it plays the
+whole folder — every subfolder included, by name unless you chose a sort — so a
+music folder of albums plays through album by album.
 
 ![Playlist demo — a full-screen player running a list hands-off, with shuffle and auto-advance](./docs/assets/playlist.gif)
 

@@ -14,6 +14,7 @@ import {
 } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { applyTagFilter } from "@/lib/ui-events";
+import { useMediaNav, usePlaylistNav } from "@/components/MediaNavContext";
 import { getListCounts } from "@/hooks/useListCounts";
 import { BY_FOLDER_KEY, VIEW_KEY } from "@/routes/Home/utils";
 
@@ -91,8 +92,22 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />}>
         <Route path="file/:id" element={<MediaDetail />} />
+        <Route path="play" element={<PlaylistProbe />} />
       </Route>
     </Routes>
+  );
+}
+
+/** Stands in for the player: shows the order it would play. */
+function PlaylistProbe() {
+  const playlist = usePlaylistNav();
+  const list = useMediaNav();
+  const nav = playlist ?? list;
+  return (
+    <div data-testid="playlist-probe">
+      {playlist ? "own:" : "list:"}
+      {nav?.items.map((f) => f.relPath).join(",")}
+    </div>
   );
 }
 
@@ -620,8 +635,11 @@ describe("Home folder view", () => {
     const discover = () =>
       screen.getByRole("link", { name: "Discovery" }).getAttribute("href") ??
       "";
-    // At the root the whole workspace is the pool: no folder in the link.
-    expect(decodeURIComponent(discover())).not.toContain("folder");
+    // At the root the pool is the whole workspace; the root is named anyway
+    // so Discovery can say which folder it draws from.
+    expect(decodeURIComponent(discover())).toContain(
+      '"folder":{"path":"","recursive":true}',
+    );
 
     fireEvent.click(
       screen.getByRole("button", { name: 'Open folder "Movie"' }),
@@ -659,6 +677,66 @@ describe("Home folder view", () => {
         more: false,
         folders: null,
       }),
+    );
+  });
+
+  const fab = (name: string) =>
+    screen.getByRole("link", { name }).getAttribute("aria-disabled");
+
+  it("enables both buttons for a folder of folders, playing the whole folder", async () => {
+    // The root holds no files of its own, only a folder with three.
+    mocks.filesSearch.mockImplementation((query: unknown) =>
+      Promise.resolve({
+        // The playlist's order is the root's whole subtree, by name. The list
+        // itself asks for the root's direct files (not recursive).
+        items: (query as { folder?: { recursive?: boolean } }).folder?.recursive
+          ? [
+              { ...sampleFileRow, id: 7, relPath: "Movie/a.mp4" },
+              { ...sampleFileRow, id: 8, relPath: "Movie/b.mp4" },
+            ]
+          : [],
+        nextCursor: null,
+      }),
+    );
+    mocks.foldersList.mockResolvedValue({
+      path: "",
+      folders: [movie],
+      fileCount: 0,
+    });
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    await waitFor(() => expect(fab("Play as playlist")).toBe("false"));
+    expect(fab("Discovery")).toBe("false");
+
+    fireEvent.click(screen.getByRole("link", { name: "Play as playlist" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("playlist-probe").textContent).toBe(
+        "own:Movie/a.mp4,Movie/b.mp4",
+      ),
+    );
+    expect(lastSearch()).toMatchObject({
+      folder: { path: "", recursive: true },
+      sort: "name",
+      sortDir: "asc",
+    });
+  });
+
+  it("disables both buttons when there is nothing to draw from", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    mocks.filesSearch.mockResolvedValue({ items: [], nextCursor: null });
+    renderWithProviders(<AppRoutes />);
+    await waitFor(() => expect(mocks.filesSearch).toHaveBeenCalled());
+    await waitFor(() => expect(fab("Play as playlist")).toBe("true"));
+    expect(fab("Discovery")).toBe("true");
+  });
+
+  it("plays the list as shown when not browsing by folder", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    renderWithProviders(<AppRoutes />, { route: "/play" });
+    await waitFor(() =>
+      expect(screen.getByTestId("playlist-probe").textContent).toBe(
+        "list:videos/sample.mp4",
+      ),
     );
   });
 });

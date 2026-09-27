@@ -548,6 +548,7 @@ export const ko: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "수동 순서",
   "playlist.start": "재생 목록으로 재생",
+  "playlist.inFolder": "“{path}” 재생 중",
   "playlist.play": "재생 (Space)",
   "playlist.pause": "일시정지 (Space)",
   "playlist.next": "다음 (N)",

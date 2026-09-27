@@ -22,7 +22,10 @@ import { Button } from "@/components/ui/button";
 import { MANUAL_SORT } from "@shared/sortDir";
 import { MediaGrid } from "@/components/MediaGrid";
 import { MediaList } from "@/components/MediaList";
-import { MediaNavProvider } from "@/components/MediaNavContext";
+import {
+  MediaNavProvider,
+  PlaylistNavProvider,
+} from "@/components/MediaNavContext";
 import { CollectionEditDialog } from "@/components/CollectionEditDialog";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
 import { ShortcutsOverlay } from "@/components/ShortcutsOverlay";
@@ -53,6 +56,7 @@ import { hasFilterConditions } from "@/lib/smartCollections";
 import { useFolderNav } from "./useFolderNav";
 import { setListCounts, type ListCounts } from "@/hooks/useListCounts";
 import { useFolderNavKeys } from "./useFolderNavKeys";
+import { useFolderPlaylist } from "./useFolderPlaylist";
 import { HomeHeader } from "./HomeHeader";
 import { SelectionLayer } from "./SelectionLayer";
 import {
@@ -231,9 +235,40 @@ export default function Home() {
     setListCounts(listCounts);
   }, [listCounts]);
   useEffect(() => () => setListCounts(null), []);
-  // Nothing to play means no entry point to playback at all, rather than a
-  // player that opens onto an empty screen (spec FR-016).
-  const canPlay = (status.data?.ready ?? false) && items.length > 0;
+  // Browsing by folder, the playlist and Discovery both draw from the whole
+  // folder, not just the direct files the list shows (see useFolderPlaylist).
+  // Its size is known from the listing: the direct files plus every child
+  // folder's (recursive) count.
+  const subtreeCount =
+    browsing && folderListing.data
+      ? folderListing.data.fileCount +
+        folderListing.data.folders.reduce((n, f) => n + f.count, 0)
+      : null;
+  // Nothing to play or pick from means no entry point at all, rather than a
+  // player or queue that opens onto an empty screen (spec FR-016). The two
+  // buttons share it: they draw from the same pool.
+  const hasPool =
+    (status.data?.ready ?? false) && (subtreeCount ?? items.length) > 0;
+
+  // The playlist's order while browsing by folder: everything below the
+  // folder, in the list's chosen sort — by name when none is chosen, which
+  // plays folder by folder. Fetched only while the player is open.
+
+  // The player, or the detail view it detoured to (`from=player`), is open:
+  // only then is the folder's playing order worth fetching.
+  const playing =
+    location.pathname.startsWith("/play") ||
+    (location.pathname.startsWith("/file/") &&
+      new URLSearchParams(location.search).get("from") === "player");
+  const { subtreeFilter, playlistNav } = useFolderPlaylist({
+    workspaceId: status.data?.workspaceId,
+    ready: status.data?.ready ?? false,
+    filter,
+    folderView,
+    path: folderNav.path,
+    browsing,
+    playing,
+  });
 
   // Drag-to-reorder edits the collection's own item order, so it is offered only
   // where that order is both stored (a collection) and visible (manual sort).
@@ -495,18 +530,9 @@ export default function Home() {
     input?.select();
   }, []);
 
-  // Discovery picks from where the view is: below the current folder when
-  // shown by folder (the root being the whole workspace anyway).
-  const discoverFilter = useMemo<SearchQuery>(
-    () =>
-      folderView && folderNav.path
-        ? { ...filter, folder: { path: folderNav.path, recursive: true } }
-        : filter,
-    [filter, folderView, folderNav.path],
-  );
   const openDiscover = useCallback(() => {
-    void navigate(discoverPath(discoverFilter));
-  }, [discoverFilter, navigate]);
+    void navigate(discoverPath(subtreeFilter));
+  }, [subtreeFilter, navigate]);
 
   const openTags = useCallback(() => {
     void navigate("/tags");
@@ -790,6 +816,7 @@ export default function Home() {
         folderView={folderView}
         folderAvailable={folderAvailable}
         onDiscover={openDiscover}
+        canDiscover={hasPool}
         onTags={openTags}
         onSettings={openSettings}
         onHelp={() => setHelpOpen(true)}
@@ -893,9 +920,12 @@ export default function Home() {
               fetchPreviousPage,
               hasPreviousPage: search.hasPreviousPage,
               isFetchingPreviousPage: search.isFetchingPreviousPage,
+              isLoading: search.isLoading,
             }}
           >
-            <Outlet />
+            <PlaylistNavProvider value={playlistNav}>
+              <Outlet />
+            </PlaylistNavProvider>
           </MediaNavProvider>
 
           <SelectionLayer active={navActive} />
@@ -908,36 +938,37 @@ export default function Home() {
         {/* Play the list as a playlist. No params: the player reads the very list
           order shared through MediaNavContext below, so whatever sort/filter is
           on screen is what plays — collection, Watch Later or plain search.
+          Browsing by folder it plays the whole folder instead (PlaylistNav).
           Accent-filled like the discovery button beside it: both start a way of
           watching, and neither is subordinate to the other. */}
         <Link
           to="/play"
           title={t("playlist.start")}
           aria-label={t("playlist.start")}
-          aria-disabled={!canPlay}
-          tabIndex={canPlay ? undefined : -1}
+          aria-disabled={!hasPool}
+          tabIndex={hasPool ? undefined : -1}
           className={cn(
             // Stacked above the discovery button; both lift together when the
             // audio player bar is showing, and both move left of the detail
             // side peek while it is docked (each variable is 0 otherwise).
             "fixed bottom-[calc(6rem+var(--meguri-player-bar-inset))] right-[calc(1.25rem+var(--meguri-peek-inset))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            !canPlay && "pointer-events-none opacity-45",
+            !hasPool && "pointer-events-none opacity-45",
           )}
         >
           <PlayCircle className="size-6" />
         </Link>
 
         <Link
-          to={discoverPath(discoverFilter)}
+          to={discoverPath(subtreeFilter)}
           title={t("discover.title")}
           aria-label={t("discover.title")}
-          aria-disabled={!status.data?.ready}
-          tabIndex={status.data?.ready ? undefined : -1}
+          aria-disabled={!hasPool}
+          tabIndex={hasPool ? undefined : -1}
           className={cn(
             // Lifted clear of the audio player bar when one is showing (the
             // variable is 0 otherwise, keeping the original offset).
             "fixed bottom-[calc(1.25rem+var(--meguri-player-bar-inset))] right-[calc(1.25rem+var(--meguri-peek-inset))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            !status.data?.ready && "pointer-events-none opacity-45",
+            !hasPool && "pointer-events-none opacity-45",
           )}
         >
           <Sparkles className="size-6" />

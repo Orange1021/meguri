@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useMediaNav } from "@/components/MediaNavContext";
+import { useMediaNav, usePlaybackNav } from "@/components/MediaNavContext";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import {
   NAV_BINDINGS,
@@ -31,7 +31,8 @@ interface Result {
  * Prev / next file navigation within the list order the user is browsing.
  *
  * Handles:
- * - Walking backwards/forwards through the shared list (MediaNavContext)
+ * - Walking backwards/forwards through the shared list (MediaNavContext), or,
+ *   detoured to from the player, through the order it plays (usePlaybackNav)
  * - Fetching the next page when the user steps past the loaded tail
  * - Prefetching ahead so stepping stays seamless
  * - Keyboard chords (preset bindings always; arrows for images, since videos seek with arrows)
@@ -41,7 +42,11 @@ export function usePrevNextNavigation({ fileId, wsId, kind }: Args): Result {
   const navigate = useNavigate();
   const { keybindingPreset } = usePreferences();
   const navBinding = NAV_BINDINGS[keybindingPreset];
-  const nav = useMediaNav();
+  // Detoured to from the player, prev/next walks what the player was playing
+  // (browsing by folder, the folder's whole subtree, not only the list).
+  const listNav = useMediaNav();
+  const playbackNav = usePlaybackNav();
+  const nav = searchParams.get("from") === "player" ? playbackNav : listNav;
   const navItems = useMemo(() => nav?.items ?? [], [nav?.items]);
   const index = useMemo(
     () =>

@@ -549,6 +549,7 @@ export const en: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "Manual order",
   "playlist.start": "Play as playlist",
+  "playlist.inFolder": "Playing “{path}”",
   "playlist.play": "Play (Space)",
   "playlist.pause": "Pause (Space)",
   "playlist.next": "Next (N)",

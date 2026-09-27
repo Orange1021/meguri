@@ -5,6 +5,7 @@ import Player from "@/routes/Player";
 import type { FileDetail, FileRow } from "@/ipc/types";
 import {
   defaultAppStatus,
+  defaultWorkspacesList,
   sampleFileDetail,
   sampleFileRow,
   WS_ID,
@@ -23,6 +24,7 @@ vi.mock("@/ipc/client", () => ({
     fileGet: (id: number, ws: string) => mocks.fileGet(id, ws),
     fileRecordPlay: (...args: unknown[]) => mocks.fileRecordPlay(...args),
     openExternal: vi.fn().mockResolvedValue(undefined),
+    workspacesList: () => Promise.resolve(defaultWorkspacesList),
   },
   events: {},
   ALL_ID: "__all__",
@@ -110,6 +112,25 @@ describe("Player chrome", () => {
       expect(screen.queryByLabelText(label)).toBeNull();
       expect(screen.queryByTitle(label)).toBeNull();
     }
+  });
+
+  it("names the folder it plays, from the workspace down", async () => {
+    renderPlayer([row(1, "video")], { folder: "Albums/2024" });
+    await screen.findByText("clip-1.mp4");
+    await waitFor(() =>
+      expect(screen.getByTestId("folder-scope").textContent).toBe(
+        "Media / Albums / 2024",
+      ),
+    );
+    expect(screen.getByTestId("folder-scope").getAttribute("aria-label")).toBe(
+      "Playing \u201cMedia / Albums / 2024\u201d",
+    );
+  });
+
+  it("names no folder when playing a list", async () => {
+    renderPlayer([row(1, "video")]);
+    await screen.findByText("clip-1.mp4");
+    expect(screen.queryByTestId("folder-scope")).toBeNull();
   });
 
   it("names the current file, and only by its file name", async () => {
