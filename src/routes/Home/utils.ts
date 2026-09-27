@@ -8,10 +8,38 @@ import type { SearchQuery } from "@/ipc/types";
 export const DISCOVER_FILTER_PARAM = "filter";
 export const VIEW_KEY = "meguri.view";
 
-export type ViewMode = "grid" | "list" | "table";
+export type ViewMode = "grid" | "list";
 
 export function isViewMode(v: string | null): v is ViewMode {
-  return v === "grid" || v === "list" || v === "table";
+  return v === "grid" || v === "list";
+}
+
+/**
+ * Reads a stored view mode. The table view was folded into the list, so a
+ * stored "table" lands on the list rather than falling back to the grid.
+ */
+export function parseViewMode(raw: string | null): ViewMode {
+  if (raw === "table") return "list";
+  return isViewMode(raw) ? raw : "grid";
+}
+
+/** The "show by folder" option, remembered apart from the view mode. */
+export const BY_FOLDER_KEY = "meguri.byFolder";
+
+/**
+ * Whether the file view is drawn by folder. The option applies to the grid and
+ * the list alike, but folders exist only inside one real workspace: over "All"
+ * or a collection the view is drawn flat, without touching the stored option,
+ * which takes over again on returning to a workspace.
+ */
+export function isFolderView({
+  byFolder,
+  folderAvailable,
+}: {
+  byFolder: boolean;
+  folderAvailable: boolean;
+}): boolean {
+  return byFolder && folderAvailable;
 }
 
 export function cleanDiscoverFilter(filter: SearchQuery): SearchQuery {

@@ -12,6 +12,8 @@ import {
   duplicateHashCounts,
   fileIdsByContentHashes,
   filesByContentHashes,
+  folderFiles,
+  listFolders,
   listPlayHistory,
   numericCursor,
   randomFiles,
@@ -25,6 +27,8 @@ import type {
   DuplicateGroup,
   DuplicatesResult,
   FileRow,
+  FolderFilesResult,
+  FolderListing,
   HistoryEntryRow,
   HistoryPage,
   HistoryQuery,
@@ -118,6 +122,27 @@ function searchSingle(
     items,
     nextCursor: nextCursorFrom(query.sort, offset, limit, items, hasMore),
   };
+}
+
+/** A folder listing of one workspace, its preview rows stamped with it. */
+export function listFoldersWorkspace(
+  target: CoreTarget,
+  path: string,
+): FolderListing {
+  const listing = listFolders(target.core.db, path);
+  for (const folder of listing.folders) inject(folder.previews, target.id);
+  return listing;
+}
+
+/** Selected folders of one workspace expanded into (stamped) files. */
+export function folderFilesWorkspace(
+  target: CoreTarget,
+  paths: string[],
+  limit: number,
+): FolderFilesResult {
+  const result = folderFiles(target.core.db, paths, { limit });
+  for (const entry of result) inject(entry.rows, target.id);
+  return result;
 }
 
 export function searchWorkspaces(

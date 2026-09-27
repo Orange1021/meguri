@@ -57,6 +57,12 @@ export const en: Record<TranslationKey, string> = {
   "settings.frameQualityLow": "Low (240px)",
   "settings.frameQualityStandard": "Standard (480px)",
   "settings.frameQualityHigh": "High (960px)",
+  "settings.listThumbSize": "List thumbnail size",
+  "settings.listThumbSizeDesc":
+    "Size of the thumbnail on each row of the list view.",
+  "settings.listThumbSizeSmall": "Small",
+  "settings.listThumbSizeMedium": "Medium",
+  "settings.listThumbSizeLarge": "Large",
   "settings.emojiStyle": "Emoji style",
   "settings.emojiStyleDesc":
     "Switches how emoji icons and in-text emoji are drawn.",
@@ -342,8 +348,36 @@ export const en: Record<TranslationKey, string> = {
   "grid.searchByTag": 'Filter by "{name}"',
   "view.grid": "Grid view",
   "view.list": "List view",
-  "view.table": "Table view",
-  "table.name": "Name",
+
+  // folder view
+  "view.folder": "Show by folder",
+  "view.folderOff": "Stop showing by folder",
+  "view.folderUnavailable":
+    "Showing by folder is available only while a workspace is open",
+  "folder.breadcrumbLabel": "Folder path",
+  "folder.root": "Workspace",
+  "folder.back": "Back",
+  "folder.up": "Up one level",
+  "folder.more": "Show hidden levels",
+  "folder.itemCount": "{count} items",
+  "folder.subfolders": "Subfolders: {count}",
+  "folder.summary": "Folders: {folders} · Files: {files}",
+  "folder.openInFileManager": "Open in file manager",
+  "folder.openFailed": "Couldn't open the folder",
+  "folder.copyPath": "Copy path",
+  "folder.pathCopied": "Copied the folder path",
+  "folder.copyFailed": "Couldn't copy the path",
+  "folder.open": 'Open folder "{name}"',
+  "folder.emptySearch": "Nothing in this folder matches",
+  "folder.emptySearchHint":
+    "Try other conditions, or search from a folder further up.",
+  "folder.moved": "The folder you were viewing is gone, so you were moved up.",
+  "shortcuts.folderBack": "Back to the previous folder (showing by folder)",
+  "shortcuts.folderUp": "Up one level (showing by folder)",
+  "select.folderCount": "including {count} folders",
+  "select.folderLoading": "Loading folder contents",
+  "select.selectFolder": "Select everything in this folder",
+  "select.deselectFolder": "Deselect this folder",
 
   // discovery (random recommendations)
   "discover.title": "Discovery",
@@ -351,6 +385,7 @@ export const en: Record<TranslationKey, string> = {
   "discover.play": "Play",
   "discover.open": "Open",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "Picking from “{path}”",
   "discover.empty": "No media to recommend.",
   "discover.emptyHint":
     'Run "Scan" to import videos and images, and they\'ll be recommended here at random.',
@@ -504,7 +539,9 @@ export const en: Record<TranslationKey, string> = {
   "statusbar.label": "Status bar",
   "statusbar.lastScan": "Last scan",
   "statusbar.lastScanNever": "Never",
-  "statusbar.fileCount": "{count} files",
+  "statusbar.total": "{count} files in total",
+  "statusbar.folders": "{count} folders",
+  "statusbar.shown": "{count} shown",
   "statusbar.status": "Status",
   "statusbar.scanning": "Scanning",
   "statusbar.idle": "Idle",
@@ -512,6 +549,7 @@ export const en: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "Manual order",
   "playlist.start": "Play as playlist",
+  "playlist.inFolder": "Playing “{path}”",
   "playlist.play": "Play (Space)",
   "playlist.pause": "Pause (Space)",
   "playlist.next": "Next (N)",

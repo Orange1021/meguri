@@ -3,3 +3,9 @@
 export function fileNameOf(relPath: string): string {
   return relPath.split(/[\\/]/).pop() || relPath;
 }
+
+/** The folder part of a relative path, "" for a file at the workspace root. */
+export function dirOf(relPath: string): string {
+  const i = Math.max(relPath.lastIndexOf("/"), relPath.lastIndexOf("\\"));
+  return i < 0 ? "" : relPath.slice(0, i);
+}

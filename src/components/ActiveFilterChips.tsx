@@ -25,7 +25,7 @@ export function ActiveFilterChips({
           of a filter set must not itself be something you have to scroll to.
 
           A plain overflow container rather than ScrollArea: this is a single
-          row, the same shape the grid/list/table cards already scroll their tag
+          row, the same shape the grid cards and list rows already scroll their tag
           rows with. Unlike those, the scrollbar stays visible (thin) — a row
           that silently hides conditions off its right edge is exactly the
           failure this feature exists to avoid. */}

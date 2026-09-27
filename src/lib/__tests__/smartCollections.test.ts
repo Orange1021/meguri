@@ -3,6 +3,7 @@ import { en } from "@/i18n/locales/en";
 import {
   cleanSearchQuery,
   describeSearchQuery,
+  hasFilterConditions,
   hasSearchConditions,
   makeSmartCollection,
   parseSmartCollections,
@@ -83,5 +84,33 @@ describe("smartCollections", () => {
         sortDir: "desc",
       }),
     ).toBe("★4+ / Favorites / Created date / Descending");
+  });
+});
+
+describe("hasFilterConditions", () => {
+  it.each([
+    { q: "beach" },
+    { tags: ["a"] },
+    { kind: "video" },
+    { ratingMin: 3 },
+    { favorite: true },
+    { capturedFrom: 1 },
+    { btimeTo: 1 },
+    { duplicates: true },
+    { played: false },
+  ])("is true for %j", (query) => {
+    expect(hasFilterConditions(query)).toBe(true);
+  });
+
+  it("ignores the sort, blank text and empty lists", () => {
+    expect(hasFilterConditions({})).toBe(false);
+    expect(hasFilterConditions({ sort: "name", sortDir: "desc" })).toBe(false);
+    expect(hasFilterConditions({ q: "   ", tags: [] })).toBe(false);
+  });
+
+  it("never carries a folder scope into a saved search", () => {
+    expect(
+      cleanSearchQuery({ q: "x", folder: { path: "a", recursive: true } }),
+    ).toEqual({ q: "x" });
   });
 });

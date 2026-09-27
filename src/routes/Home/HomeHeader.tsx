@@ -3,12 +3,12 @@ import {
   CopyCheck,
   DatabaseBackup,
   FolderOpen,
+  FolderTree,
   History,
   LayoutGrid,
   List,
   Pencil,
   RefreshCw,
-  Table2,
   Tags as TagsIcon,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -49,6 +49,9 @@ export function HomeHeader({
   onEditWorkspace,
   view,
   onSetView,
+  folderView,
+  onToggleByFolder,
+  folderAvailable,
   scanning,
   ready,
   onScan,
@@ -66,6 +69,11 @@ export function HomeHeader({
   onEditWorkspace: () => void;
   view: ViewMode;
   onSetView: (v: ViewMode) => void;
+  /** The file view is drawn by folder (see isFolderView). */
+  folderView: boolean;
+  onToggleByFolder: () => void;
+  /** Folders need one real workspace open (not All or a collection). */
+  folderAvailable: boolean;
   scanning: boolean;
   ready: boolean;
   onScan: () => void;
@@ -160,11 +168,10 @@ export function HomeHeader({
                 Icon: LayoutGrid,
                 rounded: "rounded-l-md",
               },
-              { mode: "list", label: t("view.list"), Icon: List, rounded: "" },
               {
-                mode: "table",
-                label: t("view.table"),
-                Icon: Table2,
+                mode: "list",
+                label: t("view.list"),
+                Icon: List,
                 rounded: "rounded-r-md",
               },
             ] as const
@@ -188,6 +195,27 @@ export function HomeHeader({
             </button>
           ))}
         </div>
+        {/* Applies to the grid and the list alike. Disabled over All or a
+            collection, where there are no folders to show; the stored choice
+            is kept for the next workspace. */}
+        <button
+          type="button"
+          onClick={onToggleByFolder}
+          aria-label={t("view.folder")}
+          aria-pressed={folderView}
+          disabled={!folderAvailable}
+          title={
+            folderAvailable ? t("view.folder") : t("view.folderUnavailable")
+          }
+          className={cn(
+            "flex size-7 items-center justify-center rounded-md border border-border transition disabled:cursor-not-allowed disabled:opacity-40",
+            folderView
+              ? "bg-primary/20 text-fg"
+              : "text-muted hover:bg-fg/10 hover:text-fg",
+          )}
+        >
+          <FolderTree className="size-4" />
+        </button>
         <ButtonGroup className="[&>button]:border [&>button]:border-muted/35 [&>button]:bg-surface [&>button:not(:first-child)]:relative [&>button:not(:first-child)]:z-[1]">
           <Button
             size="sm"

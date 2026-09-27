@@ -64,6 +64,16 @@ export const PLAYLIST_IMAGE_SECONDS_OPTIONS = [
   3, 5, 8, 10, 15, 20, 30,
 ] as const;
 
+// Thumbnail width in the list view; "small" is the dense option for working
+// through many files at once.
+export const LIST_THUMB_SIZE_OPTIONS = ["small", "medium", "large"] as const;
+export type ListThumbSize = (typeof LIST_THUMB_SIZE_OPTIONS)[number];
+export const DEFAULT_LIST_THUMB_SIZE: ListThumbSize = "medium";
+
+export function isListThumbSize(v: unknown): v is ListThumbSize {
+  return LIST_THUMB_SIZE_OPTIONS.includes(v as ListThumbSize);
+}
+
 interface Prefs {
   sceneCount: number;
   keybindingPreset: KeybindingPreset;
@@ -94,6 +104,8 @@ interface Prefs {
   audioSpectrum: boolean;
   /** Which look the spectrum takes (see src/audio/spectrumPatterns.ts). */
   audioSpectrumPattern: SpectrumPattern;
+  /** Thumbnail width in the list view. */
+  listThumbSize: ListThumbSize;
 }
 
 const DEFAULTS: Prefs = {
@@ -111,6 +123,7 @@ const DEFAULTS: Prefs = {
   playlistTransition: false,
   audioSpectrum: true,
   audioSpectrumPattern: DEFAULT_SPECTRUM_PATTERN,
+  listThumbSize: DEFAULT_LIST_THUMB_SIZE,
 };
 
 function clampSceneCount(n: number): number {
@@ -185,6 +198,9 @@ function loadPrefs(): Prefs {
         audioSpectrumPattern: isSpectrumPattern(parsed.audioSpectrumPattern)
           ? parsed.audioSpectrumPattern
           : DEFAULTS.audioSpectrumPattern,
+        listThumbSize: isListThumbSize(parsed.listThumbSize)
+          ? parsed.listThumbSize
+          : DEFAULT_LIST_THUMB_SIZE,
       };
     }
   } catch {
@@ -208,6 +224,7 @@ interface PrefsCtx extends Prefs {
   setPlaylistTransition: (enabled: boolean) => void;
   setAudioSpectrum: (enabled: boolean) => void;
   setAudioSpectrumPattern: (p: SpectrumPattern) => void;
+  setListThumbSize: (s: ListThumbSize) => void;
 }
 
 const Ctx = createContext<PrefsCtx | null>(null);
@@ -263,6 +280,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         setPrefs((p) => ({ ...p, audioSpectrum: enabled })),
       setAudioSpectrumPattern: (pattern) =>
         setPrefs((p) => ({ ...p, audioSpectrumPattern: pattern })),
+      setListThumbSize: (size) =>
+        setPrefs((p) => ({ ...p, listThumbSize: size })),
     }),
     [prefs],
   );

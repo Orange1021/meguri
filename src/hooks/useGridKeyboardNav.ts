@@ -1,8 +1,8 @@
-// Keyboard focus navigation for the list/grid/table views. Tracks a focused item
+// Keyboard focus navigation for the list/grid views. Tracks a focused item
 // index (state-driven ring rather than DOM focus, so it survives virtualization)
 // and moves it per the active keybinding preset: arrows (normal), hjkl (vim), or
 // C-p/n/b/f (emacs); Enter opens the focused item. The grid passes its column count
-// so up/down step a full row; list/table pass columns=1 for plain vertical movement.
+// so up/down step a full row; the list passes columns=1 for plain vertical movement.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import { GRID_BINDINGS, matchAny } from "@/settings/keybindings";
@@ -10,7 +10,7 @@ import { GRID_BINDINGS, matchAny } from "@/settings/keybindings";
 interface Options {
   /** Number of items currently loaded. */
   itemCount: number;
-  /** Items per row (1 for list/table, the measured column count for the grid). */
+  /** Items per row (1 for the list, the measured column count for the grid). */
   columns: number;
   /** Only handle keys while this view is foreground (no modal on top). */
   active: boolean;
@@ -18,15 +18,23 @@ interface Options {
   onOpen: (index: number) => void;
   /** Open the item's detail view without autoplay (Shift+Enter). */
   onInspect?: (index: number) => void;
-  /** Scroll the virtual row into view (row = floor(index / columns)). */
+  /** Scroll the virtual row into view (row = floor((index + leadingCells) / columns)). */
   scrollToRow: (row: number) => void;
+  /**
+   * Empty cells before item 0 in its row: a grid window that starts
+   * mid-row keeps its items in their columns (see MediaGrid). 0 by default.
+   */
+  leadingCells?: number;
 }
 
-/** Down one row, clamping to the last item when the row below is partially filled. */
-function stepDown(i: number, cols: number, count: number): number {
+/**
+ * Down one row, clamping to the last item when the row below is partially
+ * filled. Rows are measured in cells, `lead` of them empty before item 0.
+ */
+function stepDown(i: number, cols: number, count: number, lead = 0): number {
   const nx = i + cols;
   if (nx < count) return nx;
-  const lastRowStart = Math.floor((count - 1) / cols) * cols;
+  const lastRowStart = Math.floor((count - 1 + lead) / cols) * cols - lead;
   return i < lastRowStart ? count - 1 : i;
 }
 
@@ -37,6 +45,7 @@ export function useGridKeyboardNav({
   onOpen,
   onInspect,
   scrollToRow,
+  leadingCells = 0,
 }: Options) {
   const { keybindingPreset } = usePreferences();
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -49,6 +58,7 @@ export function useGridKeyboardNav({
     onOpen,
     onInspect,
     scrollToRow,
+    leadingCells,
     preset: keybindingPreset,
     focusedIndex,
   });
@@ -61,6 +71,7 @@ export function useGridKeyboardNav({
       onOpen,
       onInspect,
       scrollToRow,
+      leadingCells,
       preset: keybindingPreset,
       focusedIndex,
     };
@@ -92,6 +103,7 @@ export function useGridKeyboardNav({
         onOpen,
         onInspect,
         scrollToRow,
+        leadingCells,
         preset,
         focusedIndex,
       } = ref.current;
@@ -119,7 +131,10 @@ export function useGridKeyboardNav({
 
       let next: number;
       if (matchAny(e, b.down))
-        next = focusedIndex < 0 ? 0 : stepDown(focusedIndex, cols, itemCount);
+        next =
+          focusedIndex < 0
+            ? 0
+            : stepDown(focusedIndex, cols, itemCount, leadingCells);
       else if (matchAny(e, b.up))
         next = focusedIndex < 0 ? 0 : Math.max(0, focusedIndex - cols);
       else if (matchAny(e, b.right))
@@ -130,7 +145,7 @@ export function useGridKeyboardNav({
 
       e.preventDefault();
       if (next !== focusedIndex) setFocusedIndex(next);
-      scrollToRow(Math.floor(next / cols));
+      scrollToRow(Math.floor((next + leadingCells) / cols));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatSize } from "@/lib/format";
+import { formatDuration, formatSize, resolutionBadge } from "@/lib/format";
 
 describe("formatDuration", () => {
   it("returns the fallback for null / 0 / negative / NaN", () => {
@@ -57,5 +57,35 @@ describe("formatSize", () => {
     [1024 ** 4, "1024.0 GB"],
   ])("formatSize(%i) === %s", (input, expected) => {
     expect(formatSize(input)).toBe(expected);
+  });
+});
+
+describe("resolutionBadge", () => {
+  it("is empty when a dimension is unknown", () => {
+    expect(resolutionBadge("video", null, 1080)).toBe("");
+    expect(resolutionBadge("video", 1920, 0)).toBe("");
+    expect(resolutionBadge("audio", null, null)).toBe("");
+  });
+
+  it("classes videos by the higher class either side reaches", () => {
+    expect(resolutionBadge("video", 7680, 4320)).toBe("8K");
+    expect(resolutionBadge("video", 3840, 2160)).toBe("4K");
+    expect(resolutionBadge("video", 2560, 1440)).toBe("QHD");
+    expect(resolutionBadge("video", 1920, 1080)).toBe("FHD");
+    expect(resolutionBadge("video", 1080, 1920)).toBe("FHD");
+    expect(resolutionBadge("video", 1280, 720)).toBe("HD");
+    expect(resolutionBadge("video", 640, 480)).toBe("SD");
+    // Letterboxed: the width alone reaches HD.
+    expect(resolutionBadge("video", 1280, 534)).toBe("HD");
+    expect(resolutionBadge("video", 3840, 1606)).toBe("4K");
+  });
+
+  it("gives images their megapixels", () => {
+    expect(resolutionBadge("image", 6000, 4000)).toBe("24 MP");
+    expect(resolutionBadge("image", 1920, 1080)).toBe("2.1 MP");
+    expect(resolutionBadge("image", 640, 480)).toBe("0.3 MP");
+    // Rounded before the one-decimal cut-off, and never "0.0".
+    expect(resolutionBadge("image", 3648, 2736)).toBe("10 MP");
+    expect(resolutionBadge("image", 100, 100)).toBe("<0.1 MP");
   });
 });

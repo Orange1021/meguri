@@ -24,7 +24,12 @@ import {
   useWatchLater,
   type WatchLaterMembership,
 } from "@/hooks/useWatchLater";
-import type { FileRow } from "@/ipc/types";
+import type { FileRow, FolderEntry } from "@/ipc/types";
+import { FolderCard } from "@/components/FolderCard";
+import {
+  useFolderEntries,
+  type FolderViewEntry,
+} from "@/hooks/useFolderEntries";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RatingButton } from "@/components/RatingButton";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
@@ -83,7 +88,20 @@ interface Props {
   watchLater?: boolean;
   /** Set only while a collection is shown in its manual order; enables drag-to-reorder. */
   reorder?: MediaReorder;
+  /**
+   * Folder view: child folders drawn as cards ahead of `items`. They belong to
+   * the top of the list, so they are shown only while it is loaded from its
+   * start (listOffset 0) and count toward the rows above a later window.
+   */
+  folders?: FolderEntry[];
+  onOpenFolder?: (path: string) => void;
+  /** Changing it scrolls back to the top, as a workspace switch does (e.g. the folder shown). */
+  resetKey?: string;
+  /** The list is a search inside a folder: its empty state says so. */
+  inFolder?: boolean;
 }
+
+const noop = () => {};
 
 // Memoized: Home re-renders on every thumbVersion flush and its other props are
 // referentially stable, so the grid only re-renders when the data actually changes.
@@ -104,8 +122,11 @@ export const MediaGrid = memo(function MediaGrid({
   navActive = false,
   watchLater = false,
   reorder,
+  folders,
+  onOpenFolder,
+  resetKey,
+  inFolder = false,
 }: Props) {
-  const { activate } = useActivateFile();
   const watchLaterMembership = useWatchLater();
 
   // Scroll parent. Virtualization DOM-renders only the visible rows relative to this element.
@@ -202,14 +223,30 @@ export const MediaGrid = memo(function MediaGrid({
   );
   const rowEstimate = ready && extraH > 0 ? thumbH + extraH : ROW_ESTIMATE;
 
-  // Group items into rows by column count.
+  // Folder cards lead the list, packed into the same rows as the files so the
+  // row height and the 2D keyboard movement need no special case.
+  const { entries, leadingEntries, onOpen, onInspect } = useFolderEntries({
+    items,
+    folders,
+    listOffset,
+    onOpenFolder,
+  });
+  // Group entries into rows by column count. A window that starts past the
+  // top (earlier pages dropped) starts wherever its first entry falls in the
+  // full list — usually mid-row — so that row opens with empty cells: packing
+  // from column 0 instead would shift every card after it into another column.
+  const leadCells = leadingEntries % cols;
   const rows = useMemo(() => {
-    const r: FileRow[][] = [];
-    for (let i = 0; i < items.length; i += cols)
-      r.push(items.slice(i, i + cols));
+    const cells: (FolderViewEntry | null)[] = [
+      ...Array.from({ length: leadCells }, () => null),
+      ...entries,
+    ];
+    const r: (FolderViewEntry | null)[][] = [];
+    for (let i = 0; i < cells.length; i += cols)
+      r.push(cells.slice(i, i + cols));
     return r;
-  }, [items, cols]);
-  const leadingRows = Math.floor(listOffset / cols);
+  }, [entries, cols, leadCells]);
+  const leadingRows = Math.floor(leadingEntries / cols);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -230,29 +267,16 @@ export const MediaGrid = memo(function MediaGrid({
 
   // Keyboard focus navigation (2D, by column count). Open the focused card on Enter.
   const scrollToRow = useScrollToRow(virtualizer);
-  // Keyboard Enter opens the detail with auto-play (same intent as a thumbnail click).
-  const onOpen = useCallback(
-    (index: number) => {
-      const f = items[index];
-      if (f) activate(f);
-    },
-    [items, activate],
-  );
-  // Shift+Enter is the keyboard form of the name click: details, no playback.
-  const onInspect = useCallback(
-    (index: number) => {
-      const f = items[index];
-      if (f) activate(f, { autoplay: false });
-    },
-    [items, activate],
-  );
+  // Enter / Shift+Enter come from useFolderEntries (open or inspect a file,
+  // open a folder).
   const { focusedIndex, setFocusedIndex } = useGridKeyboardNav({
-    itemCount: items.length,
+    itemCount: entries.length,
     columns: cols,
     active: navActive,
     onOpen,
     onInspect,
     scrollToRow,
+    leadingCells: leadCells,
   });
   // Points at the focused card's toggle so "W" activates it through the button
   // itself (same mutation, toast, effect and disabled state). Mirrors Discovery.
@@ -260,14 +284,15 @@ export const MediaGrid = memo(function MediaGrid({
   useWatchLaterHotkey({ active: navActive, buttonRef: focusedWatchLaterRef });
 
   // Reset the scroll position to the top on workspace switch (so the previous
-  // workspace's position doesn't linger). Also reset the virtualizer's internal offset to 0.
+  // workspace's position doesn't linger) and on a resetKey change (another
+  // folder). Also reset the virtualizer's internal offset to 0.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
     virtualizer.scrollToOffset(0);
     setFocusedIndex(-1);
-    // Reset only when wsId changes. The virtualizer reference is stable.
+    // Reset only when wsId/resetKey change. The virtualizer reference is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wsId]);
+  }, [wsId, resetKey]);
 
   // Fetch the next page when a row near the end becomes visible (replaces the old IntersectionObserver sentinel).
   useInfiniteScrollTrigger({
@@ -302,8 +327,8 @@ export const MediaGrid = memo(function MediaGrid({
     );
   }
 
-  if (items.length === 0) {
-    return <MediaEmptyState watchLater={watchLater} />;
+  if (entries.length === 0) {
+    return <MediaEmptyState watchLater={watchLater} inFolder={inFolder} />;
   }
 
   // Keep the custom scrollbar (shadcn ScrollArea) while using its Viewport as the
@@ -336,12 +361,29 @@ export const MediaGrid = memo(function MediaGrid({
                   gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
                 }}
               >
-                {rows[vr.index].map((f, localIndex) => {
-                  const focused = vr.index * cols + localIndex === focusedIndex;
+                {rows[vr.index].map((entry, localIndex) => {
+                  const cell = vr.index * cols + localIndex;
+                  if (!entry) {
+                    return <div key={`lead:${cell}`} aria-hidden />;
+                  }
+                  const focused = cell - leadCells === focusedIndex;
+                  if (entry.kind === "folder") {
+                    return (
+                      <FolderCard
+                        key={`folder:${entry.folder.path}`}
+                        entry={entry.folder}
+                        focused={focused}
+                        mediaBase={mediaBase}
+                        thumbVersion={thumbVersion}
+                        onOpen={onOpenFolder ?? noop}
+                      />
+                    );
+                  }
+                  const f = entry.file;
                   const card = (
                     <MediaCard
                       file={f}
-                      index={vr.index * cols + localIndex}
+                      index={entry.fileIndex}
                       version={thumbVersion[`${f.workspaceId}:${f.id}`] ?? 0}
                       mediaBase={mediaBase}
                       onTagClick={onTagClick}

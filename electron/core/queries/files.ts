@@ -5,6 +5,11 @@ import { listBookmarksByMetaKey } from "./bookmarks.js";
 import { thumbOffsetByKey } from "./meta.js";
 import { resolveSortDir } from "../../../shared/sortDir.js";
 import {
+  FOLDER_FILE_FROM,
+  folderCondition,
+  folderRange,
+} from "./folderRange.js";
+import {
   LIST_HIDDEN_SOURCES,
   parseTagSearchToken,
   splitSearchTokens,
@@ -134,11 +139,22 @@ function resolveSearchTagIds(db: DB, value: string): number[] {
     .all(value, value) as number[];
 }
 
+/**
+ * The FROM clause for a search's rows: inside a folder, that folder's slice of
+ * the rel_path index, whatever the query sorts by or picks (see PINNED_FILES).
+ * The root has no range to walk. Exported for the index-plan tests.
+ */
+export function fromFor(query: SearchQuery): string {
+  return query.folder?.path ? FOLDER_FILE_FROM : FILE_FROM;
+}
+
 function appendSearchConditions(
   db: DB,
   sql: string,
   args: unknown[],
   query: SearchQuery,
+  /** rel_path's separator; see folderRange(). Injected only by tests. */
+  sep?: string,
 ): string {
   const terms = query.q
     ? buildSearchTerms(query.q)
@@ -166,6 +182,16 @@ function appendSearchConditions(
     sql +=
       " AND EXISTS (SELECT 1 FROM meta_tags mt WHERE mt.meta_key = f.meta_key AND mt.tag_id IN (SELECT value FROM json_each(?)))";
     args.push(JSON.stringify(ids));
+  }
+  if (query.folder) {
+    const cond = folderCondition(
+      folderRange(query.folder.path, sep),
+      query.folder.recursive,
+    );
+    if (cond.sql) {
+      sql += ` AND ${cond.sql}`;
+      args.push(...cond.args);
+    }
   }
   if (query.kind) {
     sql += " AND f.kind = ?";
@@ -357,15 +383,15 @@ export function searchFiles(
   db: DB,
   query: SearchQuery,
   seek?: SeekPosition,
-  opts?: { skipTags?: boolean },
+  opts?: { skipTags?: boolean; sep?: string },
 ): SearchResult {
   // The seek path allows one extra row (internal callers fetch limit+1 for
   // has-more detection); the IPC boundary still caps requests at MAX_LIMIT.
   const cap = seek ? MAX_LIMIT + 1 : MAX_LIMIT;
   const limit = Math.max(1, Math.min(cap, query.limit ?? DEFAULT_LIMIT));
   const args: unknown[] = [];
-  let sql = `SELECT ${FILE_COLS} ${FILE_FROM} WHERE f.deleted_at IS NULL`;
-  sql = appendSearchConditions(db, sql, args, query);
+  let sql = `SELECT ${FILE_COLS} ${fromFor(query)} WHERE f.deleted_at IS NULL`;
+  sql = appendSearchConditions(db, sql, args, query, opts?.sep);
   if (seek) {
     const seekArgs: unknown[] = [];
     sql += ` AND (${appendSeekCondition(seekArgs, seek, query.sort, query.sortDir)})`;
@@ -444,7 +470,7 @@ export function orderByFor(sort?: string, dir?: string): string {
 export function randomFiles(db: DB, query: SearchQuery): FileRow[] {
   const lim = Math.max(1, Math.min(MAX_LIMIT, query.limit ?? 20));
   const args: unknown[] = [];
-  let sql = `SELECT f.id ${FILE_FROM} WHERE f.deleted_at IS NULL`;
+  let sql = `SELECT f.id ${fromFor(query)} WHERE f.deleted_at IS NULL`;
   sql = appendSearchConditions(db, sql, args, query);
 
   const reservoir: number[] = [];

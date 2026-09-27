@@ -10,7 +10,7 @@ import {
 import { toast } from "sonner";
 import { FolderPlus, PlayCircle, Sparkles } from "lucide-react";
 import { api, events, ALL_ID, type ThumbDone } from "@/ipc/client";
-import { WATCH_LATER_ID } from "@shared/workspaceIds";
+import { COLLECTION_ID_PREFIX, WATCH_LATER_ID } from "@shared/workspaceIds";
 import type {
   FileRow,
   SearchQuery,
@@ -22,8 +22,10 @@ import { Button } from "@/components/ui/button";
 import { MANUAL_SORT } from "@shared/sortDir";
 import { MediaGrid } from "@/components/MediaGrid";
 import { MediaList } from "@/components/MediaList";
-import { MediaTable } from "@/components/MediaTable";
-import { MediaNavProvider } from "@/components/MediaNavContext";
+import {
+  MediaNavProvider,
+  PlaylistNavProvider,
+} from "@/components/MediaNavContext";
 import { CollectionEditDialog } from "@/components/CollectionEditDialog";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
 import { ShortcutsOverlay } from "@/components/ShortcutsOverlay";
@@ -49,6 +51,12 @@ import { filesSearchListOffset } from "@/lib/filesSearch";
 import { usePeekDocked } from "@/routes/MediaDetail/peekDocked";
 import { PEEK_INSET_DOCK_PROPS } from "@/routes/MediaDetail/usePeekResize";
 import { SelectionProvider } from "@/components/SelectionContext";
+import { FolderHeader } from "@/components/FolderHeader";
+import { hasFilterConditions } from "@/lib/smartCollections";
+import { useFolderNav } from "./useFolderNav";
+import { setListCounts, type ListCounts } from "@/hooks/useListCounts";
+import { useFolderNavKeys } from "./useFolderNavKeys";
+import { useFolderPlaylist } from "./useFolderPlaylist";
 import { HomeHeader } from "./HomeHeader";
 import { SelectionLayer } from "./SelectionLayer";
 import {
@@ -56,12 +64,16 @@ import {
   type ViewMode,
   addSearchTokens,
   discoverPath,
-  isViewMode,
+  BY_FOLDER_KEY,
+  isFolderView,
+  parseViewMode,
   scrollListByPage,
 } from "./utils";
 
 // A second Esc within this window (ms) confirms closing to tray.
 const ESC_CLOSE_CONFIRM_MS = 2000;
+// Fewest ms between folder listing refreshes while thumbnails are generated.
+const FOLDER_REFRESH_MS = 2000;
 
 export default function Home() {
   const { t } = useI18n();
@@ -82,7 +94,12 @@ export default function Home() {
   const [view, setViewMode] = useLocalStorage<ViewMode>(
     VIEW_KEY,
     "grid",
-    (raw) => (isViewMode(raw) ? raw : "grid"),
+    parseViewMode,
+  );
+  const [byFolder, setByFolder] = useLocalStorage<boolean>(
+    BY_FOLDER_KEY,
+    false,
+    (raw) => raw === "true",
   );
 
   const status = useAppStatus();
@@ -108,11 +125,75 @@ export default function Home() {
     null,
   );
 
+  // The "show by folder" option works inside one real workspace: over "All"
+  // or a collection the file view is drawn flat (see isFolderView).
+  const workspaceId = status.data?.workspaceId ?? null;
+  const folderAvailable =
+    (status.data?.ready ?? false) &&
+    !!workspaceId &&
+    workspaceId !== ALL_ID &&
+    !workspaceId.startsWith(COLLECTION_ID_PREFIX);
+  const folderView = isFolderView({ byFolder, folderAvailable });
+  // The one way the option changes, from the header and the command menu.
+  const toggleByFolder = useCallback(
+    () => setByFolder((on) => !on),
+    [setByFolder],
+  );
+  const folderNav = useFolderNav(workspaceId);
+  // With nothing narrowing the list a folder shows its own contents (child
+  // folders as cards, then its direct files); a search or filter covers
+  // everything below it instead, as a flat result.
+  const folderSearching = folderView && hasFilterConditions(filter);
+  // The folder rides on the query sent, never on `filter` itself: that state
+  // is what smart collections save and Discover opens with, and neither has a
+  // folder to go to.
+  const searchQuery = useMemo<SearchQuery>(
+    () =>
+      folderView
+        ? {
+            ...filter,
+            folder: { path: folderNav.path, recursive: folderSearching },
+          }
+        : filter,
+    [filter, folderView, folderNav.path, folderSearching],
+  );
+
   // Include the workspace ID in the key so switching workspaces (incl. "All") refetches separately.
   const search = useFilesSearch(
     status.data?.workspaceId,
-    filter,
+    searchQuery,
     status.data?.ready ?? false,
+  );
+
+  const folderListing = useQuery({
+    queryKey: ["folders_list", workspaceId, folderNav.path],
+    queryFn: () => api.foldersList(workspaceId ?? "", folderNav.path),
+    // Not while searching: the results are flat, with no cards or summary.
+    enabled: folderView && !!workspaceId && !folderSearching,
+  });
+  // The folder shown can disappear under the view (deleted, renamed, all of
+  // it excluded); the main process answers with its nearest remaining
+  // ancestor, and the view moves there.
+  const listedPath = folderListing.data?.path;
+  const { replace: replaceFolder } = folderNav;
+  useEffect(() => {
+    if (listedPath == null || listedPath === folderNav.path) return;
+    replaceFolder(listedPath);
+    toast.info(t("folder.moved"), { id: "folder-moved" });
+  }, [listedPath, folderNav.path, replaceFolder, t]);
+  const folderEntries =
+    folderView && !folderSearching ? folderListing.data?.folders : undefined;
+  // By folder, the view waits for the folders as well as the files: drawing
+  // the files first would push them down (and move keyboard focus) when the
+  // folders arrive, or flash the empty state for a folder of folders.
+  const listLoading =
+    (search.isLoading ||
+      (folderView && !folderSearching && folderListing.isLoading)) &&
+    (status.data?.ready ?? false);
+  // Picking a folder selects every file below it (see SelectionContext).
+  const expandFolders = useCallback(
+    (paths: string[]) => api.folderFiles(workspaceId ?? "", paths),
+    [workspaceId],
   );
 
   const items = useMemo(
@@ -120,9 +201,74 @@ export default function Home() {
     [search.data],
   );
   const listOffset = filesSearchListOffset(search.data?.pageParams);
-  // Nothing to play means no entry point to playback at all, rather than a
-  // player that opens onto an empty screen (spec FR-016).
-  const canPlay = (status.data?.ready ?? false) && items.length > 0;
+
+  // What the view is showing, for the status bar (see useListCounts):
+  // browsing a folder, its own files and child folders; narrowed by a search
+  // or filter, the files loaded so far ("+" while more pages remain); with
+  // nothing narrowing it, the whole scope (null: the status bar's total).
+  const browsing =
+    folderView && !folderSearching && listedPath === folderNav.path;
+  const narrowed = folderView || hasFilterConditions(filter);
+  const listCounts = useMemo<ListCounts>(
+    () =>
+      browsing && folderListing.data
+        ? {
+            files: folderListing.data.fileCount,
+            more: false,
+            folders: folderListing.data.folders.length,
+          }
+        : {
+            files: narrowed ? listOffset + items.length : null,
+            more: narrowed && !!search.hasNextPage,
+            folders: null,
+          },
+    [
+      browsing,
+      folderListing.data,
+      narrowed,
+      listOffset,
+      items.length,
+      search.hasNextPage,
+    ],
+  );
+  useEffect(() => {
+    setListCounts(listCounts);
+  }, [listCounts]);
+  useEffect(() => () => setListCounts(null), []);
+  // Browsing by folder, the playlist and Discovery both draw from the whole
+  // folder, not just the direct files the list shows (see useFolderPlaylist).
+  // Its size is known from the listing: the direct files plus every child
+  // folder's (recursive) count.
+  const subtreeCount =
+    browsing && folderListing.data
+      ? folderListing.data.fileCount +
+        folderListing.data.folders.reduce((n, f) => n + f.count, 0)
+      : null;
+  // Nothing to play or pick from means no entry point at all, rather than a
+  // player or queue that opens onto an empty screen (spec FR-016). The two
+  // buttons share it: they draw from the same pool.
+  const hasPool =
+    (status.data?.ready ?? false) && (subtreeCount ?? items.length) > 0;
+
+  // The playlist's order while browsing by folder: everything below the
+  // folder, in the list's chosen sort — by name when none is chosen, which
+  // plays folder by folder. Fetched only while the player is open.
+
+  // The player, or the detail view it detoured to (`from=player`), is open:
+  // only then is the folder's playing order worth fetching.
+  const playing =
+    location.pathname.startsWith("/play") ||
+    (location.pathname.startsWith("/file/") &&
+      new URLSearchParams(location.search).get("from") === "player");
+  const { subtreeFilter, playlistNav } = useFolderPlaylist({
+    workspaceId: status.data?.workspaceId,
+    ready: status.data?.ready ?? false,
+    filter,
+    folderView,
+    path: folderNav.path,
+    browsing,
+    playing,
+  });
 
   // Drag-to-reorder edits the collection's own item order, so it is offered only
   // where that order is both stored (a collection) and visible (manual sort).
@@ -154,7 +300,7 @@ export default function Home() {
               // persist. Only the loaded window is described; the main process
               // rearranges exactly those slots and leaves the rest alone.
               qc.setQueryData<InfiniteData<SearchResult>>(
-                ["files_search", status.data?.workspaceId ?? null, filter],
+                ["files_search", status.data?.workspaceId ?? null, searchQuery],
                 (prev) => {
                   if (!prev) return prev;
                   let at = 0;
@@ -180,7 +326,7 @@ export default function Home() {
             },
           }
         : undefined,
-    [reorderCollectionId, qc, filter, status.data?.workspaceId],
+    [reorderCollectionId, qc, searchQuery, status.data?.workspaceId],
   );
 
   // Keyboard focus navigation in the views (arrow keys between cards) runs only
@@ -188,6 +334,14 @@ export default function Home() {
   // open — a docked side peek included, its player takes the arrows — and no
   // help/command overlay on top.
   const navActive = location.pathname === "/" && !helpOpen && !commandOpen;
+
+  // Folder view moves (back / up), while the list is in front — a docked side
+  // peek included it is not, as its player owns those keys.
+  const { onMouseUp: onListMouseUp } = useFolderNavKeys({
+    active: folderView && navActive,
+    goBack: folderNav.goBack,
+    goUp: folderNav.goUp,
+  });
 
   useEffect(() => {
     document.title = status.data?.root
@@ -200,31 +354,55 @@ export default function Home() {
   // each state update re-renders the whole Home tree, so coalesce them into one
   // update per flush window instead of one per event.
   const pendingThumbs = useRef(new Map<string, number>());
+  // Read by the flush below, which must stay reference-stable.
+  const folderViewRef = useRef(folderView);
+  useEffect(() => {
+    folderViewRef.current = folderView;
+  }, [folderView]);
   const thumbFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A folder card's mosaic prefers files that already have a thumbnail, so the
+  // listing is re-read as thumbnails land — but at most every
+  // FOLDER_REFRESH_MS: a listing costs far more than the 100ms flush, and one
+  // query worker serves the file list too.
+  const folderRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleFolderRefresh = useCallback(() => {
+    if (folderRefreshTimer.current) return;
+    folderRefreshTimer.current = setTimeout(() => {
+      folderRefreshTimer.current = null;
+      if (folderViewRef.current) {
+        void qc.invalidateQueries({ queryKey: ["folders_list"] });
+      }
+    }, FOLDER_REFRESH_MS);
+  }, [qc]);
   useEffect(
     () => () => {
       if (thumbFlushTimer.current) clearTimeout(thumbFlushTimer.current);
+      if (folderRefreshTimer.current) clearTimeout(folderRefreshTimer.current);
     },
     [],
   );
-  const onThumbDone = useCallback((event: ThumbDone) => {
-    const key = event.workspaceId
-      ? `${event.workspaceId}:${event.id}`
-      : String(event.id);
-    const pending = pendingThumbs.current;
-    pending.set(key, (pending.get(key) ?? 0) + 1);
-    if (thumbFlushTimer.current) return;
-    thumbFlushTimer.current = setTimeout(() => {
-      thumbFlushTimer.current = null;
-      const batch = pendingThumbs.current;
-      pendingThumbs.current = new Map();
-      setThumbVersion((v) => {
-        const next = { ...v };
-        for (const [k, n] of batch) next[k] = (next[k] ?? 0) + n;
-        return next;
-      });
-    }, 100);
-  }, []);
+  const onThumbDone = useCallback(
+    (event: ThumbDone) => {
+      const key = event.workspaceId
+        ? `${event.workspaceId}:${event.id}`
+        : String(event.id);
+      const pending = pendingThumbs.current;
+      pending.set(key, (pending.get(key) ?? 0) + 1);
+      if (thumbFlushTimer.current) return;
+      thumbFlushTimer.current = setTimeout(() => {
+        thumbFlushTimer.current = null;
+        const batch = pendingThumbs.current;
+        pendingThumbs.current = new Map();
+        setThumbVersion((v) => {
+          const next = { ...v };
+          for (const [k, n] of batch) next[k] = (next[k] ?? 0) + n;
+          return next;
+        });
+        if (folderViewRef.current) scheduleFolderRefresh();
+      }, 100);
+    },
+    [scheduleFolderRefresh],
+  );
 
   // Stabilize the reference so MediaCard's memo stays effective.
   // A click AND-appends an exact tag condition rather than overwriting the
@@ -254,6 +432,8 @@ export default function Home() {
         setScanning(false);
         void status.refetch();
         void search.refetch();
+        // Folders appear, fill up and empty out with a scan like files do.
+        void qc.invalidateQueries({ queryKey: ["folders_list"] });
         // A scan can add tags (new files, the derived-tag backfill), so a tag
         // screen left open would otherwise show a stale catalog.
         void qc.invalidateQueries({ queryKey: ["tags_list_all"] });
@@ -351,8 +531,8 @@ export default function Home() {
   }, []);
 
   const openDiscover = useCallback(() => {
-    void navigate(discoverPath(filter));
-  }, [filter, navigate]);
+    void navigate(discoverPath(subtreeFilter));
+  }, [subtreeFilter, navigate]);
 
   const openTags = useCallback(() => {
     void navigate("/tags");
@@ -544,6 +724,9 @@ export default function Home() {
         onEditWorkspace={() => setEditWorkspace(activeWorkspace)}
         view={view}
         onSetView={setViewMode}
+        folderView={folderView}
+        onToggleByFolder={toggleByFolder}
+        folderAvailable={folderAvailable}
         scanning={scanning}
         ready={status.data?.ready ?? false}
         onScan={() => void onScan()}
@@ -570,6 +753,53 @@ export default function Home() {
         manualSortAvailable={!!activeCollection}
       />
 
+      {folderView && (
+        <FolderHeader
+          rootLabel={activeWorkspace?.label ?? t("folder.root")}
+          path={folderNav.path}
+          onNavigate={folderNav.goTo}
+          canGoBack={folderNav.canGoBack}
+          onBack={folderNav.goBack}
+          onUp={folderNav.goUp}
+          onOpenInFileManager={() => {
+            api
+              .folderOpenInFileManager(workspaceId ?? "", folderNav.path)
+              .catch((error: unknown) =>
+                toast.error(t("folder.openFailed"), {
+                  id: "folder-open-failed",
+                  description:
+                    error instanceof Error ? error.message : String(error),
+                }),
+              );
+          }}
+          onCopyPath={() => {
+            api.folderCopyPath(workspaceId ?? "", folderNav.path).then(
+              () =>
+                toast.success(t("folder.pathCopied"), {
+                  id: "folder-path-copied",
+                }),
+              (error: unknown) =>
+                toast.error(t("folder.copyFailed"), {
+                  id: "folder-copy-failed",
+                  description:
+                    error instanceof Error ? error.message : String(error),
+                }),
+            );
+          }}
+          summary={
+            // What the folder itself holds; a search shows its own results.
+            // (and only once the listing is the folder named: a vanished
+            // folder is answered with an ancestor until the view moves there).
+            !folderSearching && folderListing.data?.path === folderNav.path
+              ? t("folder.summary", {
+                  folders: folderListing.data.folders.length,
+                  files: folderListing.data.fileCount,
+                })
+              : undefined
+          }
+        />
+      )}
+
       <ScanProgress onThumbDone={onThumbDone} wsId={status.data?.workspaceId} />
 
       <CommandMenu
@@ -582,7 +812,11 @@ export default function Home() {
         onScan={(includeExcluded) => void onScan(includeExcluded)}
         onRebuild={() => void onRebuild()}
         onSetView={setViewMode}
+        onToggleByFolder={toggleByFolder}
+        folderView={folderView}
+        folderAvailable={folderAvailable}
         onDiscover={openDiscover}
+        canDiscover={hasPool}
         onTags={openTags}
         onSettings={openSettings}
         onHelp={() => setHelpOpen(true)}
@@ -593,17 +827,25 @@ export default function Home() {
           flex sibling of the list, under the header and filter bar and above
           the player and status bars, and the list narrows to make room. */}
       {/* The scope key drops the selection when the list itself changes
-          (workspace or filter), but not while paging within one list: rows
+          (workspace, folder or filter), but not while paging within one list: rows
           picked under a different list are off screen, and a bulk edit that
           quietly included them would act on files the user cannot see. */}
       <SelectionProvider
         items={items}
-        scope={`${status.data?.workspaceId ?? ""}|${JSON.stringify(filter)}`}
+        scope={`${status.data?.workspaceId ?? ""}|${folderView ? `folder:${folderNav.path}` : "flat"}|${JSON.stringify(filter)}`}
+        // Only the folders on screen: once the window has moved past the top
+        // neither view draws them, and "select all" must not pick them.
+        folders={listOffset === 0 ? folderEntries : undefined}
+        expandFolders={expandFolders}
       >
         <div className="relative flex min-h-0 flex-1">
           {/* min-w-60 = the 240px the side peek leaves the list (LIST_MIN_WIDTH
           in usePeekResize); the two must agree. */}
-          <main id="list-main" className="min-h-0 min-w-60 flex-1">
+          <main
+            id="list-main"
+            className="min-h-0 min-w-60 flex-1"
+            onMouseUp={onListMouseUp}
+          >
             {status.isFetched && !status.data?.ready ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted">
                 <FolderPlus className="size-10 opacity-60" />
@@ -620,7 +862,7 @@ export default function Home() {
                 mediaBase={status.data?.mediaBase ?? ""}
                 workspaceId={status.data?.workspaceId ?? ""}
                 listOffset={listOffset}
-                loading={search.isLoading && (status.data?.ready ?? false)}
+                loading={listLoading}
                 thumbVersion={thumbVersion}
                 onTagClick={onTagClick}
                 hasNextPage={search.hasNextPage}
@@ -632,33 +874,20 @@ export default function Home() {
                 navActive={navActive}
                 watchLater={activeCollection?.id === WATCH_LATER_ID}
                 reorder={reorder}
-              />
-            ) : view === "table" ? (
-              <MediaTable
-                items={items}
-                mediaBase={status.data?.mediaBase ?? ""}
-                workspaceId={status.data?.workspaceId ?? ""}
-                listOffset={listOffset}
-                loading={search.isLoading && (status.data?.ready ?? false)}
-                thumbVersion={thumbVersion}
-                onTagClick={onTagClick}
-                hasNextPage={search.hasNextPage}
-                fetchNextPage={fetchNextPage}
-                isFetchingNextPage={search.isFetchingNextPage}
-                hasPreviousPage={search.hasPreviousPage}
-                fetchPreviousPage={fetchPreviousPage}
-                isFetchingPreviousPage={search.isFetchingPreviousPage}
-                navActive={navActive}
-                watchLater={activeCollection?.id === WATCH_LATER_ID}
-                reorder={reorder}
+                folders={folderEntries}
+                onOpenFolder={folderNav.enter}
+                resetKey={folderView ? `folder:${folderNav.path}` : undefined}
+                inFolder={folderSearching}
               />
             ) : (
+              // By folder, either view gets the folders ahead of the files
+              // (folders is unset otherwise).
               <MediaGrid
                 items={items}
                 mediaBase={status.data?.mediaBase ?? ""}
                 workspaceId={status.data?.workspaceId ?? ""}
                 listOffset={listOffset}
-                loading={search.isLoading && (status.data?.ready ?? false)}
+                loading={listLoading}
                 thumbVersion={thumbVersion}
                 onTagClick={onTagClick}
                 hasNextPage={search.hasNextPage}
@@ -670,6 +899,10 @@ export default function Home() {
                 navActive={navActive}
                 watchLater={activeCollection?.id === WATCH_LATER_ID}
                 reorder={reorder}
+                folders={folderEntries}
+                onOpenFolder={folderNav.enter}
+                resetKey={folderView ? `folder:${folderNav.path}` : undefined}
+                inFolder={folderSearching}
               />
             )}
           </main>
@@ -687,9 +920,12 @@ export default function Home() {
               fetchPreviousPage,
               hasPreviousPage: search.hasPreviousPage,
               isFetchingPreviousPage: search.isFetchingPreviousPage,
+              isLoading: search.isLoading,
             }}
           >
-            <Outlet />
+            <PlaylistNavProvider value={playlistNav}>
+              <Outlet />
+            </PlaylistNavProvider>
           </MediaNavProvider>
 
           <SelectionLayer active={navActive} />
@@ -702,36 +938,37 @@ export default function Home() {
         {/* Play the list as a playlist. No params: the player reads the very list
           order shared through MediaNavContext below, so whatever sort/filter is
           on screen is what plays — collection, Watch Later or plain search.
+          Browsing by folder it plays the whole folder instead (PlaylistNav).
           Accent-filled like the discovery button beside it: both start a way of
           watching, and neither is subordinate to the other. */}
         <Link
           to="/play"
           title={t("playlist.start")}
           aria-label={t("playlist.start")}
-          aria-disabled={!canPlay}
-          tabIndex={canPlay ? undefined : -1}
+          aria-disabled={!hasPool}
+          tabIndex={hasPool ? undefined : -1}
           className={cn(
             // Stacked above the discovery button; both lift together when the
             // audio player bar is showing, and both move left of the detail
             // side peek while it is docked (each variable is 0 otherwise).
             "fixed bottom-[calc(6rem+var(--meguri-player-bar-inset))] right-[calc(1.25rem+var(--meguri-peek-inset))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            !canPlay && "pointer-events-none opacity-45",
+            !hasPool && "pointer-events-none opacity-45",
           )}
         >
           <PlayCircle className="size-6" />
         </Link>
 
         <Link
-          to={discoverPath(filter)}
+          to={discoverPath(subtreeFilter)}
           title={t("discover.title")}
           aria-label={t("discover.title")}
-          aria-disabled={!status.data?.ready}
-          tabIndex={status.data?.ready ? undefined : -1}
+          aria-disabled={!hasPool}
+          tabIndex={hasPool ? undefined : -1}
           className={cn(
             // Lifted clear of the audio player bar when one is showing (the
             // variable is 0 otherwise, keeping the original offset).
             "fixed bottom-[calc(1.25rem+var(--meguri-player-bar-inset))] right-[calc(1.25rem+var(--meguri-peek-inset))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            !status.data?.ready && "pointer-events-none opacity-45",
+            !hasPool && "pointer-events-none opacity-45",
           )}
         >
           <Sparkles className="size-6" />

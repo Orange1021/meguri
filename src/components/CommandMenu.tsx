@@ -1,5 +1,6 @@
 import {
   DatabaseBackup,
+  FolderTree,
   Grid3X3,
   HelpCircle,
   List,
@@ -7,7 +8,6 @@ import {
   Search,
   Settings,
   Sparkles,
-  Table2,
   Tags as TagsIcon,
   Terminal,
 } from "lucide-react";
@@ -24,8 +24,7 @@ import {
 } from "@/components/ui/command";
 import { useI18n, type TFunc } from "@/i18n/I18nProvider";
 import type { TranslationKey } from "@/i18n/locales/ja";
-
-type ViewMode = "grid" | "list" | "table";
+import type { ViewMode } from "@/routes/Home/utils";
 
 interface CommandMenuProps {
   open: boolean;
@@ -37,7 +36,15 @@ interface CommandMenuProps {
   onScan: (includeExcluded?: boolean) => void;
   onRebuild: () => void;
   onSetView: (view: ViewMode) => void;
+  /** Turns the "show by folder" option on or off. */
+  onToggleByFolder: () => void;
+  /** Whether the file view is shown by folder, which the command undoes. */
+  folderView?: boolean;
+  /** Folders need one real workspace open (not All or a collection). */
+  folderAvailable?: boolean;
   onDiscover: () => void;
+  /** Discovery has something to pick from (the same rule as its button). */
+  canDiscover?: boolean;
   onTags: () => void;
   onSettings: () => void;
   onHelp: () => void;
@@ -81,7 +88,11 @@ export function CommandMenu({
   onScan,
   onRebuild,
   onSetView,
+  onToggleByFolder,
+  folderView = false,
+  folderAvailable = false,
   onDiscover,
+  canDiscover = ready,
   onTags,
   onSettings,
   onHelp,
@@ -103,7 +114,7 @@ export function CommandMenu({
     action(t, "discover.title", {
       id: "discover",
       icon: Sparkles,
-      disabled: !ready,
+      disabled: !canDiscover,
       run: () => closeThen(onDiscover),
     }),
     action(t, "tags.title", {
@@ -167,10 +178,12 @@ export function CommandMenu({
       icon: List,
       run: () => closeThen(() => onSetView("list")),
     }),
-    action(t, "view.table", {
-      id: "view-table",
-      icon: Table2,
-      run: () => closeThen(() => onSetView("table")),
+    // A toggle, unlike the view actions above it: named for what it will do.
+    action(t, folderView ? "view.folderOff" : "view.folder", {
+      id: "view-folder",
+      icon: FolderTree,
+      disabled: !folderAvailable,
+      run: () => closeThen(onToggleByFolder),
     }),
   ];
 

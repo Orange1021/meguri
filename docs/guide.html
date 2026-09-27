@@ -132,13 +132,13 @@
   <h2 id="browsing">Browsing your library</h2>
   <img class="shot" src="./assets/theme-solarized-light.png" alt="Meguri browsing a media library in grid view">
   <p>The main screen shows your library as an endless, scrollable wall of
-  thumbnails. Three layouts are available from the header, so you can switch
-  between visual browsing and detail-oriented lists:</p>
+  thumbnails. Two layouts are available from the header, so you can switch
+  between visual browsing and a detail-oriented list:</p>
   <ul>
     <li><strong>Grid</strong> — large thumbnails, best for visual scanning.</li>
-    <li><strong>List</strong> — thumbnail plus name and key details per row.</li>
-    <li><strong>Table</strong> — compact rows with sortable columns for
-    working through a lot of files quickly.</li>
+    <li><strong>List</strong> — one row per file with its folder, tags,
+    resolution, duration and size lined up in columns. The thumbnail size is
+    set in <strong>Settings → List thumbnail size</strong>.</li>
   </ul>
   <p>Scrolling is infinite — items load as you go, even in very large
   libraries. Use <kbd>Ctrl</kbd> + mouse wheel (or <kbd>Ctrl</kbd> +
@@ -148,7 +148,7 @@
     <strong>Hover to peek inside a video.</strong> Move the mouse across a
     video thumbnail and it previews the scene under the cursor — left edge is
     the start, right edge is the end, like scrubbing a seek bar. It works in
-    all three layouts, so you can check what a video contains without opening
+    both layouts, so you can check what a video contains without opening
     it. If you prefer static thumbnails, turn it off in
     <strong>Settings → Hover preview</strong>.
   </div>
@@ -282,7 +282,9 @@
   collection and start it from there) and a full-screen player takes the list
   <em>exactly as it is on screen</em> — a collection, Watch Later, a workspace
   listing, or a search result, in whatever sort order you chose — and runs it
-  without further input.</p>
+  without further input. Browsing by folder, it plays the whole folder instead
+  of only the files shown in it: every subfolder included, by name unless you
+  chose a sort.</p>
   <ul>
     <li><strong>Videos</strong> play to the end, then the player moves on by
     itself.</li>

@@ -76,8 +76,39 @@ playback is unaffected.
 
 Data fetching uses `@tanstack/react-query`. The file list is an
 `useInfiniteQuery` combined with `@tanstack/react-virtual` for infinite scroll
-plus virtualization (`src/components/MediaGrid.tsx`). Three view modes — grid,
-list, and table — are switchable.
+plus virtualization (`src/components/MediaGrid.tsx`). Two view modes — grid and
+list — are switchable.
+
+Both views have a "show by folder" option (`BY_FOLDER_KEY`, remembered apart
+from the view mode) that browses one workspace like a file manager: the current
+folder's child folders first, then its direct files, with a header above naming
+the folder and what it holds (`FolderHeader`). A folder is drawn as a folder —
+a tab and a body tinted with the theme's `accent2`, holding a mosaic of up to
+four thumbnails (`FolderArt`) — as a card in the grid (`FolderCard`) and in the
+thumbnail slot of a row in the list (`FolderRow`). Both views take the folders
+as leading entries of their own virtualized rows, and each folder entry keeps
+its view's item dimensions, because each view sizes every row from one measured
+row. Where the view is is held by `useFolderNav` in memory (per workspace, with
+a back stack), not in the URL — Home stays mounted under its child-route
+modals, so the location survives opening and closing them, whereas a query
+parameter on `/` would be dropped by the first navigation to `/file/:id`. With a
+search or filter active, it searches everything below the current folder
+instead (`hasFilterConditions`). Browsing a folder, the playlist and Discovery
+both draw from its whole subtree rather than the direct files shown: the player
+through its own order (`PlaylistNavContext`, in the list's sort or by name),
+Discovery through its filter. Both name the folder they draw from
+(`FolderScopeChip`, spelled from the workspace down — the workspace alone for
+its root). Both buttons are
+enabled on the same rule — something to draw from, which by folder is the
+listing's direct files plus its child folders' counts. Over `All`
+or a collection the view is drawn flat (`isFolderView`) without overwriting the
+stored option.
+
+Selecting a folder selects every file below it: `SelectionContext` fetches
+them through `folder_files` when the folder is picked, because the selection bar
+and the bulk tag dialog are computed from rows. Until they arrive the selection
+is `pending` and the bulk actions wait; the selection's `count` includes files
+beyond the cap so the bar can refuse an oversized edit.
 
 Toggling a favorite patches both the list and detail react-query caches so they
 stay in sync without a refetch. Discover pulls videos with `randomFiles`

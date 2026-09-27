@@ -23,6 +23,8 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { useI18n } from "@/i18n/I18nProvider";
+import { FolderScopeChip } from "@/components/FolderScopeChip";
+import { useFolderScopeLabel } from "@/hooks/useFolderScopeLabel";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import { NAV_BINDINGS, matchAny } from "@/settings/keybindings";
@@ -243,6 +245,9 @@ export default function Discover() {
 
   const ready = status.data?.ready ?? false;
   const loading = queue.isLoading && ready;
+  // The folder the queue is drawn from ("Music / YouTube"; the workspace
+  // alone for its root).
+  const folderLabel = useFolderScopeLabel(discoverFilter.folder?.path);
 
   return (
     <DiscoverModal onClose={() => void onClose()} size={modalSize}>
@@ -259,6 +264,15 @@ export default function Discover() {
               total: items.length,
             })}
           </span>
+        )}
+        {/* Opened from a folder: the queue is drawn from below it only, which
+            also explains a short queue. */}
+        {folderLabel && (
+          <FolderScopeChip
+            label={folderLabel}
+            description={t("discover.inFolder", { path: folderLabel })}
+            className="max-w-[40%]"
+          />
         )}
         <div className="pointer-events-auto ml-auto flex items-center gap-2">
           <Button

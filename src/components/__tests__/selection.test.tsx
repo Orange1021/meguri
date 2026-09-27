@@ -2,7 +2,13 @@
 // the bar's own buttons and the keys. Rendered through the grid because the
 // click rules live in the views, not in the context.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { useState } from "react";
 import "@/test/mockVirtualizer";
 import { MediaGrid } from "@/components/MediaGrid";
@@ -10,7 +16,7 @@ import { SelectionProvider, useSelection } from "@/components/SelectionContext";
 import { SelectionLayer } from "@/routes/Home/SelectionLayer";
 import { sampleFileRow, WS_ID } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
-import type { FileRow } from "@/ipc/types";
+import type { FileRow, FolderEntry, FolderFilesResult } from "@/ipc/types";
 import { MAX_BULK_FILES } from "@shared/tags";
 import { SelectionBar } from "@/components/SelectionBar";
 
@@ -624,5 +630,240 @@ describe("selection", () => {
       );
       expect(mocks.collectionSetMembership.mock.calls[0][2]).toBe("remove");
     });
+  });
+});
+
+describe("folder selection", () => {
+  const folder = (name: string, count: number): FolderEntry => ({
+    name,
+    path: name,
+    count,
+    subfolders: 0,
+    previews: [],
+  });
+  const filesOf = (name: string, n: number, from: number): FileRow[] =>
+    Array.from({ length: n }, (_, i) => ({
+      ...sampleFileRow,
+      id: from + i,
+      relPath: `${name}/f${i}.mp4`,
+    }));
+
+  /** An expand whose answers the test releases by hand. */
+  function deferredExpand() {
+    const calls: {
+      paths: string[];
+      resolve: (r: FolderFilesResult) => void;
+      reject: (e: unknown) => void;
+    }[] = [];
+    const expand = vi.fn(
+      (paths: string[]) =>
+        new Promise<FolderFilesResult>((resolve, reject) => {
+          calls.push({ paths, resolve, reject });
+        }),
+    );
+    return { expand, calls };
+  }
+
+  function FolderHarness({
+    folders,
+    expand,
+  }: {
+    folders: FolderEntry[];
+    expand: (paths: string[]) => Promise<FolderFilesResult>;
+  }) {
+    const [scope, setScope] = useState("root");
+    return (
+      <>
+        <button type="button" onClick={() => setScope("elsewhere")}>
+          move
+        </button>
+        <SelectionProvider
+          items={items}
+          scope={scope}
+          folders={folders}
+          expandFolders={expand}
+        >
+          <MediaGrid
+            items={items}
+            mediaBase="http://127.0.0.1:17345"
+            workspaceId={WS_ID}
+            loading={false}
+            thumbVersion={{}}
+            folders={folders}
+            onOpenFolder={() => {}}
+          />
+          <SelectionLayer active />
+        </SelectionProvider>
+      </>
+    );
+  }
+
+  const mediaBoxes = () =>
+    screen
+      .getAllByTestId("media-card")
+      .map((card) =>
+        within(card).getByRole("button", { name: /^(Select|Deselect)$/ }),
+      );
+  const folderBoxes = () =>
+    screen
+      .getAllByTestId("folder-card")
+      .map((card) => within(card).getAllByRole("button")[0]);
+
+  it("counts a folder's files once they arrive, waiting meanwhile", async () => {
+    const { expand, calls } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness folders={[folder("Movie", 3)]} expand={expand} />,
+    );
+    // Named for what it selects: everything in the folder, not one file.
+    expect(folderBoxes()[0].getAttribute("aria-label")).toBe(
+      "Select everything in this folder",
+    );
+    fireEvent.click(folderBoxes()[0]);
+
+    expect(expand).toHaveBeenCalledWith(["Movie"]);
+    expect(
+      within(bar()!).getByRole("button", { name: /Edit tags/ }),
+    ).toHaveProperty("disabled", true);
+    expect(within(bar()!).getByText("Loading folder contents")).toBeTruthy();
+
+    await act(async () => {
+      calls[0].resolve([
+        { path: "Movie", total: 3, rows: filesOf("Movie", 3, 100) },
+      ]);
+      await Promise.resolve();
+    });
+    expect(selectedCount()).toBe(3);
+    expect(within(bar()!).getByText("including 1 folders")).toBeTruthy();
+    expect(
+      within(bar()!).getByRole("button", { name: /Edit tags/ }),
+    ).toHaveProperty("disabled", false);
+  });
+
+  it("adds folder files to picked files without counting any twice", async () => {
+    const { expand, calls } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness folders={[folder("Movie", 2)]} expand={expand} />,
+    );
+    fireEvent.click(mediaBoxes()[0]);
+    fireEvent.click(folderBoxes()[0]);
+    await act(async () => {
+      // One of the folder's files is also the file picked directly.
+      calls[0].resolve([
+        {
+          path: "Movie",
+          total: 2,
+          rows: [items[0], ...filesOf("Movie", 1, 100)],
+        },
+      ]);
+      await Promise.resolve();
+    });
+    expect(selectedCount()).toBe(2);
+  });
+
+  it("counts a folder cut short at the cap in full, and refuses the edit", async () => {
+    const { expand, calls } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness
+        folders={[folder("Huge", MAX_BULK_FILES + 50)]}
+        expand={expand}
+      />,
+    );
+    fireEvent.click(folderBoxes()[0]);
+    await act(async () => {
+      calls[0].resolve([
+        {
+          path: "Huge",
+          total: MAX_BULK_FILES + 50,
+          rows: filesOf("Huge", 10, 100),
+        },
+      ]);
+      await Promise.resolve();
+    });
+    expect(selectedCount()).toBe(MAX_BULK_FILES + 50);
+    expect(
+      within(bar()!).getByRole("button", { name: /Edit tags/ }),
+    ).toHaveProperty("disabled", true);
+  });
+
+  it("drops a folder toggled off before its files arrive", async () => {
+    const { expand, calls } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness folders={[folder("Movie", 3)]} expand={expand} />,
+    );
+    fireEvent.click(folderBoxes()[0]);
+    fireEvent.click(folderBoxes()[0]);
+    await act(async () => {
+      calls[0].resolve([
+        { path: "Movie", total: 3, rows: filesOf("Movie", 3, 100) },
+      ]);
+      await Promise.resolve();
+    });
+    expect(selectedCount()).toBe(0);
+  });
+
+  it("un-picks a folder whose files could not be fetched", async () => {
+    const { expand, calls } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness folders={[folder("Movie", 3)]} expand={expand} />,
+    );
+    fireEvent.click(folderBoxes()[0]);
+    await act(async () => {
+      calls[0].reject(new Error("gone"));
+      await Promise.resolve();
+    });
+    expect(selectedCount()).toBe(0);
+    expect(folderBoxes()[0].getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("forgets folders when the list moves to another folder", async () => {
+    const { expand, calls } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness folders={[folder("Movie", 3)]} expand={expand} />,
+    );
+    fireEvent.click(folderBoxes()[0]);
+    fireEvent.click(screen.getByRole("button", { name: "move" }));
+    await act(async () => {
+      calls[0].resolve([
+        { path: "Movie", total: 3, rows: filesOf("Movie", 3, 100) },
+      ]);
+      await Promise.resolve();
+    });
+    expect(bar()).toBeNull();
+  });
+
+  it("selects the folders on screen too with Select all, in one fetch", async () => {
+    const { expand, calls } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness
+        folders={[folder("A", 1), folder("B", 2)]}
+        expand={expand}
+      />,
+    );
+    fireEvent.click(mediaBoxes()[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+    expect(expand).toHaveBeenLastCalledWith(["A", "B"]);
+    await act(async () => {
+      calls[calls.length - 1].resolve([
+        { path: "A", total: 1, rows: filesOf("A", 1, 100) },
+        { path: "B", total: 2, rows: filesOf("B", 2, 200) },
+      ]);
+      await Promise.resolve();
+    });
+    expect(selectedCount()).toBe(items.length + 3);
+  });
+
+  it("toggles a folder from a Ctrl-click on the card instead of opening it", () => {
+    const { expand } = deferredExpand();
+    renderWithProviders(
+      <FolderHarness folders={[folder("Movie", 3)]} expand={expand} />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+      {
+        ctrlKey: true,
+      },
+    );
+    expect(expand).toHaveBeenCalledWith(["Movie"]);
+    expect(folderBoxes()[0].getAttribute("aria-pressed")).toBe("true");
   });
 });

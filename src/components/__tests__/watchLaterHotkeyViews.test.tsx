@@ -1,11 +1,10 @@
-// The "W" shortcut across the list and table views. The grid has its own suite
-// (MediaGrid.test.tsx); these two hang the ref off the focused row differently,
-// so they get their own coverage of "the key reaches the right file".
+// The "W" shortcut in the list view. The grid has its own suite
+// (MediaGrid.test.tsx); the list hangs the ref off the focused row differently,
+// so it gets its own coverage of "the key reaches the right file".
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import "@/test/mockVirtualizer";
 import { MediaList } from "@/components/MediaList";
-import { MediaTable } from "@/components/MediaTable";
 import { defaultWorkspacesList, sampleFileRow, WS_ID } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
@@ -42,7 +41,6 @@ const commonProps = {
 
 const views = {
   list: () => renderWithProviders(<MediaList {...commonProps} />),
-  table: () => renderWithProviders(<MediaTable {...commonProps} />),
 };
 
 describe.each(Object.entries(views))(

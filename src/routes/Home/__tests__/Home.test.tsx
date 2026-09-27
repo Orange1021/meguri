@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router";
 import "@/test/mockVirtualizer";
@@ -13,6 +13,10 @@ import {
   WS_ID,
 } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import { applyTagFilter } from "@/lib/ui-events";
+import { useMediaNav, usePlaylistNav } from "@/components/MediaNavContext";
+import { getListCounts } from "@/hooks/useListCounts";
+import { BY_FOLDER_KEY, VIEW_KEY } from "@/routes/Home/utils";
 
 const mocks = vi.hoisted(() => ({
   appStatus: vi.fn(),
@@ -24,6 +28,22 @@ const mocks = vi.hoisted(() => ({
   fileRecordPlay: vi.fn(),
   scanStart: vi.fn(),
   workspaceStats: vi.fn(),
+  foldersList: vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+  folderFiles: vi.fn<(ws: string, paths: string[]) => Promise<unknown>>(),
+  folderOpenInFileManager:
+    vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+  folderCopyPath: vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+}));
+
+// Toasts are asserted on the call: no Toaster is mounted in these tests.
+const toasts = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  success: vi.fn(),
+}));
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), toasts),
+  Toaster: () => null,
 }));
 
 vi.mock("@/ipc/client", () => ({
@@ -37,6 +57,12 @@ vi.mock("@/ipc/client", () => ({
     fileRecordPlay: (...args: unknown[]) => mocks.fileRecordPlay(...args),
     scanStart: (...args: unknown[]) => mocks.scanStart(...args),
     workspaceStats: () => mocks.workspaceStats(),
+    foldersList: (ws: string, path: string) => mocks.foldersList(ws, path),
+    folderFiles: (ws: string, paths: string[]) => mocks.folderFiles(ws, paths),
+    folderOpenInFileManager: (ws: string, path: string) =>
+      mocks.folderOpenInFileManager(ws, path),
+    folderCopyPath: (ws: string, path: string) =>
+      mocks.folderCopyPath(ws, path),
     tagsList: vi.fn().mockResolvedValue([]),
     openExternal: vi.fn().mockResolvedValue(undefined),
     openFolder: vi.fn().mockResolvedValue(undefined),
@@ -66,8 +92,22 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />}>
         <Route path="file/:id" element={<MediaDetail />} />
+        <Route path="play" element={<PlaylistProbe />} />
       </Route>
     </Routes>
+  );
+}
+
+/** Stands in for the player: shows the order it would play. */
+function PlaylistProbe() {
+  const playlist = usePlaylistNav();
+  const list = useMediaNav();
+  const nav = playlist ?? list;
+  return (
+    <div data-testid="playlist-probe">
+      {playlist ? "own:" : "list:"}
+      {nav?.items.map((f) => f.relPath).join(",")}
+    </div>
   );
 }
 
@@ -337,5 +377,366 @@ describe("Home + MediaDetail integration", () => {
     );
     // A single visit records exactly once despite refetches/re-renders.
     expect(mocks.fileRecordPlay).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Home folder view", () => {
+  const movie = {
+    name: "Movie",
+    path: "Movie",
+    count: 3,
+    subfolders: 1,
+    previews: [sampleFileRow],
+  };
+  const lastSearch = () => {
+    const calls = mocks.filesSearch.mock.calls;
+    return calls[calls.length - 1][0] as Record<string, unknown>;
+  };
+
+  afterEach(() => {
+    localStorage.removeItem(VIEW_KEY);
+    localStorage.removeItem(BY_FOLDER_KEY);
+  });
+
+  beforeEach(() => {
+    localStorage.setItem(VIEW_KEY, "grid");
+    localStorage.setItem(BY_FOLDER_KEY, "true");
+    mocks.appStatus.mockResolvedValue(defaultAppStatus);
+    mocks.workspacesList.mockResolvedValue(defaultWorkspacesList);
+    mocks.filesSearch.mockReset();
+    mocks.filesSearch.mockResolvedValue({
+      items: [sampleFileRow],
+      nextCursor: null,
+    });
+    mocks.foldersList.mockReset();
+    mocks.foldersList.mockImplementation((_ws: string, path: string) =>
+      Promise.resolve({
+        path,
+        folders: path === "" ? [movie] : [],
+        fileCount: 1,
+      }),
+    );
+    mocks.workspaceStats.mockResolvedValue({ fileCount: 1, lastScanAt: null });
+  });
+
+  it("lists the root's folders and direct files, then walks into a folder", async () => {
+    renderWithProviders(<AppRoutes />);
+
+    await screen.findByTestId("folder-card");
+    expect(lastSearch().folder).toEqual({ path: "", recursive: false });
+    expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "");
+    // The header says what the folder holds: one folder, one direct file.
+    expect(await screen.findByText("Folders: 1 · Files: 1")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "Movie"),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false }),
+    );
+    const crumbs = screen.getByRole("navigation", { name: "Folder path" });
+    expect(within(crumbs).getByText("Movie").getAttribute("aria-current")).toBe(
+      "page",
+    );
+
+    // Back up through the breadcrumb.
+    fireEvent.click(within(crumbs).getByRole("button", { name: "Media" }));
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: false }),
+    );
+  });
+
+  it("searches everything below the folder, without its folder cards", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+
+    applyTagFilter(["tag:beach"]);
+
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: true }),
+    );
+    await waitFor(() => expect(screen.queryByTestId("folder-card")).toBeNull());
+    expect(
+      screen.getByRole("navigation", { name: "Folder path" }),
+    ).toBeTruthy();
+  });
+
+  it("moves up when the folder shown has gone away", async () => {
+    mocks.foldersList.mockImplementation((_ws: string, path: string) =>
+      Promise.resolve({
+        path: path === "Movie" ? "" : path,
+        folders: path === "" ? [movie] : [],
+        fileCount: 1,
+      }),
+    );
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "Movie"),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: false }),
+    );
+  });
+
+  it("draws the grid flat over All without forgetting the folder option", async () => {
+    mocks.appStatus.mockResolvedValue({
+      ...defaultAppStatus,
+      root: "All",
+      workspaceId: "__all__",
+    });
+    renderWithProviders(<AppRoutes />);
+
+    await screen.findByText("sample.mp4");
+    expect(lastSearch().folder).toBeUndefined();
+    expect(mocks.foldersList).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Show by folder" }),
+    ).toHaveProperty("disabled", true);
+    expect(
+      screen
+        .getByRole("button", { name: "Grid view" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("true");
+  });
+
+  it("drops a grid selection when turning on the folder option at the root", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    renderWithProviders(<AppRoutes />);
+    const name = await screen.findByText("sample.mp4");
+    fireEvent.click(name.closest("a")!, { ctrlKey: true });
+    expect(
+      screen.getByRole("region", { name: "Selection actions" }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show by folder" }));
+
+    await screen.findByTestId("folder-card");
+    expect(
+      screen.queryByRole("region", { name: "Selection actions" }),
+    ).toBeNull();
+  });
+
+  it("opens the folder shown in the file manager", async () => {
+    mocks.folderOpenInFileManager.mockResolvedValue(undefined);
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "Movie"),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open in file manager" }),
+    );
+    expect(mocks.folderOpenInFileManager).toHaveBeenCalledWith(WS_ID, "Movie");
+  });
+
+  it("says so when the folder cannot be opened", async () => {
+    mocks.folderOpenInFileManager.mockRejectedValue(
+      new Error("folder not found"),
+    );
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open in file manager" }),
+    );
+    await waitFor(() =>
+      expect(toasts.error).toHaveBeenCalledWith(
+        "Couldn't open the folder",
+        expect.objectContaining({ description: "folder not found" }),
+      ),
+    );
+  });
+
+  it("copies the folder's path and says so", async () => {
+    mocks.folderCopyPath.mockResolvedValue(undefined);
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(screen.getByRole("button", { name: "Copy path" }));
+    expect(mocks.folderCopyPath).toHaveBeenCalledWith(WS_ID, "");
+    await waitFor(() =>
+      expect(toasts.success).toHaveBeenCalledWith(
+        "Copied the folder path",
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("draws the list by folder too, and keeps the option across views", async () => {
+    localStorage.setItem(VIEW_KEY, "list");
+    renderWithProviders(<AppRoutes />);
+
+    // Folder rows ahead of the direct files, opened like the cards.
+    await screen.findByTestId("folder-row");
+    expect(lastSearch().folder).toEqual({ path: "", recursive: false });
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false }),
+    );
+
+    // One option for both views: the grid opens by folder, in the same place.
+    fireEvent.click(screen.getByRole("button", { name: "Grid view" }));
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenLastCalledWith(WS_ID, "Movie"),
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Show by folder" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("toggles the option from the command menu, in the view shown", async () => {
+    localStorage.setItem(VIEW_KEY, "list");
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    // cmdk scrolls the highlighted option into view; jsdom has no layout.
+    if (!("scrollIntoView" in Element.prototype)) {
+      Object.defineProperty(Element.prototype, "scrollIntoView", {
+        configurable: true,
+        value: () => {},
+      });
+    }
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+
+    const run = async (name: string) => {
+      fireEvent.keyDown(window, { key: "k", code: "KeyK", ctrlKey: true });
+      fireEvent.click(await screen.findByRole("option", { name }));
+    };
+
+    // From the list: the list itself is drawn by folder.
+    await run("Show by folder");
+    await screen.findByTestId("folder-row");
+    expect(localStorage.getItem(VIEW_KEY)).toBe("list");
+
+    // Now on, the same command is named for undoing it.
+    await run("Stop showing by folder");
+    await waitFor(() => expect(screen.queryByTestId("folder-row")).toBeNull());
+    expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
+  });
+
+  it("opens Discovery scoped to the folder shown", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    const discover = () =>
+      screen.getByRole("link", { name: "Discovery" }).getAttribute("href") ??
+      "";
+    // At the root the pool is the whole workspace; the root is named anyway
+    // so Discovery can say which folder it draws from.
+    expect(decodeURIComponent(discover())).toContain(
+      '"folder":{"path":"","recursive":true}',
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    await waitFor(() =>
+      expect(decodeURIComponent(discover())).toContain(
+        '"folder":{"path":"Movie","recursive":true}',
+      ),
+    );
+  });
+
+  it("publishes what the view shows for the status bar", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    // Browsing: the folder's own files and folders (the mocked listing has
+    // one direct file and one child folder at the root).
+    await waitFor(() =>
+      expect(getListCounts()).toEqual({ files: 1, more: false, folders: 1 }),
+    );
+
+    // Searching inside it: the files loaded so far, no folders.
+    applyTagFilter(["tag:beach"]);
+    await waitFor(() =>
+      expect(getListCounts()).toEqual({ files: 1, more: false, folders: null }),
+    );
+  });
+
+  it("leaves the count to the total when nothing narrows a flat view", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+    await waitFor(() =>
+      expect(getListCounts()).toEqual({
+        files: null,
+        more: false,
+        folders: null,
+      }),
+    );
+  });
+
+  const fab = (name: string) =>
+    screen.getByRole("link", { name }).getAttribute("aria-disabled");
+
+  it("enables both buttons for a folder of folders, playing the whole folder", async () => {
+    // The root holds no files of its own, only a folder with three.
+    mocks.filesSearch.mockImplementation((query: unknown) =>
+      Promise.resolve({
+        // The playlist's order is the root's whole subtree, by name. The list
+        // itself asks for the root's direct files (not recursive).
+        items: (query as { folder?: { recursive?: boolean } }).folder?.recursive
+          ? [
+              { ...sampleFileRow, id: 7, relPath: "Movie/a.mp4" },
+              { ...sampleFileRow, id: 8, relPath: "Movie/b.mp4" },
+            ]
+          : [],
+        nextCursor: null,
+      }),
+    );
+    mocks.foldersList.mockResolvedValue({
+      path: "",
+      folders: [movie],
+      fileCount: 0,
+    });
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    await waitFor(() => expect(fab("Play as playlist")).toBe("false"));
+    expect(fab("Discovery")).toBe("false");
+
+    fireEvent.click(screen.getByRole("link", { name: "Play as playlist" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("playlist-probe").textContent).toBe(
+        "own:Movie/a.mp4,Movie/b.mp4",
+      ),
+    );
+    expect(lastSearch()).toMatchObject({
+      folder: { path: "", recursive: true },
+      sort: "name",
+      sortDir: "asc",
+    });
+  });
+
+  it("disables both buttons when there is nothing to draw from", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    mocks.filesSearch.mockResolvedValue({ items: [], nextCursor: null });
+    renderWithProviders(<AppRoutes />);
+    await waitFor(() => expect(mocks.filesSearch).toHaveBeenCalled());
+    await waitFor(() => expect(fab("Play as playlist")).toBe("true"));
+    expect(fab("Discovery")).toBe("true");
+  });
+
+  it("plays the list as shown when not browsing by folder", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    renderWithProviders(<AppRoutes />, { route: "/play" });
+    await waitFor(() =>
+      expect(screen.getByTestId("playlist-probe").textContent).toBe(
+        "list:videos/sample.mp4",
+      ),
+    );
   });
 });

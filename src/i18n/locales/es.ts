@@ -57,6 +57,12 @@ export const es: Record<TranslationKey, string> = {
   "settings.frameQualityLow": "Baja (240px)",
   "settings.frameQualityStandard": "Estándar (480px)",
   "settings.frameQualityHigh": "Alta (960px)",
+  "settings.listThumbSize": "Tamaño de miniaturas en la lista",
+  "settings.listThumbSizeDesc":
+    "Tamaño de la miniatura en cada fila de la vista de lista.",
+  "settings.listThumbSizeSmall": "Pequeño",
+  "settings.listThumbSizeMedium": "Mediano",
+  "settings.listThumbSizeLarge": "Grande",
   "settings.emojiStyle": "Estilo de emojis",
   "settings.emojiStyleDesc":
     "Cambia el aspecto de los iconos de emoji y de los emojis en el texto.",
@@ -350,8 +356,38 @@ export const es: Record<TranslationKey, string> = {
   "grid.searchByTag": "Filtrar por «{name}»",
   "view.grid": "Vista de cuadrícula",
   "view.list": "Vista de lista",
-  "view.table": "Vista de tabla",
-  "table.name": "Nombre",
+
+  // folder view
+  "view.folder": "Mostrar por carpetas",
+  "view.folderOff": "Dejar de mostrar por carpetas",
+  "view.folderUnavailable":
+    "Mostrar por carpetas solo está disponible con un espacio de trabajo abierto",
+  "folder.breadcrumbLabel": "Ruta de la carpeta",
+  "folder.root": "Espacio de trabajo",
+  "folder.back": "Atrás",
+  "folder.up": "Subir un nivel",
+  "folder.more": "Mostrar niveles ocultos",
+  "folder.itemCount": "{count} elementos",
+  "folder.subfolders": "Subcarpetas: {count}",
+  "folder.summary": "Carpetas: {folders} · Archivos: {files}",
+  "folder.openInFileManager": "Abrir en el gestor de archivos",
+  "folder.openFailed": "No se pudo abrir la carpeta",
+  "folder.copyPath": "Copiar ruta",
+  "folder.pathCopied": "Ruta de la carpeta copiada",
+  "folder.copyFailed": "No se pudo copiar la ruta",
+  "folder.open": 'Abrir la carpeta "{name}"',
+  "folder.emptySearch": "Nada en esta carpeta coincide",
+  "folder.emptySearchHint":
+    "Prueba otras condiciones o busca desde una carpeta superior.",
+  "folder.moved":
+    "La carpeta que estabas viendo ya no existe; se ha subido de nivel.",
+  "shortcuts.folderBack":
+    "Volver a la carpeta anterior (al mostrar por carpetas)",
+  "shortcuts.folderUp": "Subir un nivel (al mostrar por carpetas)",
+  "select.folderCount": "incluye {count} carpetas",
+  "select.folderLoading": "Cargando el contenido de la carpeta",
+  "select.selectFolder": "Seleccionar todo en esta carpeta",
+  "select.deselectFolder": "Deseleccionar esta carpeta",
 
   // discovery (random recommendations)
   "discover.title": "Descubrir",
@@ -359,6 +395,7 @@ export const es: Record<TranslationKey, string> = {
   "discover.play": "Reproducir",
   "discover.open": "Abrir",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "Eligiendo de «{path}»",
   "discover.empty": "No hay medios para recomendar.",
   "discover.emptyHint":
     "Ejecuta «Escanear» para importar vídeos e imágenes y se recomendarán aquí al azar.",
@@ -518,7 +555,9 @@ export const es: Record<TranslationKey, string> = {
   "statusbar.label": "Barra de estado",
   "statusbar.lastScan": "Último escaneo",
   "statusbar.lastScanNever": "Nunca",
-  "statusbar.fileCount": "{count} archivos",
+  "statusbar.total": "{count} archivos en total",
+  "statusbar.folders": "{count} carpetas",
+  "statusbar.shown": "{count} mostrados",
   "statusbar.status": "Estado",
   "statusbar.scanning": "Escaneando",
   "statusbar.idle": "Inactivo",
@@ -526,6 +565,7 @@ export const es: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "Orden manual",
   "playlist.start": "Reproducir como lista",
+  "playlist.inFolder": "Reproduciendo «{path}»",
   "playlist.play": "Reproducir (Space)",
   "playlist.pause": "Pausar (Space)",
   "playlist.next": "Siguiente (N)",

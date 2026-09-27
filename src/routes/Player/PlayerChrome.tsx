@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { VOLUME_STEP } from "@/hooks/useVolume";
 import type { TFunc } from "@/i18n/I18nProvider";
+import { FolderScopeChip } from "@/components/FolderScopeChip";
 
 // The player's only interactive surface. Deliberately minimal: no scene rail,
 // no favorite/rating/tag editing, no external player — those belong to the list
@@ -24,6 +25,7 @@ import type { TFunc } from "@/i18n/I18nProvider";
 // player itself cannot answer, and it was the first thing missing in use.
 export function PlayerChrome({
   title,
+  folderLabel,
   position,
   total,
   playing,
@@ -51,6 +53,8 @@ export function PlayerChrome({
   t,
 }: {
   title: string;
+  /** The folder being played, when the playlist is a folder's subtree. */
+  folderLabel?: string | null;
   position: number;
   total: number;
   playing: boolean;
@@ -99,6 +103,16 @@ export function PlayerChrome({
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
+      {/* Centred at the top: the top-left corner belongs to the audio glyph
+          (AudioArt's "corner" spectrum layout) and the top-right to the exit. */}
+      {folderLabel && (
+        <div className="absolute left-1/2 top-3 flex max-w-[50%] -translate-x-1/2 justify-center">
+          <FolderScopeChip
+            label={folderLabel}
+            description={t("playlist.inFolder", { path: folderLabel })}
+          />
+        </div>
+      )}
       <div className="absolute right-3 top-3">
         <ChromeButton onClick={onExit} title={t("playlist.exit")}>
           <X size={20} />

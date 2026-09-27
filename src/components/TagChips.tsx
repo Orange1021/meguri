@@ -17,7 +17,7 @@ interface Props {
 }
 
 /**
- * Shared horizontally-scrollable tag chip row used by Grid / List / Table.
+ * Shared horizontally-scrollable tag chip row used by Grid / List.
  *
  * Tags from LIST_HIDDEN_SOURCES are dropped: the metadata classifier alone emits
  * up to four tags per video, which would push the manual tags a user actually

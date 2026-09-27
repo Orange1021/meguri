@@ -9,6 +9,8 @@ import type {
   DuplicatesResult,
   FileDetail,
   FileRow,
+  FolderFilesResult,
+  FolderListing,
   HistoryPage,
   LogoId,
   SceneBookmark,
@@ -20,6 +22,7 @@ import type {
   WorkspacesList,
 } from "./schema.js";
 import {
+  FolderPathSchema,
   HistoryQuerySchema,
   LogoIdSchema,
   SearchQuerySchema,
@@ -38,6 +41,7 @@ import {
   MAX_TAG_NAME,
 } from "../tags.js";
 import { MAX_WORKSPACE_ID } from "../workspaceIds.js";
+import { MAX_FOLDER_FILES_PATHS } from "../folderPath.js";
 
 export { EVENT_CHANNELS, INVOKE_CHANNELS };
 export type { EventChannel, InvokeChannel };
@@ -184,6 +188,23 @@ export const ChannelInputs = {
   scan_cancel: z.object({ wsId: z.string().optional() }).default({}),
   files_search: z.object({ query: SearchQuerySchema }),
   files_random: z.object({ query: SearchQuerySchema.optional() }).default({}),
+  folders_list: z.object({
+    workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
+    path: FolderPathSchema,
+  }),
+  // Expands selected folder cards into their files for a bulk edit. The cap is
+  // on how many folders one call names, not on files: the row budget is applied
+  // by the query (MAX_BULK_FILES + 1), past which the edit is refused anyway.
+  folder_files: z.object({
+    workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
+    paths: z
+      .array(FolderPathSchema)
+      .min(1)
+      .max(MAX_FOLDER_FILES_PATHS)
+      .refine((paths) => new Set(paths).size === paths.length, {
+        message: "duplicate folder path",
+      }),
+  }),
   file_get: FileTarget,
   file_set_rating: FileTarget.extend({ rating: z.number() }),
   file_set_favorite: FileTarget.extend({ favorite: z.boolean() }),
@@ -269,6 +290,16 @@ export const ChannelInputs = {
   frame_export: FileTarget.extend({ sec: z.number().finite().min(0) }),
   open_external: FileTarget,
   open_folder: FileTarget,
+  // A folder of the folder view, opened in the OS file manager.
+  folder_open_in_file_manager: z.object({
+    workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
+    path: FolderPathSchema,
+  }),
+  // A folder of the folder view, its absolute path onto the clipboard.
+  folder_copy_path: z.object({
+    workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
+    path: FolderPathSchema,
+  }),
   copy_file_path: FileTarget,
   open_url: z.object({ url: z.string() }),
   open_devtools: z.void(),
@@ -332,6 +363,8 @@ export interface ChannelOutputs {
   scan_cancel: void;
   files_search: SearchResult;
   files_random: FileRow[];
+  folders_list: FolderListing;
+  folder_files: FolderFilesResult;
   file_get: FileDetail | null;
   file_set_rating: void;
   file_set_favorite: void;
@@ -375,6 +408,8 @@ export interface ChannelOutputs {
   frame_export: { saved: boolean; path: string | null };
   open_external: void;
   open_folder: void;
+  folder_open_in_file_manager: void;
+  folder_copy_path: void;
   copy_file_path: void;
   open_url: void;
   open_devtools: boolean;

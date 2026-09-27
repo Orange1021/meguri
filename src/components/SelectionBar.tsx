@@ -71,7 +71,9 @@ export function SelectionBar({ onEditTags, onExit }: Props) {
   if (!selection.active) return null;
 
   const rows = selection.rows;
-  const empty = rows.length === 0;
+  // `count`, not rows.length: a selected folder past the cap holds more files
+  // than were fetched for it, and those are what the cap is about.
+  const empty = selection.count === 0;
   const favorite = bulkFlagOf(rows, (row) => !!row.favorite);
   const queued = bulkFlagOf(rows, (row) =>
     watchLaterMembership.has(row.workspaceId, row.id),
@@ -80,10 +82,11 @@ export function SelectionBar({ onEditTags, onExit }: Props) {
   // Past the cap one call cannot be written, so the controls refuse here — where
   // the number can be explained — instead of letting main reject the payload and
   // surfacing a raw validation message. Same rule as the tag dialog.
-  const tooMany = rows.length > MAX_BULK_FILES;
+  const tooMany = selection.count > MAX_BULK_FILES;
   // Nothing to act on: the controls dim as well as refuse. Distinct from a write
-  // in flight, which only refuses (see TOGGLE_CLASS).
-  const unavailable = empty || tooMany;
+  // in flight, which only refuses (see TOGGLE_CLASS). A folder still fetching
+  // its files counts as nothing yet: an edit now would miss them.
+  const unavailable = empty || tooMany || selection.pending;
   const busy = unavailable || bulk.pending;
   const limitTitle = t("select.bulkFileLimit", { max: MAX_BULK_FILES });
 
@@ -105,9 +108,16 @@ export function SelectionBar({ onEditTags, onExit }: Props) {
               : "bg-primary text-primary-foreground",
           )}
         >
-          {rows.length}
+          {selection.count}
         </span>
         {t("select.count")}
+        {selection.folderCount > 0 && (
+          <span className="text-[11px] font-normal text-muted">
+            {selection.pending
+              ? t("select.folderLoading")
+              : t("select.folderCount", { count: selection.folderCount })}
+          </span>
+        )}
       </span>
 
       <span className="h-6 w-px bg-border-strong" />
@@ -135,7 +145,7 @@ export function SelectionBar({ onEditTags, onExit }: Props) {
         onClick={onEditTags}
         // Capped like the others: opening a dialog whose Apply can never enable
         // is a dead end, not a refusal.
-        disabled={empty || tooMany}
+        disabled={unavailable}
         title={tooMany ? limitTitle : undefined}
         className="flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-md border border-primary bg-primary px-3 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-default disabled:opacity-50"
       >

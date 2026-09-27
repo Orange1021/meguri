@@ -28,8 +28,8 @@ test.describe("Home", () => {
     await expect(ready.getByText(FIXTURE_FILE)).toBeVisible();
   });
 
-  test("switches grid, list, and table views", async ({ ready }) => {
-    for (const mode of ["Grid view", "List view", "Table view"] as const) {
+  test("switches grid and list views", async ({ ready }) => {
+    for (const mode of ["Grid view", "List view"] as const) {
       await ready.getByRole("button", { name: mode }).click();
       await expect(
         ready.getByRole("button", { name: mode, pressed: true }),

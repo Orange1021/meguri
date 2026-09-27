@@ -57,6 +57,12 @@ export const fr: Record<TranslationKey, string> = {
   "settings.frameQualityLow": "Basse (240px)",
   "settings.frameQualityStandard": "Standard (480px)",
   "settings.frameQualityHigh": "Haute (960px)",
+  "settings.listThumbSize": "Taille des vignettes de la liste",
+  "settings.listThumbSizeDesc":
+    "Taille de la vignette sur chaque ligne de la vue en liste.",
+  "settings.listThumbSizeSmall": "Petite",
+  "settings.listThumbSizeMedium": "Moyenne",
+  "settings.listThumbSizeLarge": "Grande",
   "settings.emojiStyle": "Style des émojis",
   "settings.emojiStyleDesc":
     "Change l'apparence des icônes emoji et des émojis dans le texte.",
@@ -350,8 +356,38 @@ export const fr: Record<TranslationKey, string> = {
   "grid.searchByTag": "Filtrer par « {name} »",
   "view.grid": "Vue en grille",
   "view.list": "Vue en liste",
-  "view.table": "Vue en tableau",
-  "table.name": "Nom",
+
+  // folder view
+  "view.folder": "Afficher par dossier",
+  "view.folderOff": "Ne plus afficher par dossier",
+  "view.folderUnavailable":
+    "L'affichage par dossier n'est disponible que lorsqu'un espace de travail est ouvert",
+  "folder.breadcrumbLabel": "Chemin du dossier",
+  "folder.root": "Espace de travail",
+  "folder.back": "Retour",
+  "folder.up": "Remonter d'un niveau",
+  "folder.more": "Afficher les niveaux masqués",
+  "folder.itemCount": "{count} éléments",
+  "folder.subfolders": "Sous-dossiers : {count}",
+  "folder.summary": "Dossiers : {folders} · Fichiers : {files}",
+  "folder.openInFileManager": "Ouvrir dans le gestionnaire de fichiers",
+  "folder.openFailed": "Impossible d'ouvrir le dossier",
+  "folder.copyPath": "Copier le chemin",
+  "folder.pathCopied": "Chemin du dossier copié",
+  "folder.copyFailed": "Impossible de copier le chemin",
+  "folder.open": "Ouvrir le dossier « {name} »",
+  "folder.emptySearch": "Rien ne correspond dans ce dossier",
+  "folder.emptySearchHint":
+    "Essayez d'autres critères ou cherchez depuis un dossier parent.",
+  "folder.moved":
+    "Le dossier affiché n'existe plus ; vous avez été ramené au niveau supérieur.",
+  "shortcuts.folderBack":
+    "Revenir au dossier précédent (affichage par dossier)",
+  "shortcuts.folderUp": "Remonter d'un niveau (affichage par dossier)",
+  "select.folderCount": "dont {count} dossiers",
+  "select.folderLoading": "Chargement du contenu du dossier",
+  "select.selectFolder": "Sélectionner tout le contenu du dossier",
+  "select.deselectFolder": "Désélectionner ce dossier",
 
   // discovery (random recommendations)
   "discover.title": "Découverte",
@@ -359,6 +395,7 @@ export const fr: Record<TranslationKey, string> = {
   "discover.play": "Lecture",
   "discover.open": "Ouvrir",
   "discover.progress": "{current} / {total}",
+  "discover.inFolder": "Choisis dans « {path} »",
   "discover.empty": "Aucun média à recommander.",
   "discover.emptyHint":
     "Lancez « Analyser » pour importer des vidéos et des images ; elles seront recommandées ici au hasard.",
@@ -518,7 +555,9 @@ export const fr: Record<TranslationKey, string> = {
   "statusbar.label": "Barre d'état",
   "statusbar.lastScan": "Dernier scan",
   "statusbar.lastScanNever": "Jamais",
-  "statusbar.fileCount": "{count} fichiers",
+  "statusbar.total": "{count} fichiers au total",
+  "statusbar.folders": "{count} dossiers",
+  "statusbar.shown": "{count} affichés",
   "statusbar.status": "État",
   "statusbar.scanning": "Analyse en cours",
   "statusbar.idle": "Inactif",
@@ -526,6 +565,7 @@ export const fr: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "Ordre manuel",
   "playlist.start": "Lire comme une liste",
+  "playlist.inFolder": "Lecture de « {path} »",
   "playlist.play": "Lire (Space)",
   "playlist.pause": "Pause (Space)",
   "playlist.next": "Suivant (N)",

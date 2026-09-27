@@ -5,6 +5,7 @@
 // inferred types satisfy the prior hand-written interfaces.
 import { z } from "zod";
 import { MAX_TAG_REF_NAME } from "../tags.js";
+import { MAX_FOLDER_PATH, isNormalizedFolderPath } from "../folderPath.js";
 
 export const KindSchema = z.enum(["video", "image", "audio"]);
 export type Kind = z.infer<typeof KindSchema>;
@@ -104,6 +105,24 @@ export const SearchSeekKeySchema = z.object({
 });
 export type SearchSeekKey = z.infer<typeof SearchSeekKeySchema>;
 
+/**
+ * A folder inside a workspace in the normalized "/"-separated form ("" is the
+ * root); see shared/folderPath.ts. Checked here so a malformed path never
+ * reaches the range the query builds from it.
+ */
+export const FolderPathSchema = z
+  .string()
+  .max(MAX_FOLDER_PATH)
+  .refine(isNormalizedFolderPath, { message: "malformed folder path" });
+export type FolderPath = z.infer<typeof FolderPathSchema>;
+
+/** Restricts a search to one folder: its direct files, or everything under it. */
+export const FolderScopeSchema = z.object({
+  path: FolderPathSchema,
+  recursive: z.boolean(),
+});
+export type FolderScope = z.infer<typeof FolderScopeSchema>;
+
 export const SearchCursorSchema = z.object({
   offset: z.number().int().min(0),
   key: SearchSeekKeySchema.optional(),
@@ -128,6 +147,8 @@ export const SearchQuerySchema = z.object({
   btimeTo: z.number().optional(),
   sort: z.string().optional(),
   sortDir: z.enum(["asc", "desc"]).optional(),
+  /** Folder view: only files under this folder (see FolderScopeSchema). */
+  folder: FolderScopeSchema.optional(),
   fileIds: z.array(z.number()).optional(),
   // Number = plain offset (legacy / backward paging); object = keyset cursor.
   cursor: z.union([z.number().int().min(0), SearchCursorSchema]).optional(),
@@ -233,6 +254,43 @@ export const SearchResultSchema = z.object({
   nextCursor: z.union([z.number(), SearchCursorSchema]).nullable(),
 });
 export type SearchResult = z.infer<typeof SearchResultSchema>;
+
+/** One child folder in the folder view. Derived from rel_path; never stored. */
+export const FolderEntrySchema = z.object({
+  name: z.string(),
+  path: FolderPathSchema,
+  /** Live media under it, at any depth. Always at least 1: empty folders are not listed. */
+  count: z.number().int().positive(),
+  /** Folders directly inside it that hold live media. */
+  subfolders: z.number().int().nonnegative(),
+  /** Up to four files for the card's mosaic, those with a thumbnail first. */
+  previews: z.array(FileRowSchema).max(4),
+});
+export type FolderEntry = z.infer<typeof FolderEntrySchema>;
+
+export const FolderListingSchema = z.object({
+  /**
+   * The folder actually listed: the one asked for, or — when it has no live
+   * media left (deleted, renamed away) — its nearest ancestor that does.
+   */
+  path: FolderPathSchema,
+  folders: z.array(FolderEntrySchema),
+  /** Live media directly in `path`. */
+  fileCount: z.number().int().nonnegative(),
+});
+export type FolderListing = z.infer<typeof FolderListingSchema>;
+
+/** A folder selection expanded to its files, one entry per requested folder. */
+export const FolderFilesResultSchema = z.array(
+  z.object({
+    path: FolderPathSchema,
+    /** Live media under the folder, at any depth. */
+    total: z.number().int().nonnegative(),
+    /** The files, in rel_path order; cut short once the call's row budget is spent. */
+    rows: z.array(FileRowSchema),
+  }),
+);
+export type FolderFilesResult = z.infer<typeof FolderFilesResultSchema>;
 
 export const AppStatusSchema = z.object({
   root: z.string().nullable(),

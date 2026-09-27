@@ -5,7 +5,14 @@
 // regressions translate directly into UI/IPC stalls.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "../db.js";
-import { FILE_COLS, FILE_FROM, orderByFor, searchFiles } from "../queries.js";
+import {
+  FILE_COLS,
+  FILE_FROM,
+  folderCondition,
+  folderRange,
+  orderByFor,
+  searchFiles,
+} from "../queries.js";
 import { insertFile, newDb } from "./helpers.js";
 
 function plan(db: DB, sql: string): string {
@@ -50,6 +57,48 @@ describe("index query plans", () => {
       expect(p).toContain("idx_files_alive_rel_path");
       expect(p).not.toContain("TEMP B-TREE");
     }
+  });
+
+  describe("folder view", () => {
+    // The fixture above keeps every file in dir/, where a range covering the
+    // whole table is rightly planned as a scan. Real libraries spread over
+    // folders, so give the planner some rows outside the one being listed.
+    beforeEach(() => {
+      for (let i = 0; i < 900; i++) {
+        insertFile(db, rootId, { relPath: `other${i % 7}/v${i}.mp4` });
+      }
+      db.exec("ANALYZE");
+    });
+
+    // EXPLAIN needs literals where the statement would bind values.
+    const bind = (sql: string) =>
+      sql
+        .replace("f.rel_path >= ?", "f.rel_path >= 'dir/'")
+        .replace("f.rel_path < ?", "f.rel_path < 'dir0'")
+        .replace("substr(f.rel_path, ?), ?", "substr(f.rel_path, 5), '/'");
+
+    it("a folder-scoped sort=name walks idx_files_alive_rel_path without sorting", () => {
+      const direct = folderCondition(folderRange("dir", "/"), false);
+      const p = plan(
+        db,
+        bind(
+          `SELECT ${FILE_COLS} ${FILE_FROM} WHERE f.deleted_at IS NULL AND ${direct.sql} ORDER BY ${orderByFor("name", "asc")} LIMIT 101 OFFSET 0`,
+        ),
+      );
+      expect(p).toContain("idx_files_alive_rel_path");
+      expect(p).not.toContain("TEMP B-TREE");
+    });
+
+    it("counting a folder's children is a range search on idx_files_alive_rel_path", () => {
+      const p = plan(
+        db,
+        `SELECT substr(rest, 1, instr(rest, '/') - 1) AS name, COUNT(*)
+           FROM (SELECT substr(f.rel_path, 5) AS rest FROM files f
+                  WHERE f.deleted_at IS NULL AND f.rel_path >= 'dir/' AND f.rel_path < 'dir0')
+          WHERE instr(rest, '/') > 0 GROUP BY name`,
+      );
+      expect(p).toContain("SEARCH f USING INDEX idx_files_alive_rel_path");
+    });
   });
 
   it("sort=captured (default desc) uses idx_files_alive_captured", () => {

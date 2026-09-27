@@ -1,4 +1,4 @@
-// Watch Later toggle for list entries (grid card, list row, table row).
+// Watch Later toggle for list entries (grid card, list row).
 // Mirrors FavoriteButton, except that the collection id and membership come from
 // the parent view via useWatchLater() — resolving them per row would give every
 // rendered card its own query observer and a linear scan of the collection.

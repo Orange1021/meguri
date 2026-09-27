@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addSearchTokens } from "@/routes/Home/utils";
+import { addSearchTokens, isFolderView } from "@/routes/Home/utils";
 
 describe("addSearchTokens", () => {
   it("puts the token into the query when there is none", () => {
@@ -56,5 +56,20 @@ describe("addSearchTokens", () => {
   it("ignores empty tokens", () => {
     const before = { q: "tag:beach" };
     expect(addSearchTokens(before, [""])).toBe(before);
+  });
+});
+
+describe("isFolderView", () => {
+  it("draws by folder where folders exist and the option is on", () => {
+    expect(isFolderView({ byFolder: true, folderAvailable: true })).toBe(true);
+  });
+
+  it("stays flat with the option off, or over All or a collection", () => {
+    expect(isFolderView({ byFolder: false, folderAvailable: true })).toBe(
+      false,
+    );
+    expect(isFolderView({ byFolder: true, folderAvailable: false })).toBe(
+      false,
+    );
   });
 });

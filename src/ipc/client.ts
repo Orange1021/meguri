@@ -89,6 +89,12 @@ export const api = {
     invoke("files_search", { query }),
   filesRandom: (query?: ChannelInput<"files_random">["query"]) =>
     invoke("files_random", { query }),
+  /** Child folders of one folder in a workspace (folder view). */
+  foldersList: (workspaceId: string, path: string) =>
+    invoke("folders_list", { workspaceId, path }),
+  /** Selected folders expanded into their files, for a bulk edit. */
+  folderFiles: (workspaceId: string, paths: string[]) =>
+    invoke("folder_files", { workspaceId, paths }),
   fileGet: (id: number, workspaceId: string) =>
     invoke("file_get", { id, workspaceId }),
   fileSetRating: (id: number, workspaceId: string, rating: number) =>
@@ -146,6 +152,12 @@ export const api = {
     invoke("open_external", { id, workspaceId }),
   openFolder: (id: number, workspaceId: string) =>
     invoke("open_folder", { id, workspaceId }),
+  /** Open a folder of the folder view in the OS file manager. */
+  folderOpenInFileManager: (workspaceId: string, path: string) =>
+    invoke("folder_open_in_file_manager", { workspaceId, path }),
+  /** Copy a folder of the folder view's absolute path to the clipboard. */
+  folderCopyPath: (workspaceId: string, path: string) =>
+    invoke("folder_copy_path", { workspaceId, path }),
   copyFilePath: (id: number, workspaceId: string) =>
     invoke("copy_file_path", { id, workspaceId }),
   openUrl: (url: string) => invoke("open_url", { url }),

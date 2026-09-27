@@ -2,6 +2,7 @@ import { clipboard, shell } from "electron";
 import { spawn } from "node:child_process";
 import { handle } from "../core/ipcHandler.js";
 import log from "../core/logger.js";
+import { folderDirInsideRoot, folderPathUnderRoot } from "../core/paths.js";
 import * as q from "../core/queries.js";
 import type { IpcContext } from "./context.js";
 import { coreById, ensureFileInsideRoot } from "./helpers.js";
@@ -40,6 +41,31 @@ export function registerShellHandlers(ctx: IpcContext): void {
   handle("open_folder", ({ id, workspaceId }) => {
     const abs = ensureFileInsideRoot(coreById(ws, workspaceId), id);
     shell.showItemInFolder(abs);
+  });
+
+  // A folder of the folder view, in the default file manager. Opened detached
+  // like a media file (see openDetached): xdg-open/open/Explorer all hand a
+  // directory to the file manager. Windows' openPath reports failure as a
+  // string rather than rejecting, so it is checked here for the renderer to
+  // show; the detached spawn elsewhere cannot report back and only logs.
+  handle("folder_open_in_file_manager", async ({ workspaceId, path }) => {
+    const c = coreById(ws, workspaceId);
+    const dir = folderDirInsideRoot(c.root, path);
+    if (!dir) throw new Error("folder not found");
+    if (process.platform === "win32") {
+      const error = await shell.openPath(dir);
+      if (error) throw new Error(error);
+      return;
+    }
+    openDetached(dir);
+  });
+
+  // The folder's path as the user knows it (the configured root, links left
+  // as they are), once it is confirmed to be a real directory inside the root.
+  handle("folder_copy_path", ({ workspaceId, path }) => {
+    const c = coreById(ws, workspaceId);
+    if (!folderDirInsideRoot(c.root, path)) throw new Error("folder not found");
+    clipboard.writeText(folderPathUnderRoot(c.root, path));
   });
 
   handle("copy_file_path", ({ id, workspaceId }) => {
