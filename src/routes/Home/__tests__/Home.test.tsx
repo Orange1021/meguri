@@ -14,6 +14,7 @@ import {
 } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { applyTagFilter } from "@/lib/ui-events";
+import { getListCounts } from "@/hooks/useListCounts";
 import { BY_FOLDER_KEY, VIEW_KEY } from "@/routes/Home/utils";
 
 const mocks = vi.hoisted(() => ({
@@ -629,6 +630,35 @@ describe("Home folder view", () => {
       expect(decodeURIComponent(discover())).toContain(
         '"folder":{"path":"Movie","recursive":true}',
       ),
+    );
+  });
+
+  it("publishes what the view shows for the status bar", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    // Browsing: the folder's own files and folders (the mocked listing has
+    // one direct file and one child folder at the root).
+    await waitFor(() =>
+      expect(getListCounts()).toEqual({ files: 1, more: false, folders: 1 }),
+    );
+
+    // Searching inside it: the files loaded so far, no folders.
+    applyTagFilter(["tag:beach"]);
+    await waitFor(() =>
+      expect(getListCounts()).toEqual({ files: 1, more: false, folders: null }),
+    );
+  });
+
+  it("leaves the count to the total when nothing narrows a flat view", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+    await waitFor(() =>
+      expect(getListCounts()).toEqual({
+        files: null,
+        more: false,
+        folders: null,
+      }),
     );
   });
 });

@@ -51,6 +51,7 @@ import { SelectionProvider } from "@/components/SelectionContext";
 import { FolderHeader } from "@/components/FolderHeader";
 import { hasFilterConditions } from "@/lib/smartCollections";
 import { useFolderNav } from "./useFolderNav";
+import { setListCounts, type ListCounts } from "@/hooks/useListCounts";
 import { useFolderNavKeys } from "./useFolderNavKeys";
 import { HomeHeader } from "./HomeHeader";
 import { SelectionLayer } from "./SelectionLayer";
@@ -196,6 +197,40 @@ export default function Home() {
     [search.data],
   );
   const listOffset = filesSearchListOffset(search.data?.pageParams);
+
+  // What the view is showing, for the status bar (see useListCounts):
+  // browsing a folder, its own files and child folders; narrowed by a search
+  // or filter, the files loaded so far ("+" while more pages remain); with
+  // nothing narrowing it, the whole scope (null: the status bar's total).
+  const browsing =
+    folderView && !folderSearching && listedPath === folderNav.path;
+  const narrowed = folderView || hasFilterConditions(filter);
+  const listCounts = useMemo<ListCounts>(
+    () =>
+      browsing && folderListing.data
+        ? {
+            files: folderListing.data.fileCount,
+            more: false,
+            folders: folderListing.data.folders.length,
+          }
+        : {
+            files: narrowed ? listOffset + items.length : null,
+            more: narrowed && !!search.hasNextPage,
+            folders: null,
+          },
+    [
+      browsing,
+      folderListing.data,
+      narrowed,
+      listOffset,
+      items.length,
+      search.hasNextPage,
+    ],
+  );
+  useEffect(() => {
+    setListCounts(listCounts);
+  }, [listCounts]);
+  useEffect(() => () => setListCounts(null), []);
   // Nothing to play means no entry point to playback at all, rather than a
   // player that opens onto an empty screen (spec FR-016).
   const canPlay = (status.data?.ready ?? false) && items.length > 0;

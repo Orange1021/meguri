@@ -1,14 +1,17 @@
-// Bottom status bar (always the lowest strip of the window): last scan time, visible file count, and processing status.
-// File count and last-scan come from `workspaceStats` IPC (refetched on workspace
+// Bottom status bar (always the lowest strip of the window). Left: the scope's
+// file total, the folders shown (while browsing by folder) and the files shown.
+// Right: last scan time and processing status.
+// Total and last-scan come from `workspaceStats` IPC (refetched on workspace
 // switch and after scans complete). The processing indicator subscribes to scan
 // events directly so the phase and progress reflect in real time.
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, RefreshCw, Clock } from "lucide-react";
+import { Clock, Database, Eye, Folder, RefreshCw } from "lucide-react";
 import { api, events } from "@/ipc/client";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStatus } from "@/hooks/useAppStatus";
 import { useScanning } from "@/hooks/useScanning";
+import { useListCounts } from "@/hooks/useListCounts";
 import type { TranslationKey } from "@/i18n/locales/ja";
 
 const PHASE_KEY: Record<string, TranslationKey> = {
@@ -76,7 +79,19 @@ export function StatusBar() {
   }, [qc]);
 
   const lastScanLabel = formatLastScan(stats.data?.lastScanAt);
-  const fileCount = stats.data?.fileCount ?? 0;
+  // The scope's total, what the view is showing of it, and — while browsing
+  // a folder — the folders shown beside the files (see useListCounts).
+  const counts = useListCounts();
+  const total = stats.data?.fileCount ?? 0;
+  const shown = counts?.files ?? total;
+  const totalLabel = t("statusbar.total", { count: total.toLocaleString() });
+  const shownLabel = t("statusbar.shown", {
+    count: `${shown.toLocaleString()}${counts?.more ? "+" : ""}`,
+  });
+  const foldersLabel =
+    counts?.folders != null
+      ? t("statusbar.folders", { count: counts.folders.toLocaleString() })
+      : null;
 
   let processing: string;
   if (scanning || progress) {
@@ -101,6 +116,22 @@ export function StatusBar() {
       aria-label={t("statusbar.label")}
     >
       <div className="flex items-center gap-4 overflow-hidden">
+        <span className="flex items-center gap-1.5" title={totalLabel}>
+          <Database size={12} className="shrink-0 opacity-70" aria-hidden />
+          <span className="truncate">{totalLabel}</span>
+        </span>
+        {foldersLabel && (
+          <span className="flex items-center gap-1.5" title={foldersLabel}>
+            <Folder size={12} className="shrink-0 opacity-70" aria-hidden />
+            <span className="truncate">{foldersLabel}</span>
+          </span>
+        )}
+        <span className="flex items-center gap-1.5" title={shownLabel}>
+          <Eye size={12} className="shrink-0 opacity-70" aria-hidden />
+          <span className="truncate">{shownLabel}</span>
+        </span>
+      </div>
+      <div className="flex shrink-0 items-center gap-4">
         <span
           className="flex items-center gap-1.5"
           title={t("statusbar.lastScan")}
@@ -113,28 +144,19 @@ export function StatusBar() {
         </span>
         <span
           className="flex items-center gap-1.5"
-          title={t("statusbar.fileCount")}
+          aria-live="polite"
+          title={t("statusbar.status")}
         >
-          <Database size={12} className="shrink-0 opacity-70" aria-hidden />
-          <span>
-            {t("statusbar.fileCount", { count: fileCount.toLocaleString() })}
-          </span>
+          <RefreshCw
+            size={12}
+            aria-hidden
+            className={
+              scanning || progress ? "animate-spin text-primary" : "opacity-70"
+            }
+          />
+          <span className="truncate">{processing}</span>
         </span>
       </div>
-      <span
-        className="flex items-center gap-1.5"
-        aria-live="polite"
-        title={t("statusbar.status")}
-      >
-        <RefreshCw
-          size={12}
-          aria-hidden
-          className={
-            scanning || progress ? "animate-spin text-primary" : "opacity-70"
-          }
-        />
-        <span className="truncate">{processing}</span>
-      </span>
     </footer>
   );
 }
