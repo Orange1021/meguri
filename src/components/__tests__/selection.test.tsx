@@ -638,6 +638,7 @@ describe("folder selection", () => {
     name,
     path: name,
     count,
+    subfolders: 0,
     previews: [],
   });
   const filesOf = (name: string, n: number, from: number): FileRow[] =>

@@ -80,10 +80,11 @@ plus virtualization (`src/components/MediaGrid.tsx`). Four view modes — grid,
 list, table and folder — are switchable.
 
 A fourth mode, the folder view, browses one workspace like a file manager: the
-current folder's child folders as cards (`FolderCard`, a mosaic of up to four
-thumbnails), then its direct files, with a breadcrumb above
-(`FolderBreadcrumb`). It reuses `MediaGrid`: folder cards are packed ahead of
-the files in the same virtualized rows and share the media card's outer
+current folder's child folders as cards (`FolderCard`: drawn as a folder, a
+tab and a body tinted with the theme's `accent2`, holding a mosaic of up to four
+thumbnails), then its direct files, with a header above naming the folder and
+what it holds (`FolderHeader`). It reuses `MediaGrid`: folder cards are packed
+ahead of the files in the same virtualized rows and share the media card's outer
 dimensions, because the grid sizes every row from one measured row. Where the
 view is is held by `useFolderNav` in memory (per workspace, with a back stack),
 not in the URL — Home stays mounted under its child-route modals, so the

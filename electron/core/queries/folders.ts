@@ -81,18 +81,29 @@ export function listFolders(
   const from = within.sql ? RANGED : "files f";
   // One pass over the folder's slice of the rel_path index. `rest` is the part
   // below this folder; its first segment, when a separator follows it, is the
-  // child folder the row is in.
+  // child folder the row is in, and the segment after that (when another
+  // separator follows) is a folder inside that child — counted distinct, so
+  // the card can say how many subfolders it holds.
   const children = db
     .prepare(
-      `SELECT substr(rest, 1, instr(rest, ?) - 1) AS name, COUNT(*) AS count
-         FROM (SELECT substr(f.rel_path, ?) AS rest FROM ${from}
-                WHERE f.deleted_at IS NULL${where})
-        WHERE instr(rest, ?) > 0
+      `SELECT name, COUNT(*) AS count, COUNT(DISTINCT sub) AS subfolders
+         FROM (SELECT name,
+                      CASE WHEN instr(after, ?) > 0
+                           THEN substr(after, 1, instr(after, ?) - 1)
+                      END AS sub
+                 FROM (SELECT substr(rest, 1, cut - 1) AS name,
+                              substr(rest, cut + 1) AS after
+                         FROM (SELECT rest, instr(rest, ?) AS cut
+                                 FROM (SELECT substr(f.rel_path, ?) AS rest
+                                         FROM ${from}
+                                        WHERE f.deleted_at IS NULL${where}))
+                        WHERE cut > 0))
         GROUP BY name`,
     )
-    .all(range.sep, range.start, ...within.args, range.sep) as {
+    .all(range.sep, range.sep, range.sep, range.start, ...within.args) as {
     name: string;
     count: number;
+    subfolders: number;
   }[];
   children.sort((a, b) => folderNameOrder.compare(a.name, b.name));
 
@@ -127,12 +138,13 @@ export function listFolders(
     return [...first, ...rest];
   };
 
-  const folders: FolderEntry[] = children.map(({ name, count }) => {
+  const folders: FolderEntry[] = children.map(({ name, count, subfolders }) => {
     const childPath = joinFolder(path, name);
     return {
       name,
       path: childPath,
       count,
+      subfolders,
       previews: previews(folderRange(childPath, opts.sep)),
     };
   });

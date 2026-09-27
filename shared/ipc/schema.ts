@@ -261,6 +261,8 @@ export const FolderEntrySchema = z.object({
   path: FolderPathSchema,
   /** Live media under it, at any depth. Always at least 1: empty folders are not listed. */
   count: z.number().int().positive(),
+  /** Folders directly inside it that hold live media. */
+  subfolders: z.number().int().nonnegative(),
   /** Up to four files for the card's mosaic, those with a thumbnail first. */
   previews: z.array(FileRowSchema).max(4),
 });

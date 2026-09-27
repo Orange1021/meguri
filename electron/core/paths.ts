@@ -54,3 +54,36 @@ export function isInsideRoot(abs: string, root: string): boolean {
     : normalizedRoot + path.sep;
   return normalizedAbs.startsWith(prefix);
 }
+
+/**
+ * A workspace folder — "/"-separated relative to `root`, "" for the root
+ * itself — as the canonical (symlinks resolved) path of an existing directory
+ * inside `root`, or null when there is none: gone since the last scan, a
+ * file, or a link that leads outside the root.
+ *
+ * The canonical path is what gets returned (and opened), so the directory
+ * checked is the one handed to the OS, not a name that could be re-pointed in
+ * between. On Windows a segment may not carry "\\" or ":" — both are "/"-free,
+ * so the "/"-only folder syntax would pass them, yet path.join would read them
+ * as separators or a drive/stream. `sep` is injectable for tests.
+ */
+export function folderDirInsideRoot(
+  root: string,
+  folder: string,
+  sep: string = path.sep,
+): string | null {
+  const segments = folder === "" ? [] : folder.split("/");
+  if (sep === "\\" && segments.some((s) => /[\\:]/.test(s))) return null;
+  let real: string;
+  try {
+    real = fs.realpathSync(path.join(root, ...segments));
+  } catch {
+    return null;
+  }
+  if (!isInsideRoot(real, root)) return null;
+  try {
+    return fs.statSync(real).isDirectory() ? real : null;
+  } catch {
+    return null;
+  }
+}

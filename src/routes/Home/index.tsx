@@ -49,7 +49,7 @@ import { filesSearchListOffset } from "@/lib/filesSearch";
 import { usePeekDocked } from "@/routes/MediaDetail/peekDocked";
 import { PEEK_INSET_DOCK_PROPS } from "@/routes/MediaDetail/usePeekResize";
 import { SelectionProvider } from "@/components/SelectionContext";
-import { FolderBreadcrumb } from "@/components/FolderBreadcrumb";
+import { FolderHeader } from "@/components/FolderHeader";
 import { hasFilterConditions } from "@/lib/smartCollections";
 import { useFolderNav } from "./useFolderNav";
 import { useFolderNavKeys } from "./useFolderNavKeys";
@@ -665,13 +665,35 @@ export default function Home() {
       />
 
       {folderView && (
-        <FolderBreadcrumb
+        <FolderHeader
           rootLabel={activeWorkspace?.label ?? t("folder.root")}
           path={folderNav.path}
           onNavigate={folderNav.goTo}
           canGoBack={folderNav.canGoBack}
           onBack={folderNav.goBack}
           onUp={folderNav.goUp}
+          onOpenInFileManager={() => {
+            api
+              .folderOpenInFileManager(workspaceId ?? "", folderNav.path)
+              .catch((error: unknown) =>
+                toast.error(t("folder.openFailed"), {
+                  id: "folder-open-failed",
+                  description:
+                    error instanceof Error ? error.message : String(error),
+                }),
+              );
+          }}
+          summary={
+            // What the folder itself holds; a search shows its own results.
+            // (and only once the listing is the folder named: a vanished
+            // folder is answered with an ancestor until the view moves there).
+            !folderSearching && folderListing.data?.path === folderNav.path
+              ? t("folder.summary", {
+                  folders: folderListing.data.folders.length,
+                  files: folderListing.data.fileCount,
+                })
+              : undefined
+          }
         />
       )}
 

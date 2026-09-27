@@ -128,6 +128,23 @@ textarea,
 }
 
 /*
+ * Folder view cards (FolderCard) are drawn as folders: a tab and a body tinted
+ * with the theme's accent2 — the yellow of a file-manager folder in most
+ * themes — so they read apart from media cards at a glance in every theme.
+ */
+.folder-card {
+  --folder-tint: color-mix(in srgb, var(--c-accent2) 20%, var(--c-surface));
+  --folder-tint-hover: color-mix(
+    in srgb,
+    var(--c-accent2) 30%,
+    var(--c-surface)
+  );
+  --folder-edge: color-mix(in srgb, var(--c-accent2) 50%, var(--c-surface));
+  /* Height of the folder's tab; the body and the checkbox are placed from it. */
+  --folder-tab-h: 12px;
+}
+
+/*
  * Scrollbars are unified via the shadcn/ui ScrollArea (src/components/ui/scroll-area.tsx).
  * Small incidental overflows that don't need a visible bar hide the native one
  * with .no-scrollbar. Visible scrollbars should use ScrollArea.

@@ -362,6 +362,10 @@ export const es: Record<TranslationKey, string> = {
   "folder.up": "Subir un nivel",
   "folder.more": "Mostrar niveles ocultos",
   "folder.itemCount": "{count} elementos",
+  "folder.subfolders": "Subcarpetas: {count}",
+  "folder.summary": "Carpetas: {folders} · Archivos: {files}",
+  "folder.openInFileManager": "Abrir en el gestor de archivos",
+  "folder.openFailed": "No se pudo abrir la carpeta",
   "folder.open": 'Abrir la carpeta "{name}"',
   "folder.emptySearch": "Nada en esta carpeta coincide",
   "folder.emptySearchHint":

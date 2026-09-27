@@ -424,6 +424,7 @@ describe("MediaGrid", () => {
       name,
       path: name,
       count,
+      subfolders: 0,
       previews: [sampleFileRow],
     });
 
@@ -447,6 +448,8 @@ describe("MediaGrid", () => {
         "media-card",
       ]);
       expect(screen.getAllByText("7 items").length).toBeGreaterThan(0);
+      // The subfolder line appears only for folders that have some.
+      expect(screen.queryByText(/Subfolders/)).toBeNull();
 
       fireEvent.click(
         screen.getByRole("button", { name: 'Open folder "Movie"' }),
@@ -507,6 +510,7 @@ describe("MediaGrid", () => {
           folders={[
             {
               ...folder("Many", 9),
+              subfolders: 2,
               previews: [1, 2, 3].map((id) => ({
                 ...sampleFileRow,
                 id,
@@ -518,6 +522,7 @@ describe("MediaGrid", () => {
       );
       const mosaic = await screen.findByTestId("folder-mosaic");
       expect(mosaic.querySelectorAll("img")).toHaveLength(3);
+      expect(screen.getByText("Subfolders: 2")).toBeTruthy();
     });
 
     it("says a folder search found nothing", () => {

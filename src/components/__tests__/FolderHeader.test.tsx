@@ -1,33 +1,44 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, within } from "@testing-library/react";
-import { FolderBreadcrumb } from "@/components/FolderBreadcrumb";
+import { FolderHeader } from "@/components/FolderHeader";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
 function render(path: string) {
   const onNavigate = vi.fn();
   const onBack = vi.fn();
   const onUp = vi.fn();
+  const onOpen = vi.fn();
   renderWithProviders(
-    <FolderBreadcrumb
+    <FolderHeader
       rootLabel="Videos"
       path={path}
       onNavigate={onNavigate}
       canGoBack={path !== ""}
       onBack={onBack}
       onUp={onUp}
+      onOpenInFileManager={onOpen}
     />,
   );
-  return { onNavigate, onBack, onUp, nav: screen.getByRole("navigation") };
+  return {
+    onNavigate,
+    onBack,
+    onUp,
+    onOpen,
+    nav: screen.getByRole("navigation"),
+  };
 }
 
-describe("FolderBreadcrumb", () => {
+describe("FolderHeader", () => {
   it("shows only the root, as the current level, at the root", () => {
     const { nav } = render("");
+    // Nothing to go back or up to, and no level to link: only the file
+    // manager button is live.
     expect(
       within(nav)
         .queryAllByRole("button")
-        .filter((b) => !(b as HTMLButtonElement).disabled),
-    ).toHaveLength(0);
+        .filter((b) => !(b as HTMLButtonElement).disabled)
+        .map((b) => b.textContent),
+    ).toEqual(["Open in file manager"]);
     expect(within(nav).getByText("Videos").getAttribute("aria-current")).toBe(
       "page",
     );
@@ -64,5 +75,30 @@ describe("FolderBreadcrumb", () => {
     fireEvent.click(within(nav).getByRole("button", { name: "Up one level" }));
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(onUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows what the folder holds when told", () => {
+    const onNavigate = vi.fn();
+    renderWithProviders(
+      <FolderHeader
+        rootLabel="Videos"
+        path="Movie"
+        onNavigate={onNavigate}
+        canGoBack={false}
+        onBack={() => {}}
+        onUp={() => {}}
+        onOpenInFileManager={() => {}}
+        summary="7 folders · 8 files"
+      />,
+    );
+    expect(screen.getByText("7 folders · 8 files")).toBeTruthy();
+  });
+
+  it("opens the folder in the file manager", () => {
+    const { nav, onOpen } = render("Movie");
+    fireEvent.click(
+      within(nav).getByRole("button", { name: "Open in file manager" }),
+    );
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

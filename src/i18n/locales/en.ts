@@ -354,6 +354,10 @@ export const en: Record<TranslationKey, string> = {
   "folder.up": "Up one level",
   "folder.more": "Show hidden levels",
   "folder.itemCount": "{count} items",
+  "folder.subfolders": "Subfolders: {count}",
+  "folder.summary": "Folders: {folders} · Files: {files}",
+  "folder.openInFileManager": "Open in file manager",
+  "folder.openFailed": "Couldn't open the folder",
   "folder.open": 'Open folder "{name}"',
   "folder.emptySearch": "Nothing in this folder matches",
   "folder.emptySearchHint":

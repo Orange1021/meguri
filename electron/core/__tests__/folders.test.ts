@@ -119,6 +119,29 @@ describe.each([
     expect(res.fileCount).toBe(2);
   });
 
+  it("counts the subfolders each child holds", () => {
+    const bySub = Object.fromEntries(
+      list("").folders.map((f) => [f.name, f.subfolders]),
+    );
+    // Movie holds 2024/ (with deep/ below it — not a direct subfolder).
+    expect(bySub["Movie"]).toBe(1);
+    expect(bySub["OnlySub"]).toBe(1);
+    expect(bySub["Movies"]).toBe(0);
+    expect(list("Movie").folders[0].subfolders).toBe(1);
+  });
+
+  it("counts each subfolder once, and only while it holds live files", () => {
+    const ins = (rel: string) =>
+      insertFile(db, rootId, { relPath: rel.split("/").join(sep) });
+    ins("Many/s1/a.mp4");
+    ins("Many/s1/b.mp4");
+    ins("Many/s2/c.mp4");
+    exclude(db, ins("Many/gone/d.mp4"));
+    const many = list("").folders.find((f) => f.name === "Many")!;
+    expect(many.subfolders).toBe(2);
+    expect(many.count).toBe(3);
+  });
+
   it("keeps a folder apart from a sibling it prefixes", () => {
     const res = list("Movie");
     expect(res.folders.map((f) => f.path)).toEqual(["Movie/2024"]);

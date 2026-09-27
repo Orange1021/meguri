@@ -1,10 +1,13 @@
-// A child folder in the folder view: a mosaic of what is inside, the folder's
-// name and how much it holds.
+// A child folder in the folder view, drawn as a folder: a tab over a tinted
+// body that holds a mosaic of what is inside, then the folder's name, how much
+// it holds and how many folders it contains.
 //
-// Shaped exactly like MediaGrid's media card — an aspect-video top and a
-// metadata block of the same fixed height — because the grid sizes every row
-// from one measured row. A folder card that were even a pixel taller or
-// shorter would put every row after a mixed one out of place.
+// However it looks, it measures exactly like MediaGrid's media card — a 1px
+// frame, an aspect-video top, a 1px rule and a metadata block of the same
+// fixed height — because the grid sizes every row from one measured row, and a
+// folder card a pixel off would put every row after a mixed one out of place.
+// So the tab and body are drawn inside the aspect-video box, and the edges
+// below it are inset shadows, which take no room.
 import { Folder } from "lucide-react";
 import { memo, type MouseEvent } from "react";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
@@ -25,6 +28,14 @@ interface Props {
   focused?: boolean;
   onOpen: (path: string) => void;
 }
+
+// Keeps the second line's height when there is nothing to say on it.
+const NBSP = String.fromCharCode(0xa0);
+
+// The body's side and bottom edges below the top box, drawn without taking
+// room (see the file comment).
+const META_EDGE =
+  "shadow-[inset_1px_0_0_var(--folder-edge),inset_-1px_0_0_var(--folder-edge),inset_0_-1px_0_var(--folder-edge)]";
 
 export const FolderCard = memo(function FolderCard({
   entry,
@@ -52,45 +63,73 @@ export const FolderCard = memo(function FolderCard({
       data-testid="folder-card"
       aria-current={focused ? "true" : undefined}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-md border border-border bg-surface transition-colors hover:border-primary",
-        focused && "border-primary ring-2 ring-primary",
-        selected && "border-primary ring-1 ring-primary",
+        "folder-card group relative flex flex-col rounded-lg border border-transparent",
+        // The media card's state vocabulary, so a mixed row reads as one list.
+        focused && "ring-2 ring-primary",
+        selected && "ring-1 ring-primary",
       )}
     >
-      {/* The mosaic opens the folder too; the name button below is the
+      {/* The folder body opens the folder too; the name button below is the
           keyboard/screen-reader target, so this region stays out of the tab order. */}
       <div
         data-thumb
         onClick={open}
-        className="group/thumb relative block aspect-video cursor-pointer overflow-hidden bg-overlay text-muted"
+        className="group/thumb relative block aspect-video cursor-pointer"
       >
-        <Mosaic
-          previews={entry.previews}
-          mediaBase={mediaBase}
-          thumbVersion={thumbVersion}
+        {/* Starts 1px above the tab's bottom so the tab, drawn after it, covers
+            the stretch of its top edge under the tab: the two read as one
+            outline with no rule between them. */}
+        <div className="absolute inset-x-0 bottom-0 top-[calc(var(--folder-tab-h)-1px)] rounded-tr-lg border border-b-0 border-(--folder-edge) bg-(--folder-tint) transition-colors group-hover:bg-(--folder-tint-hover)">
+          <div className="absolute inset-x-1.5 bottom-0 top-1.5 overflow-hidden rounded-[5px] bg-bg/45 text-accent2">
+            <Mosaic
+              previews={entry.previews}
+              mediaBase={mediaBase}
+              thumbVersion={thumbVersion}
+            />
+          </div>
+        </div>
+        <div
+          aria-hidden
+          className="absolute left-0 top-0 h-(--folder-tab-h) w-[42%] rounded-t-md border border-b-0 border-(--folder-edge) bg-(--folder-tint) transition-colors group-hover:bg-(--folder-tint-hover)"
         />
-        <span className="pointer-events-none absolute bottom-1 left-1 flex items-center gap-1 rounded bg-bg/75 px-1 py-0.5 text-[10px] text-fg backdrop-blur-[1px]">
-          <Folder className="size-3.5 fill-current opacity-80" />
-          {count}
-        </span>
       </div>
       <FolderSelectionCheck
         entry={entry}
-        className="absolute left-1 top-1 z-10"
+        className="absolute left-2.5 top-[calc(var(--folder-tab-h)+10px)] z-10"
       />
-      {/* Same block as the media card's metadata: name, a second line, then
-          empty slots the height of its rating row and tag row. */}
-      <div className="flex flex-col gap-1 border-t border-border px-2 py-1.5">
-        <button
-          type="button"
-          onClick={open}
-          aria-label={t("folder.open", { name: entry.name })}
-          title={entry.name}
-          className="truncate text-left text-xs font-medium text-fg"
-        >
-          {entry.name}
-        </button>
-        <div className="truncate text-[10px] text-muted">{count}</div>
+      {/* Same block as the media card's metadata: a 1px rule, the name line,
+          a second line, then empty slots the height of its rating and tag rows. */}
+      <div
+        className={cn(
+          "flex flex-col gap-1 rounded-b-lg border-t border-(--folder-tint) bg-(--folder-tint) px-2 py-1.5 transition-colors group-hover:border-(--folder-tint-hover) group-hover:bg-(--folder-tint-hover)",
+          META_EDGE,
+        )}
+      >
+        {/* 16px tall like the media card's text-xs name line: the name and the
+            pill are leading-4 and the icon is shorter. */}
+        <div className="flex items-center gap-1.5">
+          <Folder
+            aria-hidden
+            className="size-3.5 shrink-0 fill-accent2 text-accent2"
+          />
+          <button
+            type="button"
+            onClick={open}
+            aria-label={t("folder.open", { name: entry.name })}
+            title={entry.name}
+            className="min-w-0 flex-1 truncate text-left text-[13px] font-bold leading-4 text-bright-fg"
+          >
+            {entry.name}
+          </button>
+          <span className="shrink-0 rounded-full bg-bg/55 px-1.5 text-[10px] font-semibold leading-4 text-bright-fg">
+            {count}
+          </span>
+        </div>
+        <div className="truncate text-[10px] text-fg">
+          {entry.subfolders > 0
+            ? t("folder.subfolders", { count: entry.subfolders })
+            : NBSP}
+        </div>
         <div aria-hidden className="h-[14px]" />
         <div aria-hidden className="h-6" />
       </div>
@@ -120,20 +159,20 @@ function Mosaic({
   if (!layout) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Folder className="size-10 opacity-60" />
+        <Folder className="size-10 fill-current opacity-70" />
       </div>
     );
   }
   return (
     <div
       data-testid="folder-mosaic"
-      className={cn("absolute inset-0 grid gap-px bg-border", layout.grid)}
+      className={cn("absolute inset-0 grid gap-[3px]", layout.grid)}
     >
       {previews.map((file, i) => (
         <div
           key={`${file.workspaceId}:${file.id}`}
           className={cn(
-            "relative overflow-hidden bg-overlay",
+            "relative overflow-hidden rounded-[3px] bg-overlay text-muted",
             i === 0 && layout.first,
           )}
         >

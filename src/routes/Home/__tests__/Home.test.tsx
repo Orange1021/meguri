@@ -28,6 +28,19 @@ const mocks = vi.hoisted(() => ({
   workspaceStats: vi.fn(),
   foldersList: vi.fn<(ws: string, path: string) => Promise<unknown>>(),
   folderFiles: vi.fn<(ws: string, paths: string[]) => Promise<unknown>>(),
+  folderOpenInFileManager:
+    vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+}));
+
+// Toasts are asserted on the call: no Toaster is mounted in these tests.
+const toasts = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  success: vi.fn(),
+}));
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), toasts),
+  Toaster: () => null,
 }));
 
 vi.mock("@/ipc/client", () => ({
@@ -43,6 +56,8 @@ vi.mock("@/ipc/client", () => ({
     workspaceStats: () => mocks.workspaceStats(),
     foldersList: (ws: string, path: string) => mocks.foldersList(ws, path),
     folderFiles: (ws: string, paths: string[]) => mocks.folderFiles(ws, paths),
+    folderOpenInFileManager: (ws: string, path: string) =>
+      mocks.folderOpenInFileManager(ws, path),
     tagsList: vi.fn().mockResolvedValue([]),
     openExternal: vi.fn().mockResolvedValue(undefined),
     openFolder: vi.fn().mockResolvedValue(undefined),
@@ -351,6 +366,7 @@ describe("Home folder view", () => {
     name: "Movie",
     path: "Movie",
     count: 3,
+    subfolders: 1,
     previews: [sampleFileRow],
   };
   const lastSearch = () => {
@@ -386,6 +402,8 @@ describe("Home folder view", () => {
     await screen.findByTestId("folder-card");
     expect(lastSearch().folder).toEqual({ path: "", recursive: false });
     expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "");
+    // The header says what the folder holds: one folder, one direct file.
+    expect(await screen.findByText("Folders: 1 · Files: 1")).toBeTruthy();
 
     fireEvent.click(
       screen.getByRole("button", { name: 'Open folder "Movie"' }),
@@ -484,5 +502,39 @@ describe("Home folder view", () => {
     expect(
       screen.queryByRole("region", { name: "Selection actions" }),
     ).toBeNull();
+  });
+
+  it("opens the folder shown in the file manager", async () => {
+    mocks.folderOpenInFileManager.mockResolvedValue(undefined);
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "Movie"),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open in file manager" }),
+    );
+    expect(mocks.folderOpenInFileManager).toHaveBeenCalledWith(WS_ID, "Movie");
+  });
+
+  it("says so when the folder cannot be opened", async () => {
+    mocks.folderOpenInFileManager.mockRejectedValue(
+      new Error("folder not found"),
+    );
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open in file manager" }),
+    );
+    await waitFor(() =>
+      expect(toasts.error).toHaveBeenCalledWith(
+        "Couldn't open the folder",
+        expect.objectContaining({ description: "folder not found" }),
+      ),
+    );
   });
 });

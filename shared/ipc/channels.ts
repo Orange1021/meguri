@@ -290,6 +290,11 @@ export const ChannelInputs = {
   frame_export: FileTarget.extend({ sec: z.number().finite().min(0) }),
   open_external: FileTarget,
   open_folder: FileTarget,
+  // A folder of the folder view, opened in the OS file manager.
+  folder_open_in_file_manager: z.object({
+    workspaceId: z.string().min(1).max(MAX_WORKSPACE_ID),
+    path: FolderPathSchema,
+  }),
   copy_file_path: FileTarget,
   open_url: z.object({ url: z.string() }),
   open_devtools: z.void(),
@@ -398,6 +403,7 @@ export interface ChannelOutputs {
   frame_export: { saved: boolean; path: string | null };
   open_external: void;
   open_folder: void;
+  folder_open_in_file_manager: void;
   copy_file_path: void;
   open_url: void;
   open_devtools: boolean;

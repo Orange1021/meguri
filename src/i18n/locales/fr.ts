@@ -362,6 +362,10 @@ export const fr: Record<TranslationKey, string> = {
   "folder.up": "Remonter d'un niveau",
   "folder.more": "Afficher les niveaux masqués",
   "folder.itemCount": "{count} éléments",
+  "folder.subfolders": "Sous-dossiers : {count}",
+  "folder.summary": "Dossiers : {folders} · Fichiers : {files}",
+  "folder.openInFileManager": "Ouvrir dans le gestionnaire de fichiers",
+  "folder.openFailed": "Impossible d'ouvrir le dossier",
   "folder.open": "Ouvrir le dossier « {name} »",
   "folder.emptySearch": "Rien ne correspond dans ce dossier",
   "folder.emptySearchHint":

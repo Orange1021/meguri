@@ -152,6 +152,9 @@ export const api = {
     invoke("open_external", { id, workspaceId }),
   openFolder: (id: number, workspaceId: string) =>
     invoke("open_folder", { id, workspaceId }),
+  /** Open a folder of the folder view in the OS file manager. */
+  folderOpenInFileManager: (workspaceId: string, path: string) =>
+    invoke("folder_open_in_file_manager", { workspaceId, path }),
   copyFilePath: (id: number, workspaceId: string) =>
     invoke("copy_file_path", { id, workspaceId }),
   openUrl: (url: string) => invoke("open_url", { url }),

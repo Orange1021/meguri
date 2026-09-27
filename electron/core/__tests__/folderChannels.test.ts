@@ -78,3 +78,23 @@ describe("folder_files payload", () => {
     expect(parse(["a", "../b"])).toBe(false);
   });
 });
+
+describe("folder_open_in_file_manager payload", () => {
+  it.each(BAD)("rejects the malformed path %#", (path) => {
+    expect(
+      ChannelInputs.folder_open_in_file_manager.safeParse({
+        workspaceId: "w",
+        path,
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each(GOOD)("accepts %j", (path) => {
+    expect(
+      ChannelInputs.folder_open_in_file_manager.safeParse({
+        workspaceId: "w",
+        path,
+      }).success,
+    ).toBe(true);
+  });
+});
