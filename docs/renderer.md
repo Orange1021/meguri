@@ -79,23 +79,24 @@ Data fetching uses `@tanstack/react-query`. The file list is an
 plus virtualization (`src/components/MediaGrid.tsx`). Two view modes — grid and
 list — are switchable.
 
-The grid has a "show by folder" option (`GRID_FOLDERS_KEY`, remembered apart
-from the view mode) that browses one workspace like a file manager: the
-current folder's child folders as cards (`FolderCard`: drawn as a folder, a
-tab and a body tinted with the theme's `accent2`, holding a mosaic of up to four
-thumbnails), then its direct files, with a header above naming the folder and
-what it holds (`FolderHeader`). It reuses `MediaGrid`: folder cards are packed
-ahead of the files in the same virtualized rows and share the media card's outer
-dimensions, because the grid sizes every row from one measured row. Where the
-view is is held by `useFolderNav` in memory (per workspace, with a back stack),
-not in the URL — Home stays mounted under its child-route modals, so the
-location survives opening and closing them, whereas a query parameter on `/`
-would be dropped by the first navigation to `/file/:id`. With a search or filter
-active, it searches everything below the current folder instead
-(`hasFilterConditions`). Over `All` or a collection the grid is drawn flat
-(`isFolderView`) without overwriting the stored option.
+Both views have a "show by folder" option (`BY_FOLDER_KEY`, remembered apart
+from the view mode) that browses one workspace like a file manager: the current
+folder's child folders first, then its direct files, with a header above naming
+the folder and what it holds (`FolderHeader`). A folder is drawn as a folder —
+a tab and a body tinted with the theme's `accent2`, holding a mosaic of up to
+four thumbnails (`FolderArt`) — as a card in the grid (`FolderCard`) and in the
+thumbnail slot of a row in the list (`FolderRow`). Both views take the folders
+as leading entries of their own virtualized rows, and each folder entry keeps
+its view's item dimensions, because each view sizes every row from one measured
+row. Where the view is is held by `useFolderNav` in memory (per workspace, with
+a back stack), not in the URL — Home stays mounted under its child-route
+modals, so the location survives opening and closing them, whereas a query
+parameter on `/` would be dropped by the first navigation to `/file/:id`. With a
+search or filter active, it searches everything below the current folder
+instead (`hasFilterConditions`). Over `All` or a collection the view is drawn
+flat (`isFolderView`) without overwriting the stored option.
 
-Selecting a folder card selects every file below it: `SelectionContext` fetches
+Selecting a folder selects every file below it: `SelectionContext` fetches
 them through `folder_files` when the folder is picked, because the selection bar
 and the bulk tag dialog are computed from rows. Until they arrive the selection
 is `pending` and the bulk actions wait; the selection's `count` includes files

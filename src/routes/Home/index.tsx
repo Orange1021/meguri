@@ -59,7 +59,7 @@ import {
   type ViewMode,
   addSearchTokens,
   discoverPath,
-  GRID_FOLDERS_KEY,
+  BY_FOLDER_KEY,
   isFolderView,
   parseViewMode,
   scrollListByPage,
@@ -91,8 +91,8 @@ export default function Home() {
     "grid",
     parseViewMode,
   );
-  const [gridFolders, setGridFolders] = useLocalStorage<boolean>(
-    GRID_FOLDERS_KEY,
+  const [byFolder, setByFolder] = useLocalStorage<boolean>(
+    BY_FOLDER_KEY,
     false,
     (raw) => raw === "true",
   );
@@ -120,26 +120,20 @@ export default function Home() {
     null,
   );
 
-  // The grid's "show by folder" option works inside one real workspace: over
-  // "All" or a collection the grid is drawn flat (see isFolderView).
+  // The "show by folder" option works inside one real workspace: over "All"
+  // or a collection the file view is drawn flat (see isFolderView).
   const workspaceId = status.data?.workspaceId ?? null;
   const folderAvailable =
     (status.data?.ready ?? false) &&
     !!workspaceId &&
     workspaceId !== ALL_ID &&
     !workspaceId.startsWith(COLLECTION_ID_PREFIX);
-  const folderView = isFolderView({ view, gridFolders, folderAvailable });
-  // The one way the option changes, from the header and the command menu. The
-  // command menu works from any view: the option belongs to the grid, so
-  // turning it on from the list or table also shows the grid.
-  const toggleGridFolders = useCallback(() => {
-    if (view !== "grid") {
-      setViewMode("grid");
-      setGridFolders(true);
-    } else {
-      setGridFolders((on) => !on);
-    }
-  }, [view, setViewMode, setGridFolders]);
+  const folderView = isFolderView({ byFolder, folderAvailable });
+  // The one way the option changes, from the header and the command menu.
+  const toggleByFolder = useCallback(
+    () => setByFolder((on) => !on),
+    [setByFolder],
+  );
   const folderNav = useFolderNav(workspaceId);
   // With nothing narrowing the list a folder shows its own contents (child
   // folders as cards, then its direct files); a search or filter covers
@@ -182,9 +176,16 @@ export default function Home() {
     replaceFolder(listedPath);
     toast.info(t("folder.moved"), { id: "folder-moved" });
   }, [listedPath, folderNav.path, replaceFolder, t]);
-  const folderCards =
+  const folderEntries =
     folderView && !folderSearching ? folderListing.data?.folders : undefined;
-  // Picking a folder card selects every file below it (see SelectionContext).
+  // By folder, the view waits for the folders as well as the files: drawing
+  // the files first would push them down (and move keyboard focus) when the
+  // folders arrive, or flash the empty state for a folder of folders.
+  const listLoading =
+    (search.isLoading ||
+      (folderView && !folderSearching && folderListing.isLoading)) &&
+    (status.data?.ready ?? false);
+  // Picking a folder selects every file below it (see SelectionContext).
   const expandFolders = useCallback(
     (paths: string[]) => api.folderFiles(workspaceId ?? "", paths),
     [workspaceId],
@@ -654,7 +655,7 @@ export default function Home() {
         view={view}
         onSetView={setViewMode}
         folderView={folderView}
-        onToggleGridFolders={toggleGridFolders}
+        onToggleByFolder={toggleByFolder}
         folderAvailable={folderAvailable}
         scanning={scanning}
         ready={status.data?.ready ?? false}
@@ -741,7 +742,7 @@ export default function Home() {
         onScan={(includeExcluded) => void onScan(includeExcluded)}
         onRebuild={() => void onRebuild()}
         onSetView={setViewMode}
-        onToggleGridFolders={toggleGridFolders}
+        onToggleByFolder={toggleByFolder}
         folderView={folderView}
         folderAvailable={folderAvailable}
         onDiscover={openDiscover}
@@ -761,9 +762,9 @@ export default function Home() {
       <SelectionProvider
         items={items}
         scope={`${status.data?.workspaceId ?? ""}|${folderView ? `folder:${folderNav.path}` : "flat"}|${JSON.stringify(filter)}`}
-        // Only the cards on screen: once the window has moved past the top the
-        // grid no longer draws them, and "select all" must not pick them.
-        folders={listOffset === 0 ? folderCards : undefined}
+        // Only the folders on screen: once the window has moved past the top
+        // neither view draws them, and "select all" must not pick them.
+        folders={listOffset === 0 ? folderEntries : undefined}
         expandFolders={expandFolders}
       >
         <div className="relative flex min-h-0 flex-1">
@@ -790,7 +791,7 @@ export default function Home() {
                 mediaBase={status.data?.mediaBase ?? ""}
                 workspaceId={status.data?.workspaceId ?? ""}
                 listOffset={listOffset}
-                loading={search.isLoading && (status.data?.ready ?? false)}
+                loading={listLoading}
                 thumbVersion={thumbVersion}
                 onTagClick={onTagClick}
                 hasNextPage={search.hasNextPage}
@@ -802,22 +803,20 @@ export default function Home() {
                 navActive={navActive}
                 watchLater={activeCollection?.id === WATCH_LATER_ID}
                 reorder={reorder}
+                folders={folderEntries}
+                onOpenFolder={folderNav.enter}
+                resetKey={folderView ? `folder:${folderNav.path}` : undefined}
+                inFolder={folderSearching}
               />
             ) : (
-              // The grid, by folder or flat: by folder it gets the folder
-              // cards ahead of the files (folders is unset otherwise).
+              // By folder, either view gets the folders ahead of the files
+              // (folders is unset otherwise).
               <MediaGrid
                 items={items}
                 mediaBase={status.data?.mediaBase ?? ""}
                 workspaceId={status.data?.workspaceId ?? ""}
                 listOffset={listOffset}
-                loading={
-                  (search.isLoading ||
-                    (folderView &&
-                      !folderSearching &&
-                      folderListing.isLoading)) &&
-                  (status.data?.ready ?? false)
-                }
+                loading={listLoading}
                 thumbVersion={thumbVersion}
                 onTagClick={onTagClick}
                 hasNextPage={search.hasNextPage}
@@ -829,7 +828,7 @@ export default function Home() {
                 navActive={navActive}
                 watchLater={activeCollection?.id === WATCH_LATER_ID}
                 reorder={reorder}
-                folders={folderCards}
+                folders={folderEntries}
                 onOpenFolder={folderNav.enter}
                 resetKey={folderView ? `folder:${folderNav.path}` : undefined}
                 inFolder={folderSearching}

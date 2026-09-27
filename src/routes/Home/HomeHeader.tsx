@@ -50,7 +50,7 @@ export function HomeHeader({
   view,
   onSetView,
   folderView,
-  onToggleGridFolders,
+  onToggleByFolder,
   folderAvailable,
   scanning,
   ready,
@@ -69,9 +69,9 @@ export function HomeHeader({
   onEditWorkspace: () => void;
   view: ViewMode;
   onSetView: (v: ViewMode) => void;
-  /** The grid is being drawn by folder (see isFolderView). */
+  /** The file view is drawn by folder (see isFolderView). */
   folderView: boolean;
-  onToggleGridFolders: () => void;
+  onToggleByFolder: () => void;
   /** Folders need one real workspace open (not All or a collection). */
   folderAvailable: boolean;
   scanning: boolean;
@@ -195,29 +195,27 @@ export function HomeHeader({
             </button>
           ))}
         </div>
-        {/* An option of the grid, so it is offered only with the grid. Shown
-            but disabled over All or a collection, where there are no folders
-            to show; the stored choice is kept for the next workspace. */}
-        {view === "grid" && (
-          <button
-            type="button"
-            onClick={onToggleGridFolders}
-            aria-label={t("view.folder")}
-            aria-pressed={folderView}
-            disabled={!folderAvailable}
-            title={
-              folderAvailable ? t("view.folder") : t("view.folderUnavailable")
-            }
-            className={cn(
-              "flex size-7 items-center justify-center rounded-md border border-border transition disabled:cursor-not-allowed disabled:opacity-40",
-              folderView
-                ? "bg-primary/20 text-fg"
-                : "text-muted hover:bg-fg/10 hover:text-fg",
-            )}
-          >
-            <FolderTree className="size-4" />
-          </button>
-        )}
+        {/* Applies to the grid and the list alike. Disabled over All or a
+            collection, where there are no folders to show; the stored choice
+            is kept for the next workspace. */}
+        <button
+          type="button"
+          onClick={onToggleByFolder}
+          aria-label={t("view.folder")}
+          aria-pressed={folderView}
+          disabled={!folderAvailable}
+          title={
+            folderAvailable ? t("view.folder") : t("view.folderUnavailable")
+          }
+          className={cn(
+            "flex size-7 items-center justify-center rounded-md border border-border transition disabled:cursor-not-allowed disabled:opacity-40",
+            folderView
+              ? "bg-primary/20 text-fg"
+              : "text-muted hover:bg-fg/10 hover:text-fg",
+          )}
+        >
+          <FolderTree className="size-4" />
+        </button>
         <ButtonGroup className="[&>button]:border [&>button]:border-muted/35 [&>button]:bg-surface [&>button:not(:first-child)]:relative [&>button:not(:first-child)]:z-[1]">
           <Button
             size="sm"

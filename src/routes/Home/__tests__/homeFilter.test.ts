@@ -60,23 +60,16 @@ describe("addSearchTokens", () => {
 });
 
 describe("isFolderView", () => {
-  it("draws the grid by folder where folders exist and the option is on", () => {
-    expect(
-      isFolderView({ view: "grid", gridFolders: true, folderAvailable: true }),
-    ).toBe(true);
+  it("draws by folder where folders exist and the option is on", () => {
+    expect(isFolderView({ byFolder: true, folderAvailable: true })).toBe(true);
   });
 
-  it("stays flat with the option off, over All or a collection, or off the grid", () => {
-    expect(
-      isFolderView({ view: "grid", gridFolders: false, folderAvailable: true }),
-    ).toBe(false);
-    expect(
-      isFolderView({ view: "grid", gridFolders: true, folderAvailable: false }),
-    ).toBe(false);
-    for (const view of ["list"] as const) {
-      expect(
-        isFolderView({ view, gridFolders: true, folderAvailable: true }),
-      ).toBe(false);
-    }
+  it("stays flat with the option off, or over All or a collection", () => {
+    expect(isFolderView({ byFolder: false, folderAvailable: true })).toBe(
+      false,
+    );
+    expect(isFolderView({ byFolder: true, folderAvailable: false })).toBe(
+      false,
+    );
   });
 });

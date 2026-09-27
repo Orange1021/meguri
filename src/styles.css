@@ -128,11 +128,13 @@ textarea,
 }
 
 /*
- * Folder view cards (FolderCard) are drawn as folders: a tab and a body tinted
- * with the theme's accent2 — the yellow of a file-manager folder in most
- * themes — so they read apart from media cards at a glance in every theme.
+ * Folders shown by folder (FolderArt, on a FolderCard in the grid or a
+ * FolderRow in the list) are drawn as folders: a tab and a body tinted with the
+ * theme's accent2 — the yellow of a file-manager folder in most themes — so
+ * they read apart from media at a glance in every theme. Set on the card or
+ * row that holds the art, whose own tinted parts read the same variables.
  */
-.folder-card {
+.folder-art {
   --folder-tint: color-mix(in srgb, var(--c-accent2) 20%, var(--c-surface));
   --folder-tint-hover: color-mix(
     in srgb,

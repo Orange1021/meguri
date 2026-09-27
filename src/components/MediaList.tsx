@@ -22,7 +22,9 @@ import {
 import { mediaSortId } from "@/lib/mediaSortId";
 import { SelectionCheck } from "@/components/SelectionCheck";
 import { useSelectableClick } from "@/hooks/useSelectableClick";
-import type { FileRow } from "@/ipc/types";
+import type { FileRow, FolderEntry } from "@/ipc/types";
+import { FolderRow } from "@/components/FolderRow";
+import { useFolderEntries } from "@/hooks/useFolderEntries";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { WatchLaterButton } from "@/components/WatchLaterButton";
 import {
@@ -89,7 +91,21 @@ interface Props {
   watchLater?: boolean;
   /** Set only while a collection is shown in its manual order; enables drag-to-reorder. */
   reorder?: MediaReorder;
+  /**
+   * Shown by folder: child folders drawn as rows ahead of `items`. They
+   * belong to the top of the list, so they are shown only while it is loaded
+   * from its start (listOffset 0) and count toward the rows above a later
+   * window. Same contract as MediaGrid's.
+   */
+  folders?: FolderEntry[];
+  onOpenFolder?: (path: string) => void;
+  /** Changing it scrolls back to the top, as a workspace switch does (e.g. the folder shown). */
+  resetKey?: string;
+  /** The list is a search inside a folder: its empty state says so. */
+  inFolder?: boolean;
 }
+
+const noop = () => {};
 
 // Memoized: Home re-renders on every thumbVersion flush and its other props are
 // referentially stable, so the list only re-renders when the data actually changes.
@@ -110,8 +126,11 @@ export const MediaList = memo(function MediaList({
   navActive = false,
   watchLater = false,
   reorder,
+  folders,
+  onOpenFolder,
+  resetKey,
+  inFolder = false,
 }: Props) {
-  const { activate } = useActivateFile();
   const watchLaterMembership = useWatchLater();
   const { listThumbSize } = usePreferences();
   const thumbWidth = THUMB_WIDTH[listThumbSize];
@@ -141,12 +160,20 @@ export const MediaList = memo(function MediaList({
   );
   const rowEstimate = rowH || ROW_ESTIMATE;
 
+  // Folder rows lead the list (see useFolderEntries).
+  const { entries, leadingEntries, onOpen, onInspect } = useFolderEntries({
+    items,
+    folders,
+    listOffset,
+    onOpenFolder,
+  });
+
   const virtualizer = useVirtualizer({
-    count: items.length,
+    count: entries.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => rowEstimate,
     overscan: 8,
-    paddingStart: listOffset * rowEstimate,
+    paddingStart: leadingEntries * rowEstimate,
   });
   const virtualRows = virtualizer.getVirtualItems();
 
@@ -160,24 +187,10 @@ export const MediaList = memo(function MediaList({
 
   // Keyboard focus navigation (vertical; columns=1). Open the focused row on Enter.
   const scrollToRow = useScrollToRow(virtualizer);
-  // Keyboard Enter opens the detail with auto-play (same intent as a thumbnail click).
-  const onOpen = useCallback(
-    (index: number) => {
-      const f = items[index];
-      if (f) activate(f);
-    },
-    [items, activate],
-  );
-  // Shift+Enter is the keyboard form of the name click: details, no playback.
-  const onInspect = useCallback(
-    (index: number) => {
-      const f = items[index];
-      if (f) activate(f, { autoplay: false });
-    },
-    [items, activate],
-  );
+  // Enter / Shift+Enter come from useFolderEntries (open or inspect a file,
+  // open a folder).
   const { focusedIndex, setFocusedIndex } = useGridKeyboardNav({
-    itemCount: items.length,
+    itemCount: entries.length,
     columns: 1,
     active: navActive,
     onOpen,
@@ -189,18 +202,19 @@ export const MediaList = memo(function MediaList({
   const focusedWatchLaterRef = useRef<HTMLButtonElement>(null);
   useWatchLaterHotkey({ active: navActive, buttonRef: focusedWatchLaterRef });
 
-  // Reset the scroll position to the top on workspace switch.
+  // Reset the scroll position to the top on workspace switch and on a
+  // resetKey change (another folder).
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
     virtualizer.scrollToOffset(0);
     setFocusedIndex(-1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wsId]);
+  }, [wsId, resetKey]);
 
   // Fetch the next page when a row near the end becomes visible.
   useInfiniteScrollTrigger({
     virtualRows,
-    totalRows: items.length,
+    totalRows: entries.length,
     threshold: 4,
     hasNextPage,
     isFetchingNextPage,
@@ -229,8 +243,8 @@ export const MediaList = memo(function MediaList({
     );
   }
 
-  if (items.length === 0) {
-    return <MediaEmptyState watchLater={watchLater} />;
+  if (entries.length === 0) {
+    return <MediaEmptyState watchLater={watchLater} inFolder={inFolder} />;
   }
 
   return (
@@ -255,12 +269,25 @@ export const MediaList = memo(function MediaList({
               style={{ transform: `translateY(${vr.start}px)` }}
             >
               {(() => {
-                const file = items[vr.index];
+                const entry = entries[vr.index];
                 const focused = vr.index === focusedIndex;
+                if (entry.kind === "folder") {
+                  return (
+                    <FolderRow
+                      entry={entry.folder}
+                      mediaBase={mediaBase}
+                      thumbVersion={thumbVersion}
+                      thumbWidth={thumbWidth}
+                      focused={focused}
+                      onOpen={onOpenFolder ?? noop}
+                    />
+                  );
+                }
+                const file = entry.file;
                 const row = (
                   <MediaRow
                     file={file}
-                    index={vr.index}
+                    index={entry.fileIndex}
                     version={thumbVersion[mediaSortId(file)] ?? 0}
                     mediaBase={mediaBase}
                     thumbWidth={thumbWidth}

@@ -36,9 +36,9 @@ interface CommandMenuProps {
   onScan: (includeExcluded?: boolean) => void;
   onRebuild: () => void;
   onSetView: (view: ViewMode) => void;
-  /** Turns the grid's "show by folder" option on or off (showing the grid). */
-  onToggleGridFolders: () => void;
-  /** Whether the grid is being shown by folder, which the command undoes. */
+  /** Turns the "show by folder" option on or off. */
+  onToggleByFolder: () => void;
+  /** Whether the file view is shown by folder, which the command undoes. */
   folderView?: boolean;
   /** Folders need one real workspace open (not All or a collection). */
   folderAvailable?: boolean;
@@ -86,7 +86,7 @@ export function CommandMenu({
   onScan,
   onRebuild,
   onSetView,
-  onToggleGridFolders,
+  onToggleByFolder,
   folderView = false,
   folderAvailable = false,
   onDiscover,
@@ -180,7 +180,7 @@ export function CommandMenu({
       id: "view-folder",
       icon: FolderTree,
       disabled: !folderAvailable,
-      run: () => closeThen(onToggleGridFolders),
+      run: () => closeThen(onToggleByFolder),
     }),
   ];
 

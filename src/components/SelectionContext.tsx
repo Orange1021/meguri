@@ -59,7 +59,7 @@ export interface SelectionView {
   rows: FileRow[];
   /** A selected folder's files are still being fetched. */
   pending: boolean;
-  /** How many folder cards are selected. */
+  /** How many folders are selected. */
   folderCount: number;
 }
 
@@ -115,7 +115,7 @@ class SelectionStore {
   private scope: string | null = null;
   private active = false;
   private selected = new Map<string, FileRow>();
-  /** Folder cards on screen: what "select all" adds besides the loaded rows. */
+  /** Folders on screen: what "select all" adds besides the loaded rows. */
   private folderItems: FolderEntry[] = [];
   private folders = new Map<string, FolderPick>();
   private expand: ExpandFolders | null = null;
@@ -232,7 +232,7 @@ class SelectionStore {
       this.items.map((row) => [selectionKey(row), row] as const),
     );
     this.anchorKey = null;
-    // Folder cards on screen join too; those already picked keep their files.
+    // Folders on screen join too; those already picked keep their files.
     const added: FolderEntry[] = [];
     const next = new Map(this.folders);
     for (const entry of this.folderItems) {
@@ -450,7 +450,7 @@ export function SelectionProvider({
   items: FileRow[];
   /** Identifies which list `items` is; see SelectionStore.syncList. */
   scope?: string;
-  /** Folder cards on screen (folder view), which "select all" also picks. */
+  /** Folders on screen (shown by folder), which "select all" also picks. */
   folders?: FolderEntry[];
   /** Fetches a picked folder's files. Without it folders cannot be selected. */
   expandFolders?: ExpandFolders;

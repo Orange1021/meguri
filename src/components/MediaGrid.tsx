@@ -26,6 +26,10 @@ import {
 } from "@/hooks/useWatchLater";
 import type { FileRow, FolderEntry } from "@/ipc/types";
 import { FolderCard } from "@/components/FolderCard";
+import {
+  useFolderEntries,
+  type FolderViewEntry,
+} from "@/hooks/useFolderEntries";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RatingButton } from "@/components/RatingButton";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
@@ -99,10 +103,6 @@ interface Props {
 
 const noop = () => {};
 
-type GridEntry =
-  | { kind: "folder"; folder: FolderEntry }
-  | { kind: "file"; file: FileRow; fileIndex: number };
-
 // Memoized: Home re-renders on every thumbVersion flush and its other props are
 // referentially stable, so the grid only re-renders when the data actually changes.
 export const MediaGrid = memo(function MediaGrid({
@@ -127,7 +127,6 @@ export const MediaGrid = memo(function MediaGrid({
   resetKey,
   inFolder = false,
 }: Props) {
-  const { activate } = useActivateFile();
   const watchLaterMembership = useWatchLater();
 
   // Scroll parent. Virtualization DOM-renders only the visible rows relative to this element.
@@ -225,33 +224,21 @@ export const MediaGrid = memo(function MediaGrid({
   const rowEstimate = ready && extraH > 0 ? thumbH + extraH : ROW_ESTIMATE;
 
   // Folder cards lead the list, packed into the same rows as the files so the
-  // row height and the 2D keyboard movement need no special case. A window
-  // that starts past the top has scrolled them out with the files before it.
-  const shownFolders = useMemo(
-    () => (listOffset === 0 ? (folders ?? []) : []),
-    [folders, listOffset],
-  );
-  const entries = useMemo<GridEntry[]>(
-    () => [
-      ...shownFolders.map((folder) => ({ kind: "folder" as const, folder })),
-      ...items.map((file, fileIndex) => ({
-        kind: "file" as const,
-        file,
-        fileIndex,
-      })),
-    ],
-    [shownFolders, items],
-  );
+  // row height and the 2D keyboard movement need no special case.
+  const { entries, leadingEntries, onOpen, onInspect } = useFolderEntries({
+    items,
+    folders,
+    listOffset,
+    onOpenFolder,
+  });
   // Group entries into rows by column count.
   const rows = useMemo(() => {
-    const r: GridEntry[][] = [];
+    const r: FolderViewEntry[][] = [];
     for (let i = 0; i < entries.length; i += cols)
       r.push(entries.slice(i, i + cols));
     return r;
   }, [entries, cols]);
-  const leadingRows = Math.floor(
-    (listOffset > 0 ? (folders?.length ?? 0) + listOffset : 0) / cols,
-  );
+  const leadingRows = Math.floor(leadingEntries / cols);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -272,25 +259,8 @@ export const MediaGrid = memo(function MediaGrid({
 
   // Keyboard focus navigation (2D, by column count). Open the focused card on Enter.
   const scrollToRow = useScrollToRow(virtualizer);
-  // Keyboard Enter opens the detail with auto-play (same intent as a thumbnail click).
-  // On a folder card both open the folder.
-  const onOpen = useCallback(
-    (index: number) => {
-      const e = entries[index];
-      if (e?.kind === "folder") onOpenFolder?.(e.folder.path);
-      else if (e) activate(e.file);
-    },
-    [entries, activate, onOpenFolder],
-  );
-  // Shift+Enter is the keyboard form of the name click: details, no playback.
-  const onInspect = useCallback(
-    (index: number) => {
-      const e = entries[index];
-      if (e?.kind === "folder") onOpenFolder?.(e.folder.path);
-      else if (e) activate(e.file, { autoplay: false });
-    },
-    [entries, activate, onOpenFolder],
-  );
+  // Enter / Shift+Enter come from useFolderEntries (open or inspect a file,
+  // open a folder).
   const { focusedIndex, setFocusedIndex } = useGridKeyboardNav({
     itemCount: entries.length,
     columns: cols,

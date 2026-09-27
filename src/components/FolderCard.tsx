@@ -10,13 +10,13 @@
 // below it are inset shadows, which take no room.
 import { Folder } from "lucide-react";
 import { memo, type MouseEvent } from "react";
-import { MediaThumbnail } from "@/components/MediaThumbnail";
+import { FolderArt } from "@/components/FolderArt";
 import {
   isSelectionClick,
   useFolderSelection,
 } from "@/components/SelectionContext";
 import { FolderSelectionCheck } from "@/components/SelectionCheck";
-import type { FileRow, FolderEntry } from "@/ipc/types";
+import type { FolderEntry } from "@/ipc/types";
 import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +63,7 @@ export const FolderCard = memo(function FolderCard({
       data-testid="folder-card"
       aria-current={focused ? "true" : undefined}
       className={cn(
-        "folder-card group relative flex flex-col rounded-lg border border-transparent",
+        "folder-art group relative flex flex-col rounded-lg border border-transparent",
         // The media card's state vocabulary, so a mixed row reads as one list.
         focused && "ring-2 ring-primary",
         selected && "ring-1 ring-primary",
@@ -76,21 +76,11 @@ export const FolderCard = memo(function FolderCard({
         onClick={open}
         className="group/thumb relative block aspect-video cursor-pointer"
       >
-        {/* Starts 1px above the tab's bottom so the tab, drawn after it, covers
-            the stretch of its top edge under the tab: the two read as one
-            outline with no rule between them. */}
-        <div className="absolute inset-x-0 bottom-0 top-[calc(var(--folder-tab-h)-1px)] rounded-tr-lg border border-b-0 border-(--folder-edge) bg-(--folder-tint) transition-colors group-hover:bg-(--folder-tint-hover)">
-          <div className="absolute inset-x-1.5 bottom-0 top-1.5 overflow-hidden rounded-[5px] bg-bg/45 text-accent2">
-            <Mosaic
-              previews={entry.previews}
-              mediaBase={mediaBase}
-              thumbVersion={thumbVersion}
-            />
-          </div>
-        </div>
-        <div
-          aria-hidden
-          className="absolute left-0 top-0 h-(--folder-tab-h) w-[42%] rounded-t-md border border-b-0 border-(--folder-edge) bg-(--folder-tint) transition-colors group-hover:bg-(--folder-tint-hover)"
+        <FolderArt
+          previews={entry.previews}
+          mediaBase={mediaBase}
+          thumbVersion={thumbVersion}
+          joined
         />
       </div>
       <FolderSelectionCheck
@@ -136,56 +126,3 @@ export const FolderCard = memo(function FolderCard({
     </div>
   );
 });
-
-// Tiles by how many files the folder offered: one fills the frame, two sit
-// side by side, three put one tall tile beside two, four make a 2×2.
-const LAYOUT: Record<number, { grid: string; first?: string }> = {
-  1: { grid: "grid-cols-1 grid-rows-1" },
-  2: { grid: "grid-cols-2 grid-rows-1" },
-  3: { grid: "grid-cols-2 grid-rows-2", first: "row-span-2" },
-  4: { grid: "grid-cols-2 grid-rows-2" },
-};
-
-function Mosaic({
-  previews,
-  mediaBase,
-  thumbVersion,
-}: {
-  previews: FileRow[];
-  mediaBase: string;
-  thumbVersion: Record<string, number>;
-}) {
-  const layout = LAYOUT[previews.length];
-  if (!layout) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Folder className="size-10 fill-current opacity-70" />
-      </div>
-    );
-  }
-  return (
-    <div
-      data-testid="folder-mosaic"
-      className={cn("absolute inset-0 grid gap-[3px]", layout.grid)}
-    >
-      {previews.map((file, i) => (
-        <div
-          key={`${file.workspaceId}:${file.id}`}
-          className={cn(
-            "relative overflow-hidden rounded-[3px] bg-overlay text-muted",
-            i === 0 && layout.first,
-          )}
-        >
-          <MediaThumbnail
-            file={file}
-            mediaBase={mediaBase}
-            version={thumbVersion[`${file.workspaceId}:${file.id}`] ?? 0}
-            fallbackIconSize="size-5"
-            showPlayOverlay={false}
-            scrubPreview={false}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}

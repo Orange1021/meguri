@@ -23,25 +23,23 @@ export function parseViewMode(raw: string | null): ViewMode {
   return isViewMode(raw) ? raw : "grid";
 }
 
-/** The grid's "show by folder" option, remembered on its own. */
-export const GRID_FOLDERS_KEY = "meguri.gridFolders";
+/** The "show by folder" option, remembered apart from the view mode. */
+export const BY_FOLDER_KEY = "meguri.byFolder";
 
 /**
- * Whether the grid is drawn by folder. The option belongs to the grid, and
- * folders exist only inside one real workspace: over "All" or a collection the
- * grid is drawn flat, without touching the stored option, which takes over
- * again on returning to a workspace.
+ * Whether the file view is drawn by folder. The option applies to the grid and
+ * the list alike, but folders exist only inside one real workspace: over "All"
+ * or a collection the view is drawn flat, without touching the stored option,
+ * which takes over again on returning to a workspace.
  */
 export function isFolderView({
-  view,
-  gridFolders,
+  byFolder,
   folderAvailable,
 }: {
-  view: ViewMode;
-  gridFolders: boolean;
+  byFolder: boolean;
   folderAvailable: boolean;
 }): boolean {
-  return view === "grid" && gridFolders && folderAvailable;
+  return byFolder && folderAvailable;
 }
 
 export function cleanDiscoverFilter(filter: SearchQuery): SearchQuery {
