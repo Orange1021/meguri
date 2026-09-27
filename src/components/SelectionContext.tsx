@@ -1,4 +1,4 @@
-// Multi-select state for the media list, shared by all three view modes.
+// Multi-select state for the media list, shared by both view modes.
 //
 // Selection lives here rather than in each view because the views are swapped
 // in and out as the user changes view mode and the selection has to survive

@@ -8,10 +8,19 @@ import type { SearchQuery } from "@/ipc/types";
 export const DISCOVER_FILTER_PARAM = "filter";
 export const VIEW_KEY = "meguri.view";
 
-export type ViewMode = "grid" | "list" | "table";
+export type ViewMode = "grid" | "list";
 
 export function isViewMode(v: string | null): v is ViewMode {
-  return v === "grid" || v === "list" || v === "table";
+  return v === "grid" || v === "list";
+}
+
+/**
+ * Reads a stored view mode. The table view was folded into the list, so a
+ * stored "table" lands on the list rather than falling back to the grid.
+ */
+export function parseViewMode(raw: string | null): ViewMode {
+  if (raw === "table") return "list";
+  return isViewMode(raw) ? raw : "grid";
 }
 
 export function cleanDiscoverFilter(filter: SearchQuery): SearchQuery {

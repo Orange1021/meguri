@@ -97,7 +97,7 @@ export function MediaReorderProvider({
         draggedRef.current = true;
       }}
     >
-      {/* rect strategy covers all three views: grid rows, list rows and table rows. */}
+      {/* rect strategy covers both views: grid rows and list rows. */}
       <SortableContext items={ids} strategy={rectSortingStrategy}>
         {children}
       </SortableContext>
@@ -108,8 +108,8 @@ export function MediaReorderProvider({
 /**
  * Makes one rendered media item draggable, as a wrapper around it. A view whose
  * rows position themselves with a transform cannot use this — the two would
- * fight over that transform — and hands the drag wiring down to the row instead;
- * see MediaTable's SortableTableRow.
+ * fight over that transform — and has to hand the drag wiring down to the row
+ * instead.
  */
 export function SortableMedia({
   id,

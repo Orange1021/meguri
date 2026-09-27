@@ -85,7 +85,7 @@ export interface GridBinding {
   inspect: KeyChord[];
 }
 
-// Per-preset focus navigation for the list/grid/table views. Open is always Enter,
+// Per-preset focus navigation for the list/grid views. Open is always Enter,
 // inspect Shift+Enter.
 // These are consulted only while the list is foreground (no detail/settings modal on top),
 // so vim h/l and emacs C-b/C-f do not clash with the detail view's prev/next.

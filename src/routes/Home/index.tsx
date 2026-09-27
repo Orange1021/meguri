@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { MANUAL_SORT } from "@shared/sortDir";
 import { MediaGrid } from "@/components/MediaGrid";
 import { MediaList } from "@/components/MediaList";
-import { MediaTable } from "@/components/MediaTable";
 import { MediaNavProvider } from "@/components/MediaNavContext";
 import { CollectionEditDialog } from "@/components/CollectionEditDialog";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
@@ -56,7 +55,7 @@ import {
   type ViewMode,
   addSearchTokens,
   discoverPath,
-  isViewMode,
+  parseViewMode,
   scrollListByPage,
 } from "./utils";
 
@@ -82,7 +81,7 @@ export default function Home() {
   const [view, setViewMode] = useLocalStorage<ViewMode>(
     VIEW_KEY,
     "grid",
-    (raw) => (isViewMode(raw) ? raw : "grid"),
+    parseViewMode,
   );
 
   const status = useAppStatus();
@@ -616,25 +615,6 @@ export default function Home() {
               </div>
             ) : view === "list" ? (
               <MediaList
-                items={items}
-                mediaBase={status.data?.mediaBase ?? ""}
-                workspaceId={status.data?.workspaceId ?? ""}
-                listOffset={listOffset}
-                loading={search.isLoading && (status.data?.ready ?? false)}
-                thumbVersion={thumbVersion}
-                onTagClick={onTagClick}
-                hasNextPage={search.hasNextPage}
-                fetchNextPage={fetchNextPage}
-                isFetchingNextPage={search.isFetchingNextPage}
-                hasPreviousPage={search.hasPreviousPage}
-                fetchPreviousPage={fetchPreviousPage}
-                isFetchingPreviousPage={search.isFetchingPreviousPage}
-                navActive={navActive}
-                watchLater={activeCollection?.id === WATCH_LATER_ID}
-                reorder={reorder}
-              />
-            ) : view === "table" ? (
-              <MediaTable
                 items={items}
                 mediaBase={status.data?.mediaBase ?? ""}
                 workspaceId={status.data?.workspaceId ?? ""}

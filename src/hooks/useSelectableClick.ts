@@ -1,5 +1,5 @@
 // What a click on a media card means while a selection is being built, shared
-// by MediaGrid, MediaList and MediaTable so the three cannot drift — the same
+// by MediaGrid and MediaList so the two cannot drift — the same
 // reason useActivateFile exists for the open/play gesture beside it.
 //
 // The rule: in selection mode every plain click picks the row; outside it only

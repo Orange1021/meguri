@@ -1,4 +1,4 @@
-// The per-row selection checkbox, shared by the grid, list and table views.
+// The per-row selection checkbox, shared by the grid and list views.
 //
 // Visible on hover (and always once it is checked or focused), so the affordance
 // is discoverable without putting a permanent box on every card. It is a real

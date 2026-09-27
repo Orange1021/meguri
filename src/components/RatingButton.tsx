@@ -1,6 +1,6 @@
 // Rating stars with a self-contained mutation. Like FavoriteButton, it runs the
 // mutation and syncs the affected queries so list cards and the detail view
-// reflect the new rating. Used across the grid/list/table views.
+// reflect the new rating. Used across the grid/list views.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/ipc/client";
 import { syncFileRowAcrossCaches } from "@/lib/queryCache";

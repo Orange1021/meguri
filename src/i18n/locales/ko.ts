@@ -55,6 +55,12 @@ export const ko: Record<TranslationKey, string> = {
   "settings.frameQualityLow": "낮음 (240px)",
   "settings.frameQualityStandard": "표준 (480px)",
   "settings.frameQualityHigh": "높음 (960px)",
+  "settings.listThumbSize": "목록 썸네일 크기",
+  "settings.listThumbSizeDesc":
+    "목록 보기의 각 행에 표시되는 썸네일 크기입니다.",
+  "settings.listThumbSizeSmall": "작게",
+  "settings.listThumbSizeMedium": "보통",
+  "settings.listThumbSizeLarge": "크게",
   "settings.emojiStyle": "이모지 스타일",
   "settings.emojiStyleDesc":
     "이모지 아이콘과 텍스트 속 이모지의 모양을 전환합니다.",
@@ -341,8 +347,6 @@ export const ko: Record<TranslationKey, string> = {
   "grid.searchByTag": "「{name}」(으)로 필터링",
   "view.grid": "그리드 보기",
   "view.list": "리스트 보기",
-  "view.table": "테이블 보기",
-  "table.name": "이름",
 
   // discovery (random recommendations)
   "discover.title": "디스커버리",

@@ -15,7 +15,7 @@ export function searchChips(page: Page): Locator {
   return page.locator('[data-slot="search-chip"]');
 }
 
-/** Grid-view card for a file. List/table views don't carry the testid. */
+/** Grid-view card for a file. The list view doesn't carry the testid. */
 export function fileCard(page: Page, fileName = FIXTURE_FILE): Locator {
   return page.getByTestId("media-card").filter({ hasText: fileName }).first();
 }

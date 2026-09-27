@@ -7,7 +7,6 @@ import {
   Search,
   Settings,
   Sparkles,
-  Table2,
   Tags as TagsIcon,
   Terminal,
 } from "lucide-react";
@@ -25,7 +24,7 @@ import {
 import { useI18n, type TFunc } from "@/i18n/I18nProvider";
 import type { TranslationKey } from "@/i18n/locales/ja";
 
-type ViewMode = "grid" | "list" | "table";
+type ViewMode = "grid" | "list";
 
 interface CommandMenuProps {
   open: boolean;
@@ -166,11 +165,6 @@ export function CommandMenu({
       id: "view-list",
       icon: List,
       run: () => closeThen(() => onSetView("list")),
-    }),
-    action(t, "view.table", {
-      id: "view-table",
-      icon: Table2,
-      run: () => closeThen(() => onSetView("table")),
     }),
   ];
 

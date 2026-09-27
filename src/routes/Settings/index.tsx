@@ -29,6 +29,9 @@ import {
   EMOJI_STYLE_OPTIONS,
   isEmojiStyle,
   type EmojiStyle,
+  LIST_THUMB_SIZE_OPTIONS,
+  isListThumbSize,
+  type ListThumbSize,
 } from "@/settings/PreferencesProvider";
 import {
   KEYBINDING_PRESETS,
@@ -63,6 +66,12 @@ const FRAME_QUALITY_LABELS: Record<FrameQuality, TranslationKey> = {
   low: "settings.frameQualityLow",
   standard: "settings.frameQualityStandard",
   high: "settings.frameQualityHigh",
+};
+
+const LIST_THUMB_SIZE_LABELS: Record<ListThumbSize, TranslationKey> = {
+  small: "settings.listThumbSizeSmall",
+  medium: "settings.listThumbSizeMedium",
+  large: "settings.listThumbSizeLarge",
 };
 
 const SPECTRUM_PATTERN_LABELS: Record<SpectrumPattern, TranslationKey> = {
@@ -146,6 +155,8 @@ export default function Settings() {
     playlistShuffle,
     setPlaylistShuffle,
     setFrameQuality,
+    listThumbSize,
+    setListThumbSize,
     emojiStyle,
     setEmojiStyle,
   } = usePreferences();
@@ -487,6 +498,35 @@ export default function Settings() {
                     {FRAME_QUALITY_OPTIONS.map((q) => (
                       <SelectItem key={q} value={q}>
                         {t(FRAME_QUALITY_LABELS[q])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+
+              {/* Thumbnail width in the list view */}
+              <section className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-bright-fg">
+                    {t("settings.listThumbSize")}
+                  </span>
+                  <span className="text-xs text-muted">
+                    {t("settings.listThumbSizeDesc")}
+                  </span>
+                </div>
+                <Select
+                  value={listThumbSize}
+                  onValueChange={(v) => {
+                    if (isListThumbSize(v)) setListThumbSize(v);
+                  }}
+                >
+                  <SelectTrigger className="min-w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LIST_THUMB_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={size}>
+                        {t(LIST_THUMB_SIZE_LABELS[size])}
                       </SelectItem>
                     ))}
                   </SelectContent>

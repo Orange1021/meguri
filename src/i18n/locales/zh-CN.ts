@@ -54,6 +54,11 @@ export const zhCN: Record<TranslationKey, string> = {
   "settings.frameQualityLow": "低 (240px)",
   "settings.frameQualityStandard": "标准 (480px)",
   "settings.frameQualityHigh": "高 (960px)",
+  "settings.listThumbSize": "列表缩略图大小",
+  "settings.listThumbSizeDesc": "列表视图中每行缩略图的大小。",
+  "settings.listThumbSizeSmall": "小",
+  "settings.listThumbSizeMedium": "中",
+  "settings.listThumbSizeLarge": "大",
   "settings.emojiStyle": "表情符号样式",
   "settings.emojiStyleDesc": "切换表情符号图标及文本中表情符号的显示样式。",
   "settings.emojiStyleNative": "系统默认",
@@ -335,8 +340,6 @@ export const zhCN: Record<TranslationKey, string> = {
   "grid.searchByTag": "按“{name}”筛选",
   "view.grid": "网格视图",
   "view.list": "列表视图",
-  "view.table": "表格视图",
-  "table.name": "名称",
 
   // discovery (random recommendations)
   "discover.title": "发现",
