@@ -139,6 +139,15 @@ function resolveSearchTagIds(db: DB, value: string): number[] {
     .all(value, value) as number[];
 }
 
+/**
+ * The FROM clause for a search's rows: inside a folder, that folder's slice of
+ * the rel_path index, whatever the query sorts by or picks (see PINNED_FILES).
+ * The root has no range to walk. Exported for the index-plan tests.
+ */
+export function fromFor(query: SearchQuery): string {
+  return query.folder?.path ? FOLDER_FILE_FROM : FILE_FROM;
+}
+
 function appendSearchConditions(
   db: DB,
   sql: string,
@@ -381,10 +390,7 @@ export function searchFiles(
   const cap = seek ? MAX_LIMIT + 1 : MAX_LIMIT;
   const limit = Math.max(1, Math.min(cap, query.limit ?? DEFAULT_LIMIT));
   const args: unknown[] = [];
-  // A search inside a folder walks that folder's slice of the rel_path index,
-  // whatever it sorts by (see PINNED_FILES). The root has no range to walk.
-  const from = query.folder?.path ? FOLDER_FILE_FROM : FILE_FROM;
-  let sql = `SELECT ${FILE_COLS} ${from} WHERE f.deleted_at IS NULL`;
+  let sql = `SELECT ${FILE_COLS} ${fromFor(query)} WHERE f.deleted_at IS NULL`;
   sql = appendSearchConditions(db, sql, args, query, opts?.sep);
   if (seek) {
     const seekArgs: unknown[] = [];
@@ -464,7 +470,7 @@ export function orderByFor(sort?: string, dir?: string): string {
 export function randomFiles(db: DB, query: SearchQuery): FileRow[] {
   const lim = Math.max(1, Math.min(MAX_LIMIT, query.limit ?? 20));
   const args: unknown[] = [];
-  let sql = `SELECT f.id ${FILE_FROM} WHERE f.deleted_at IS NULL`;
+  let sql = `SELECT f.id ${fromFor(query)} WHERE f.deleted_at IS NULL`;
   sql = appendSearchConditions(db, sql, args, query);
 
   const reservoir: number[] = [];

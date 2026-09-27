@@ -539,4 +539,37 @@ describe("MediaGrid", () => {
       expect(screen.getByText("Nothing in this folder matches")).toBeTruthy();
     });
   });
+
+  it("keeps a window that starts mid-row in its columns", async () => {
+    // 1200px stub → 6 columns. A window starting at item 100 begins at
+    // column 4 of its row (100 % 6), so that row opens with 4 empty cells.
+    const items = [1, 2, 3].map((id) => ({
+      ...sampleFileRow,
+      id,
+      relPath: `clip-${id}.mp4`,
+    }));
+    const { container } = renderWithProviders(
+      <MediaGrid
+        items={items}
+        mediaBase="http://127.0.0.1:17345"
+        workspaceId={WS_ID}
+        loading={false}
+        thumbVersion={{}}
+        listOffset={100}
+      />,
+    );
+    await screen.findByText("clip-1.mp4");
+    const rows = container.querySelectorAll<HTMLElement>(
+      "[style*='translateY'] > div",
+    );
+    const first = Array.from(rows[0].children);
+    expect(first.slice(0, 4).every((c) => c.getAttribute("aria-hidden"))).toBe(
+      true,
+    );
+    expect(first.slice(4).map((c) => c.getAttribute("data-testid"))).toEqual([
+      "media-card",
+      "media-card",
+    ]);
+    expect(rows[1].children).toHaveLength(1);
+  });
 });

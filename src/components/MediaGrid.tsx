@@ -231,13 +231,21 @@ export const MediaGrid = memo(function MediaGrid({
     listOffset,
     onOpenFolder,
   });
-  // Group entries into rows by column count.
+  // Group entries into rows by column count. A window that starts past the
+  // top (earlier pages dropped) starts wherever its first entry falls in the
+  // full list — usually mid-row — so that row opens with empty cells: packing
+  // from column 0 instead would shift every card after it into another column.
+  const leadCells = leadingEntries % cols;
   const rows = useMemo(() => {
-    const r: FolderViewEntry[][] = [];
-    for (let i = 0; i < entries.length; i += cols)
-      r.push(entries.slice(i, i + cols));
+    const cells: (FolderViewEntry | null)[] = [
+      ...Array.from({ length: leadCells }, () => null),
+      ...entries,
+    ];
+    const r: (FolderViewEntry | null)[][] = [];
+    for (let i = 0; i < cells.length; i += cols)
+      r.push(cells.slice(i, i + cols));
     return r;
-  }, [entries, cols]);
+  }, [entries, cols, leadCells]);
   const leadingRows = Math.floor(leadingEntries / cols);
 
   const virtualizer = useVirtualizer({
@@ -268,6 +276,7 @@ export const MediaGrid = memo(function MediaGrid({
     onOpen,
     onInspect,
     scrollToRow,
+    leadingCells: leadCells,
   });
   // Points at the focused card's toggle so "W" activates it through the button
   // itself (same mutation, toast, effect and disabled state). Mirrors Discovery.
@@ -353,7 +362,11 @@ export const MediaGrid = memo(function MediaGrid({
                 }}
               >
                 {rows[vr.index].map((entry, localIndex) => {
-                  const focused = vr.index * cols + localIndex === focusedIndex;
+                  const cell = vr.index * cols + localIndex;
+                  if (!entry) {
+                    return <div key={`lead:${cell}`} aria-hidden />;
+                  }
+                  const focused = cell - leadCells === focusedIndex;
                   if (entry.kind === "folder") {
                     return (
                       <FolderCard

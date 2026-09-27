@@ -18,15 +18,23 @@ interface Options {
   onOpen: (index: number) => void;
   /** Open the item's detail view without autoplay (Shift+Enter). */
   onInspect?: (index: number) => void;
-  /** Scroll the virtual row into view (row = floor(index / columns)). */
+  /** Scroll the virtual row into view (row = floor((index + leadingCells) / columns)). */
   scrollToRow: (row: number) => void;
+  /**
+   * Empty cells before item 0 in its row: a grid window that starts
+   * mid-row keeps its items in their columns (see MediaGrid). 0 by default.
+   */
+  leadingCells?: number;
 }
 
-/** Down one row, clamping to the last item when the row below is partially filled. */
-function stepDown(i: number, cols: number, count: number): number {
+/**
+ * Down one row, clamping to the last item when the row below is partially
+ * filled. Rows are measured in cells, `lead` of them empty before item 0.
+ */
+function stepDown(i: number, cols: number, count: number, lead = 0): number {
   const nx = i + cols;
   if (nx < count) return nx;
-  const lastRowStart = Math.floor((count - 1) / cols) * cols;
+  const lastRowStart = Math.floor((count - 1 + lead) / cols) * cols - lead;
   return i < lastRowStart ? count - 1 : i;
 }
 
@@ -37,6 +45,7 @@ export function useGridKeyboardNav({
   onOpen,
   onInspect,
   scrollToRow,
+  leadingCells = 0,
 }: Options) {
   const { keybindingPreset } = usePreferences();
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -49,6 +58,7 @@ export function useGridKeyboardNav({
     onOpen,
     onInspect,
     scrollToRow,
+    leadingCells,
     preset: keybindingPreset,
     focusedIndex,
   });
@@ -61,6 +71,7 @@ export function useGridKeyboardNav({
       onOpen,
       onInspect,
       scrollToRow,
+      leadingCells,
       preset: keybindingPreset,
       focusedIndex,
     };
@@ -92,6 +103,7 @@ export function useGridKeyboardNav({
         onOpen,
         onInspect,
         scrollToRow,
+        leadingCells,
         preset,
         focusedIndex,
       } = ref.current;
@@ -119,7 +131,10 @@ export function useGridKeyboardNav({
 
       let next: number;
       if (matchAny(e, b.down))
-        next = focusedIndex < 0 ? 0 : stepDown(focusedIndex, cols, itemCount);
+        next =
+          focusedIndex < 0
+            ? 0
+            : stepDown(focusedIndex, cols, itemCount, leadingCells);
       else if (matchAny(e, b.up))
         next = focusedIndex < 0 ? 0 : Math.max(0, focusedIndex - cols);
       else if (matchAny(e, b.right))
@@ -130,7 +145,7 @@ export function useGridKeyboardNav({
 
       e.preventDefault();
       if (next !== focusedIndex) setFocusedIndex(next);
-      scrollToRow(Math.floor(next / cols));
+      scrollToRow(Math.floor((next + leadingCells) / cols));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

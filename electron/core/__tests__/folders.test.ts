@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "../db.js";
 import {
   FOLDER_FILE_FROM,
+  fromFor,
   orderByFor,
+  randomFiles,
   folderFiles,
   folderRange,
   listFolders,
@@ -413,6 +415,27 @@ describe("folder plans without statistics", () => {
         folder: { path: "F1", recursive: true },
       }),
     ).not.toThrow();
+    // Discovery's random pick draws its ids from the same pinned slice.
+    const random = (
+      db
+        .prepare(
+          `EXPLAIN QUERY PLAN SELECT f.id ${fromFor({ folder: { path: "F1", recursive: true } })}
+            WHERE f.deleted_at IS NULL AND f.rel_path >= 'F1/' AND f.rel_path < 'F10'`,
+        )
+        .all() as { detail: string }[]
+    )
+      .map((r) => r.detail)
+      .join("\n");
+    expect(random).toContain("idx_files_alive_rel_path");
+    expect(fromFor({ folder: { path: "", recursive: true } })).not.toContain(
+      "INDEXED BY",
+    );
+    const picked = randomFiles(db, {
+      folder: { path: "F1", recursive: true },
+      limit: 50,
+    });
+    expect(picked.length).toBe(10);
+    expect(picked.every((r) => r.relPath.startsWith("F1/"))).toBe(true);
     // The real queries prepare with the pin too (INDEXED BY fails loudly if
     // the index cannot serve them).
     expect(() => listFolders(db, "F1")).not.toThrow();
