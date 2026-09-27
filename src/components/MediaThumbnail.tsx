@@ -27,7 +27,7 @@ interface Props {
 }
 
 /**
- * Shared thumbnail image (with skeleton + fallback icon + optional play overlay) used by Grid / List / Table.
+ * Shared thumbnail image (with skeleton + fallback icon + optional play overlay) used by Grid / List.
  *
  * The caller MUST wrap this in a `position: relative` container with a fixed aspect ratio —
  * the image, skeleton and play overlay are all `absolute inset-0` and rely on the parent for layout.

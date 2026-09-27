@@ -8,7 +8,6 @@ import {
   Search,
   Settings,
   Sparkles,
-  Table2,
   Tags as TagsIcon,
   Terminal,
 } from "lucide-react";
@@ -175,11 +174,6 @@ export function CommandMenu({
       id: "view-list",
       icon: List,
       run: () => closeThen(() => onSetView("list")),
-    }),
-    action(t, "view.table", {
-      id: "view-table",
-      icon: Table2,
-      run: () => closeThen(() => onSetView("table")),
     }),
     // A toggle, unlike the view actions above it: named for what it will do.
     action(t, folderView ? "view.folderOff" : "view.folder", {

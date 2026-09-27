@@ -76,8 +76,8 @@ playback is unaffected.
 
 Data fetching uses `@tanstack/react-query`. The file list is an
 `useInfiniteQuery` combined with `@tanstack/react-virtual` for infinite scroll
-plus virtualization (`src/components/MediaGrid.tsx`). Three view modes — grid,
-list, and table — are switchable.
+plus virtualization (`src/components/MediaGrid.tsx`). Two view modes — grid and
+list — are switchable.
 
 The grid has a "show by folder" option (`GRID_FOLDERS_KEY`, remembered apart
 from the view mode) that browses one workspace like a file manager: the

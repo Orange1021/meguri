@@ -200,11 +200,9 @@ patterns:
 
 ![The twelve spectrum patterns](./docs/assets/spectrum-patterns.png)
 
-Grid, list, and table layouts for browsing:
+Grid and list layouts for browsing:
 
-| List view                                 | Table view                                  |
-| ----------------------------------------- | ------------------------------------------- |
-| ![List view](./docs/assets/view-list.png) | ![Table view](./docs/assets/view-table.png) |
+![List view](./docs/assets/view-list.png)
 
 Every corner of the UI follows your base16 theme:
 

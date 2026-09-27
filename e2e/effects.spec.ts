@@ -97,24 +97,19 @@ test("rating set staggers pops up to the chosen star and bursts there; clear set
   await expectStarRating(dialog, 0);
 });
 
-test("favorite effect fires in list, table, and discover views too", async ({
+test("favorite effect fires in list and discover views too", async ({
   ready,
 }) => {
-  for (const mode of ["List view", "Table view"] as const) {
-    await ready.getByRole("button", { name: mode }).click();
-    await ready
-      .getByRole("button", { name: "Add to favorites" })
-      .first()
-      .click();
-    await expect(ready.locator(BURST)).toHaveCount(1);
-    // Wait for the burst to finish, then toggle back for the next view.
-    await expect(ready.locator(BURST)).toHaveCount(0);
-    await ready
-      .getByRole("button", { name: "Remove from favorites" })
-      .first()
-      .click();
-    await expect(ready.locator(".fx-settle")).toHaveCount(1);
-  }
+  await ready.getByRole("button", { name: "List view" }).click();
+  await ready.getByRole("button", { name: "Add to favorites" }).first().click();
+  await expect(ready.locator(BURST)).toHaveCount(1);
+  // Wait for the burst to finish, then toggle back before moving on.
+  await expect(ready.locator(BURST)).toHaveCount(0);
+  await ready
+    .getByRole("button", { name: "Remove from favorites" })
+    .first()
+    .click();
+  await expect(ready.locator(".fx-settle")).toHaveCount(1);
 
   await ready.getByRole("button", { name: "Grid view" }).click();
   const discover = await openDiscover(ready);

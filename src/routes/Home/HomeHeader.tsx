@@ -9,7 +9,6 @@ import {
   List,
   Pencil,
   RefreshCw,
-  Table2,
   Tags as TagsIcon,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -169,11 +168,10 @@ export function HomeHeader({
                 Icon: LayoutGrid,
                 rounded: "rounded-l-md",
               },
-              { mode: "list", label: t("view.list"), Icon: List, rounded: "" },
               {
-                mode: "table",
-                label: t("view.table"),
-                Icon: Table2,
+                mode: "list",
+                label: t("view.list"),
+                Icon: List,
                 rounded: "rounded-r-md",
               },
             ] as const

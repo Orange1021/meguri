@@ -1,9 +1,9 @@
-// What activating a library item does, shared by MediaGrid, MediaList,
-// MediaTable and DiscoverCard so the views cannot drift.
+// What activating a library item does, shared by MediaGrid, MediaList and
+// DiscoverCard so the views cannot drift.
 //
 // Video and images always open the detail view. Audio is split by intent: the
-// "play" gesture (thumbnail click, Enter on the focused item, the table's
-// thumbnail cell, Discover's Play) plays the track in the bottom bar without
+// "play" gesture (thumbnail click, Enter on the focused item, Discover's
+// Play) plays the track in the bottom bar without
 // leaving the list, while the "inspect" gesture (the name / metadata region,
 // `autoplay: false`) opens the detail view silently. A play gesture on the
 // track already in the bar toggles it rather than restarting from zero.

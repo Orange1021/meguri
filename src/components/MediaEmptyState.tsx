@@ -1,5 +1,5 @@
-// Shared "nothing to show" panel for the grid / list / table views.
-// Extracted so the copy stays identical across all three, and so lists that are
+// Shared "nothing to show" panel for the grid / list views.
+// Extracted so the copy stays identical across both, and so lists that are
 // not scan-backed (Watch Later) can explain themselves instead of telling the
 // user to run a scan that would never populate them.
 import { Clock, FolderSearch, ImageIcon } from "lucide-react";

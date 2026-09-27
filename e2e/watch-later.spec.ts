@@ -102,17 +102,15 @@ test.describe("Watch Later", () => {
     await expect(ready.getByLabel("Edit collection")).toHaveCount(0);
   });
 
-  test("offers the toggle in list and table views too", async ({ ready }) => {
+  test("offers the toggle in the list view too", async ({ ready }) => {
     await waitForIndexedMedia(ready);
 
-    for (const view of ["List view", "Table view"] as const) {
-      await ready.getByRole("button", { name: view }).click();
-      await expect(
-        ready.getByRole("button", { name: "Add to Watch Later" }).first(),
-      ).toBeVisible();
-    }
+    await ready.getByRole("button", { name: "List view" }).click();
+    await expect(
+      ready.getByRole("button", { name: "Add to Watch Later" }).first(),
+    ).toBeVisible();
 
-    // Adding from the table view lands in the same list.
+    // Adding from the list view lands in the same list.
     await ready
       .getByRole("button", { name: "Add to Watch Later" })
       .first()

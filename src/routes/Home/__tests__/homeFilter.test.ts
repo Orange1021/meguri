@@ -73,7 +73,7 @@ describe("isFolderView", () => {
     expect(
       isFolderView({ view: "grid", gridFolders: true, folderAvailable: false }),
     ).toBe(false);
-    for (const view of ["list", "table"] as const) {
+    for (const view of ["list"] as const) {
       expect(
         isFolderView({ view, gridFolders: true, folderAvailable: true }),
       ).toBe(false);

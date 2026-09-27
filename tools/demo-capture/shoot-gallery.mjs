@@ -1,5 +1,5 @@
 // Capture the README gallery screenshots (docs/assets/*.png):
-// list/table view modes plus a few theme variations of the grid.
+// the list view mode plus a few theme variations of the grid.
 import path from "node:path";
 import {
   assetsDir,
@@ -24,14 +24,9 @@ try {
   }
 
   await setTheme(page, THEMES[0]);
-  for (const [label, name] of [
-    ["List view", "view-list"],
-    ["Table view", "view-table"],
-  ]) {
-    await page.getByRole("button", { name: label }).click();
-    await sleep(800);
-    await screenshotTo(page, path.join(assetsDir, `${name}.png`));
-  }
+  await page.getByRole("button", { name: "List view" }).click();
+  await sleep(800);
+  await screenshotTo(page, path.join(assetsDir, "view-list.png"));
 } finally {
   await close();
 }

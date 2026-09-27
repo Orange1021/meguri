@@ -51,7 +51,7 @@ describe.each(SCHEMES.map((s) => [s.id, s] as const))("%s", (_id, scheme) => {
   });
 
   it("keeps text readable on the raised fills", () => {
-    // bg-overlay carries text-fg (tag chips, table row hover); bg-accent (= hover) carries
+    // bg-overlay carries text-fg (tag chips, row hover); bg-accent (= hover) carries
     // text-accent-foreground (= bright-fg) in every menu.
     expect(cr(t.fg, t.overlay)).toBeGreaterThanOrEqual(FLOORS.textOnRaised);
     expect(cr(t["bright-fg"], t.hover)).toBeGreaterThanOrEqual(

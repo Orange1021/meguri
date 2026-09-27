@@ -57,6 +57,12 @@ export const fr: Record<TranslationKey, string> = {
   "settings.frameQualityLow": "Basse (240px)",
   "settings.frameQualityStandard": "Standard (480px)",
   "settings.frameQualityHigh": "Haute (960px)",
+  "settings.listThumbSize": "Taille des vignettes de la liste",
+  "settings.listThumbSizeDesc":
+    "Taille de la vignette sur chaque ligne de la vue en liste.",
+  "settings.listThumbSizeSmall": "Petite",
+  "settings.listThumbSizeMedium": "Moyenne",
+  "settings.listThumbSizeLarge": "Grande",
   "settings.emojiStyle": "Style des émojis",
   "settings.emojiStyleDesc":
     "Change l'apparence des icônes emoji et des émojis dans le texte.",
@@ -350,7 +356,6 @@ export const fr: Record<TranslationKey, string> = {
   "grid.searchByTag": "Filtrer par « {name} »",
   "view.grid": "Vue en grille",
   "view.list": "Vue en liste",
-  "view.table": "Vue en tableau",
 
   // folder view
   "view.folder": "Afficher par dossier",
@@ -383,7 +388,6 @@ export const fr: Record<TranslationKey, string> = {
   "select.folderLoading": "Chargement du contenu du dossier",
   "select.selectFolder": "Sélectionner tout le contenu du dossier",
   "select.deselectFolder": "Désélectionner ce dossier",
-  "table.name": "Nom",
 
   // discovery (random recommendations)
   "discover.title": "Découverte",

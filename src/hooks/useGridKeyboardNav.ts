@@ -1,8 +1,8 @@
-// Keyboard focus navigation for the list/grid/table views. Tracks a focused item
+// Keyboard focus navigation for the list/grid views. Tracks a focused item
 // index (state-driven ring rather than DOM focus, so it survives virtualization)
 // and moves it per the active keybinding preset: arrows (normal), hjkl (vim), or
 // C-p/n/b/f (emacs); Enter opens the focused item. The grid passes its column count
-// so up/down step a full row; list/table pass columns=1 for plain vertical movement.
+// so up/down step a full row; the list passes columns=1 for plain vertical movement.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import { GRID_BINDINGS, matchAny } from "@/settings/keybindings";
@@ -10,7 +10,7 @@ import { GRID_BINDINGS, matchAny } from "@/settings/keybindings";
 interface Options {
   /** Number of items currently loaded. */
   itemCount: number;
-  /** Items per row (1 for list/table, the measured column count for the grid). */
+  /** Items per row (1 for the list, the measured column count for the grid). */
   columns: number;
   /** Only handle keys while this view is foreground (no modal on top). */
   active: boolean;

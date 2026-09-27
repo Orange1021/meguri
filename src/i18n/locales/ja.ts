@@ -55,6 +55,12 @@ export const ja = {
   "settings.frameQualityLow": "低 (240px)",
   "settings.frameQualityStandard": "標準 (480px)",
   "settings.frameQualityHigh": "高 (960px)",
+  "settings.listThumbSize": "一覧のサムネイルサイズ",
+  "settings.listThumbSizeDesc":
+    "リスト表示の各行に表示するサムネイルの大きさ。",
+  "settings.listThumbSizeSmall": "小",
+  "settings.listThumbSizeMedium": "中",
+  "settings.listThumbSizeLarge": "大",
   "settings.emojiStyle": "絵文字スタイル",
   "settings.emojiStyleDesc":
     "絵文字アイコンや文中の絵文字の見た目を切り替えます。",
@@ -343,7 +349,6 @@ export const ja = {
   "grid.searchByTag": "「{name}」で絞り込み",
   "view.grid": "グリッド表示",
   "view.list": "リスト表示",
-  "view.table": "テーブル表示",
 
   // フォルダ表示
   "view.folder": "フォルダごとに表示",
@@ -373,7 +378,6 @@ export const ja = {
   "select.folderLoading": "フォルダの中身を読み込み中",
   "select.selectFolder": "フォルダ内をすべて選択",
   "select.deselectFolder": "フォルダの選択を解除",
-  "table.name": "名前",
 
   // ディスカバリー（ランダムおすすめ）
   "discover.title": "ディスカバリー",

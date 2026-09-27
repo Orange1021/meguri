@@ -57,6 +57,12 @@ export const en: Record<TranslationKey, string> = {
   "settings.frameQualityLow": "Low (240px)",
   "settings.frameQualityStandard": "Standard (480px)",
   "settings.frameQualityHigh": "High (960px)",
+  "settings.listThumbSize": "List thumbnail size",
+  "settings.listThumbSizeDesc":
+    "Size of the thumbnail on each row of the list view.",
+  "settings.listThumbSizeSmall": "Small",
+  "settings.listThumbSizeMedium": "Medium",
+  "settings.listThumbSizeLarge": "Large",
   "settings.emojiStyle": "Emoji style",
   "settings.emojiStyleDesc":
     "Switches how emoji icons and in-text emoji are drawn.",
@@ -342,7 +348,6 @@ export const en: Record<TranslationKey, string> = {
   "grid.searchByTag": 'Filter by "{name}"',
   "view.grid": "Grid view",
   "view.list": "List view",
-  "view.table": "Table view",
 
   // folder view
   "view.folder": "Show by folder",
@@ -373,7 +378,6 @@ export const en: Record<TranslationKey, string> = {
   "select.folderLoading": "Loading folder contents",
   "select.selectFolder": "Select everything in this folder",
   "select.deselectFolder": "Deselect this folder",
-  "table.name": "Name",
 
   // discovery (random recommendations)
   "discover.title": "Discovery",
