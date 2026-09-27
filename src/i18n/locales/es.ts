@@ -379,6 +379,8 @@ export const es: Record<TranslationKey, string> = {
   "shortcuts.folderUp": "Subir un nivel (vista de carpetas)",
   "select.folderCount": "incluye {count} carpetas",
   "select.folderLoading": "Cargando el contenido de la carpeta",
+  "select.selectFolder": "Seleccionar todo en esta carpeta",
+  "select.deselectFolder": "Deseleccionar esta carpeta",
   "table.name": "Nombre",
 
   // discovery (random recommendations)

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "../db.js";
 import {
   FOLDER_FILE_FROM,
+  orderByFor,
   folderFiles,
   folderRange,
   listFolders,
@@ -310,6 +311,22 @@ describe("folderFiles", () => {
     expect(res[1]).toEqual({ path: "A_B", total: 0, rows: [] });
   });
 
+  it("carries each file's tags, as the bulk tag dialog tallies them", () => {
+    const tag = db
+      .prepare("INSERT INTO tags (name, namespace) VALUES ('beach', '')")
+      .run().lastInsertRowid;
+    const key = db
+      .prepare("SELECT meta_key FROM files WHERE id = ?")
+      .pluck()
+      .get(ids["Movie/m1.mp4"]);
+    db.prepare(
+      "INSERT INTO meta_tags (meta_key, tag_id, source) VALUES (?, ?, 'manual')",
+    ).run(key, tag);
+    const [movie] = folderFiles(db, ["Movie"], { limit: 10 });
+    const m1 = movie.rows.find((r) => r.id === ids["Movie/m1.mp4"])!;
+    expect(m1.tags?.map((t) => t.name)).toEqual(["beach"]);
+  });
+
   it("spends one row budget across the whole call but always reports totals", () => {
     for (let i = 0; i < 5; i++)
       insertFile(db, rootId, { relPath: `Big/b${i}.jpg` });
@@ -376,6 +393,26 @@ describe("folder plans without statistics", () => {
       .join("\n");
     expect(detail).toContain("idx_files_alive_rel_path");
     expect(detail).not.toContain("TEMP B-TREE");
+    // A folder-scoped search sorted by another index stays on the range too.
+    const search = (
+      db
+        .prepare(
+          `EXPLAIN QUERY PLAN SELECT f.id ${FOLDER_FILE_FROM}
+            WHERE f.deleted_at IS NULL AND f.rel_path >= 'F1/' AND f.rel_path < 'F10'
+            ORDER BY ${orderByFor("captured", "desc")} LIMIT 101`,
+        )
+        .all() as { detail: string }[]
+    )
+      .map((r) => r.detail)
+      .join("\n");
+    expect(search).toContain("idx_files_alive_rel_path");
+    expect(() =>
+      searchFiles(db, {
+        sort: "captured",
+        q: "v1",
+        folder: { path: "F1", recursive: true },
+      }),
+    ).not.toThrow();
     // The real queries prepare with the pin too (INDEXED BY fails loudly if
     // the index cannot serve them).
     expect(() => listFolders(db, "F1")).not.toThrow();

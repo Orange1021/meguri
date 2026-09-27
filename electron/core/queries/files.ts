@@ -4,7 +4,11 @@ import { fileTags } from "../tags.js";
 import { listBookmarksByMetaKey } from "./bookmarks.js";
 import { thumbOffsetByKey } from "./meta.js";
 import { resolveSortDir } from "../../../shared/sortDir.js";
-import { folderCondition, folderRange } from "./folderRange.js";
+import {
+  FOLDER_FILE_FROM,
+  folderCondition,
+  folderRange,
+} from "./folderRange.js";
 import {
   LIST_HIDDEN_SOURCES,
   parseTagSearchToken,
@@ -377,7 +381,10 @@ export function searchFiles(
   const cap = seek ? MAX_LIMIT + 1 : MAX_LIMIT;
   const limit = Math.max(1, Math.min(cap, query.limit ?? DEFAULT_LIMIT));
   const args: unknown[] = [];
-  let sql = `SELECT ${FILE_COLS} ${FILE_FROM} WHERE f.deleted_at IS NULL`;
+  // A search inside a folder walks that folder's slice of the rel_path index,
+  // whatever it sorts by (see PINNED_FILES). The root has no range to walk.
+  const from = query.folder?.path ? FOLDER_FILE_FROM : FILE_FROM;
+  let sql = `SELECT ${FILE_COLS} ${from} WHERE f.deleted_at IS NULL`;
   sql = appendSearchConditions(db, sql, args, query, opts?.sep);
   if (seek) {
     const seekArgs: unknown[] = [];

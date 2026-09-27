@@ -370,6 +370,8 @@ export const en: Record<TranslationKey, string> = {
   "shortcuts.folderUp": "Up one level (folder view)",
   "select.folderCount": "including {count} folders",
   "select.folderLoading": "Loading folder contents",
+  "select.selectFolder": "Select everything in this folder",
+  "select.deselectFolder": "Deselect this folder",
   "table.name": "Name",
 
   // discovery (random recommendations)

@@ -154,7 +154,8 @@ export default function Home() {
   const folderListing = useQuery({
     queryKey: ["folders_list", workspaceId, folderNav.path],
     queryFn: () => api.foldersList(workspaceId ?? "", folderNav.path),
-    enabled: folderView && !!workspaceId,
+    // Not while searching: the results are flat, with no cards or summary.
+    enabled: folderView && !!workspaceId && !folderSearching,
   });
   // The folder shown can disappear under the view (deleted, renamed, all of
   // it excluded); the main process answers with its nearest remaining

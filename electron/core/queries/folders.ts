@@ -5,8 +5,10 @@
 // Per-database like the rest of queries/: rows come back without a
 // workspaceId, which crossWorkspace.ts stamps on.
 import type { DB } from "../db.js";
-import { FILE_COLS, FILE_FROM } from "./files.js";
+import { FILE_COLS, FILE_FROM, attachTags } from "./files.js";
 import {
+  FOLDER_FILE_FROM,
+  PINNED_FILES,
   folderCondition,
   folderRange,
   type FolderRange,
@@ -34,15 +36,9 @@ interface SepOpt {
   sep?: string;
 }
 
-// The folder's range is the selective condition, but workspace DBs are never
-// ANALYZEd, and without statistics SQLite prefers the equality-looking
-// "deleted_at IS NULL" on idx_files_alive (or "thumb_status = 'done'" on
-// idx_files_thumb_status): a walk over every live file in the library — per
-// folder, for the mosaic queries. Pinning the rel_path index keeps each query
-// on its own slice. Only for ranged queries: the root has no range to walk.
-const RANGED = "files f INDEXED BY idx_files_alive_rel_path";
-/** FILE_FROM over the pinned index (same aliases). */
-export const FOLDER_FILE_FROM = `FROM ${RANGED} LEFT JOIN file_meta m ON m.meta_key = f.meta_key`;
+// Folder queries walk their folder's slice of the rel_path index (see
+// PINNED_FILES for why the index is named).
+const RANGED = PINNED_FILES;
 
 const HAS_THUMB = "f.thumb_status = 'done' AND f.thumb_path IS NOT NULL";
 
@@ -188,6 +184,9 @@ export function folderFiles(
     let found: FileRow[] = [];
     if (budget > 0 && total > 0) {
       found = stmt.rows.all(...bounds, budget) as FileRow[];
+      // The bulk tag dialog tallies the selection's tags from its rows, so
+      // a folder's files need theirs like any row from the list.
+      attachTags(db, found);
       budget -= found.length;
     }
     return { path, total, rows: found };

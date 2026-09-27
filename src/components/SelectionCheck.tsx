@@ -76,8 +76,8 @@ export function FolderSelectionCheck({
   const label = pending
     ? t("select.folderLoading")
     : selected
-      ? t("select.deselectFile")
-      : t("select.selectFile");
+      ? t("select.deselectFolder")
+      : t("select.selectFolder");
   return (
     <button
       type="button"

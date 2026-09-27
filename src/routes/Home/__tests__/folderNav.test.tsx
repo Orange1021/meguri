@@ -58,6 +58,17 @@ describe("useFolderNav", () => {
     expect(result.current.path).toBe("");
   });
 
+  it("drops back steps that would land on the folder replaced into", () => {
+    const { result } = setup();
+    act(() => result.current.enter("Movie"));
+    act(() => result.current.enter("Movie/2024"));
+    // Movie/2024 vanished; its parent is also the last step back.
+    act(() => result.current.replace("Movie"));
+    expect(result.current.path).toBe("Movie");
+    act(() => result.current.goBack());
+    expect(result.current.path).toBe("");
+  });
+
   it("caps how far back it remembers", () => {
     const { result } = setup();
     for (let i = 0; i < FOLDER_BACK_LIMIT + 10; i++) {

@@ -91,8 +91,17 @@ export function useFolderNav(
     [update],
   );
 
+  // The ancestor stepped back to may be where "back" would lead anyway (a
+  // folder entered from its parent, then gone): drop those steps so "back"
+  // never lands on the folder already shown.
   const replace = useCallback(
-    (path: string) => update((e) => (e.path === path ? e : { ...e, path })),
+    (path: string) =>
+      update((e) => {
+        if (e.path === path) return e;
+        let end = e.back.length;
+        while (end > 0 && e.back[end - 1] === path) end--;
+        return { path, back: e.back.slice(0, end) };
+      }),
     [update],
   );
 

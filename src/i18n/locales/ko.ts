@@ -368,6 +368,8 @@ export const ko: Record<TranslationKey, string> = {
   "shortcuts.folderUp": "상위 폴더로 (폴더 보기)",
   "select.folderCount": "폴더 {count}개 포함",
   "select.folderLoading": "폴더 내용을 불러오는 중",
+  "select.selectFolder": "폴더 안의 모든 항목 선택",
+  "select.deselectFolder": "폴더 선택 해제",
   "table.name": "이름",
 
   // discovery (random recommendations)

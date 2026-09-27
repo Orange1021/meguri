@@ -361,6 +361,8 @@ export const zhCN: Record<TranslationKey, string> = {
   "shortcuts.folderUp": "上一级（文件夹视图）",
   "select.folderCount": "含 {count} 个文件夹",
   "select.folderLoading": "正在加载文件夹内容",
+  "select.selectFolder": "选择此文件夹中的全部内容",
+  "select.deselectFolder": "取消选择此文件夹",
   "table.name": "名称",
 
   // discovery (random recommendations)

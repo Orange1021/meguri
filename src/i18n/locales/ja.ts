@@ -370,6 +370,8 @@ export const ja = {
   "shortcuts.folderUp": "上の階層へ（フォルダ表示）",
   "select.folderCount": "フォルダ{count}件を含む",
   "select.folderLoading": "フォルダの中身を読み込み中",
+  "select.selectFolder": "フォルダ内をすべて選択",
+  "select.deselectFolder": "フォルダの選択を解除",
   "table.name": "名前",
 
   // ディスカバリー（ランダムおすすめ）

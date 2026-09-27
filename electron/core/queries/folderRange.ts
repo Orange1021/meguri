@@ -10,6 +10,18 @@
 // starts with the prefix falls inside the range and nothing else does.
 import path from "node:path";
 
+/**
+ * `files f` pinned to the rel_path index. Workspace DBs are never ANALYZEd,
+ * and without statistics SQLite prefers the equality-looking
+ * "deleted_at IS NULL" on idx_files_alive (or another indexed equality, or the
+ * index of the sort) over a folder's range: a walk over every live file in the
+ * library. Pinning keeps a folder-scoped query on its own slice. Only for
+ * ranged queries: the root has no range to walk.
+ */
+export const PINNED_FILES = "files f INDEXED BY idx_files_alive_rel_path";
+/** FILE_FROM (queries/files.ts) over the pinned index, same aliases. */
+export const FOLDER_FILE_FROM = `FROM ${PINNED_FILES} LEFT JOIN file_meta m ON m.meta_key = f.meta_key`;
+
 export interface FolderRange {
   /** "Movie/2024/" in the native separator; "" for the root. */
   prefix: string;

@@ -714,6 +714,10 @@ describe("folder selection", () => {
     renderWithProviders(
       <FolderHarness folders={[folder("Movie", 3)]} expand={expand} />,
     );
+    // Named for what it selects: everything in the folder, not one file.
+    expect(folderBoxes()[0].getAttribute("aria-label")).toBe(
+      "Select everything in this folder",
+    );
     fireEvent.click(folderBoxes()[0]);
 
     expect(expand).toHaveBeenCalledWith(["Movie"]);
