@@ -278,17 +278,18 @@ npm test
 ```
 
 E2E tests (Playwright + Electron). Builds the app first, then launches the
-packaged main process against fixture media in `e2e/fixtures/media/`:
+packaged main process against fixture media in `e2e/fixtures/media/`. Run them
+under a virtual framebuffer (Linux, needs `xvfb-run`) so no windows appear on
+your desktop; CI runs the same script:
+
+```bash
+npm run test:e2e:headless
+```
+
+To watch the app while debugging, run on the current display instead:
 
 ```bash
 npm run test:e2e
-```
-
-On a headless Linux environment (CI, or no display), run under a virtual
-framebuffer:
-
-```bash
-xvfb-run --auto-servernum -- npx playwright test
 ```
 
 CI installs Playwright browser dependencies with `npm run test:e2e:install`
@@ -409,7 +410,7 @@ Before submitting a pull request, run:
 ```bash
 npm run typecheck
 npm test
-npm run test:e2e
+npm run test:e2e:headless
 ```
 
 Keep changes focused, avoid unrelated refactors, and include tests when a change

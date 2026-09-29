@@ -26,6 +26,7 @@ export default tseslint.config(
             "vitest.config.ts",
             "vitest.setup.ts",
             "playwright.config.ts",
+            "scripts/electron-launch.d.cts",
           ],
         },
         tsconfigRootDir: import.meta.dirname,
@@ -83,6 +84,14 @@ export default tseslint.config(
         projectService: false,
         project: false,
       },
+    },
+  },
+
+  // CommonJS scripts load their dependencies with require()
+  {
+    files: ["**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 

@@ -45,10 +45,13 @@ Tiling window managers resize the app window and fractional display scaling
 skews the capture resolution. Running under a virtual framebuffer avoids both:
 
 ```bash
-xvfb-run -a -s "-screen 0 1400x1000x24" \
-  env WAYLAND_DISPLAY= XDG_SESSION_TYPE=x11 ELECTRON_OZONE_PLATFORM_HINT=x11 \
+MEGURI_FORCE_X11=1 xvfb-run -a -s "-screen 0 1400x1000x24" \
   node tools/demo-capture/record-demo.mjs
 ```
+
+`MEGURI_FORCE_X11=1` makes the shared launch helper
+(`scripts/electron-launch.cjs`) pin Electron to X11; without it, a Wayland
+session would bypass Xvfb.
 
 `fetch-media.mjs` also synthesises a few audio tracks (tones and noise,
 with a photo embedded as cover art) into `Music/`; `--audio-only` rewrites

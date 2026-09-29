@@ -4,18 +4,16 @@ import {
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { waitForIndexedMedia } from "./helpers";
+import {
+  electronLaunchOptions,
+  mainScript,
+} from "../../scripts/electron-launch.cjs";
 
-const require = createRequire(path.join(process.cwd(), "package.json"));
-const electronExecutable = require("electron") as string;
-
-const repoRoot = process.cwd();
-const mainScript = path.join(repoRoot, "out/main/main.js");
-const mediaRoot = path.join(repoRoot, "e2e/fixtures/media");
+const mediaRoot = path.join(process.cwd(), "e2e/fixtures/media");
 
 export interface MeguriFixtures {
   app: ElectronApplication;
@@ -33,20 +31,12 @@ export const test = base.extend<MeguriFixtures>({
     }
 
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "meguri-e2e-"));
-    const env = { ...process.env };
-    // Inherited from `npm run test:core` or the shell; makes Electron start as Node
-    // and reject Playwright's debug flags.
-    delete env.ELECTRON_RUN_AS_NODE;
-
-    const app = await _electron.launch({
-      executablePath: electronExecutable,
-      args: [mainScript, `--user-data-dir=${userDataDir}`],
-      env: {
-        ...env,
-        MEGURI_DISABLE_TRAY: "1",
-        MEGURI_ROOT: mediaRoot,
-      },
-    });
+    const app = await _electron.launch(
+      electronLaunchOptions({
+        args: [`--user-data-dir=${userDataDir}`],
+        env: { MEGURI_DISABLE_TRAY: "1", MEGURI_ROOT: mediaRoot },
+      }),
+    );
 
     try {
       await use(app);
