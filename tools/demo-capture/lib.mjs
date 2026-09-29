@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { electronLaunchOptions, mainScript } from "../../scripts/electron-launch.cjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(__dirname, "../..");
@@ -14,7 +15,6 @@ export const defaultMediaDir = path.join(__dirname, ".media");
 
 const require = createRequire(path.join(repoRoot, "package.json"));
 const { _electron } = require("@playwright/test");
-const electronExecutable = require("electron");
 const ffmpegPath = require("ffmpeg-static");
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -37,24 +37,17 @@ export function resolveMediaRoot() {
  * Returns { app, page, close }; always await close() when done.
  */
 export async function launchApp({ mediaRoot, width = 1280, height = 800 }) {
-  const mainScript = path.join(repoRoot, "out/main/main.js");
   if (!fs.existsSync(mainScript)) {
     throw new Error("Built main script not found. Run `npm run build` first.");
   }
 
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "meguri-capture-"));
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-
-  const app = await _electron.launch({
-    executablePath: electronExecutable,
-    args: [
-      mainScript,
-      `--user-data-dir=${userDataDir}`,
-      "--force-device-scale-factor=1",
-    ],
-    env: { ...env, MEGURI_DISABLE_TRAY: "1", MEGURI_ROOT: mediaRoot },
-  });
+  const app = await _electron.launch(
+    electronLaunchOptions({
+      args: [`--user-data-dir=${userDataDir}`, "--force-device-scale-factor=1"],
+      env: { MEGURI_DISABLE_TRAY: "1", MEGURI_ROOT: mediaRoot },
+    }),
+  );
 
   const page = await app.firstWindow();
   await page.waitForLoadState("domcontentloaded");

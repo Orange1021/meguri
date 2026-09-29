@@ -46,10 +46,8 @@ jobs:
       - name: Install Playwright browser deps
         run: npx playwright install --with-deps
 
-      - name: Build for E2E
-        run: npm run build
-
+      # Builds, then runs under Xvfb pinned to X11 (same as local runs).
       - name: Run E2E tests
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- npx playwright test
+          npm run test:e2e:headless
