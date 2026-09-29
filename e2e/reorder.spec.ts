@@ -1,15 +1,12 @@
 import { _electron, test, expect, type Page } from "@playwright/test";
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { electronLaunchOptions } from "../scripts/electron-launch.cjs";
 
 // Reordering needs two files to drag between, so this spec launches its own
 // instance over a temporary media root instead of the shared fixture (whose
 // single file the other specs count on).
-const require = createRequire(path.join(process.cwd(), "package.json"));
-const electronExecutable = require("electron") as string;
-const mainScript = path.join(process.cwd(), "out/main/main.js");
 const fixtureImage = path.join(process.cwd(), "e2e/fixtures/media/test.png");
 
 test("dragging in manual order reorders without opening the detail view", async () => {
@@ -18,14 +15,12 @@ test("dragging in manual order reorders without opening the detail view", async 
   fs.copyFileSync(fixtureImage, path.join(mediaRoot, "aaa.png"));
   fs.copyFileSync(fixtureImage, path.join(mediaRoot, "bbb.png"));
 
-  const env = { ...process.env };
-  // Inherited from `npm run test:core` or the shell; makes Electron start as Node.
-  delete env.ELECTRON_RUN_AS_NODE;
-  const app = await _electron.launch({
-    executablePath: electronExecutable,
-    args: [mainScript, `--user-data-dir=${userDataDir}`],
-    env: { ...env, MEGURI_DISABLE_TRAY: "1", MEGURI_ROOT: mediaRoot },
-  });
+  const app = await _electron.launch(
+    electronLaunchOptions({
+      args: [`--user-data-dir=${userDataDir}`],
+      env: { MEGURI_DISABLE_TRAY: "1", MEGURI_ROOT: mediaRoot },
+    }),
+  );
 
   try {
     const page: Page = await app.firstWindow();
