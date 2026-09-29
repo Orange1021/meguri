@@ -234,7 +234,45 @@ describe("extractMeta", () => {
     expect(meta.width).toBe(64);
     expect(meta.height).toBe(48);
     expect(meta.codec).toBe("h264");
+    expect(meta.fps).toBe(10);
     expect(meta.duration).toBeGreaterThan(0);
+  });
+
+  it("reports no frame rate for a still image", async () => {
+    const image = path.join(dir, "still.png");
+    execFileSync(FFMPEG, [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=blue:size=32x24",
+      "-frames:v",
+      "1",
+      image,
+    ]);
+    const meta = await extractMeta(image, "image");
+    expect(meta.width).toBe(32);
+    expect(meta.height).toBe(24);
+    expect(meta.codec).toBe("png");
+    // ffprobe 7 reports the image2 demuxer's default 25/1 here.
+    expect(meta.fps).toBeNull();
+  });
+
+  it("keeps the frame rate of an animated GIF", async () => {
+    const gif = path.join(dir, "anim.gif");
+    execFileSync(FFMPEG, [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc=size=32x24:rate=5:duration=1",
+      gif,
+    ]);
+    const meta = await extractMeta(gif, "image");
+    expect(meta.codec).toBe("gif");
+    expect(meta.fps).toBe(5);
   });
 
   it("returns empty meta for a broken file instead of throwing", async () => {

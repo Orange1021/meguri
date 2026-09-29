@@ -29,6 +29,7 @@ interface FfprobeStream {
   height?: number;
   duration?: string;
   avg_frame_rate?: string;
+  nb_frames?: string;
   disposition?: { attached_pic?: number };
   tags?: { creation_time?: string };
 }
@@ -56,6 +57,18 @@ function parseDate(s: string | undefined): number | null {
   if (!s) return null;
   const t = Date.parse(s.replace(/(\d{4}):(\d{2}):(\d{2})/, "$1-$2-$3"));
   return isNaN(t) ? null : Math.floor(t / 1000);
+}
+
+/** Frame rate of the stream that describes the file, or null when it has none.
+ *  Audio has no frame rate, and neither do stills: ffprobe 7 reports a default
+ *  25/1 for single images (older builds said 0/0), which is not a property of the
+ *  file. An animated image (a GIF with more than one frame) keeps its real rate. */
+function frameRate(kind: Kind, v: FfprobeStream | undefined): number | null {
+  if (kind === "video") return parseRational(v?.avg_frame_rate);
+  if (kind === "image" && Number(v?.nb_frames) > 1) {
+    return parseRational(v?.avg_frame_rate);
+  }
+  return null;
 }
 
 /** Get metadata via ffprobe (video, image, and audio). Returns empty meta on failure.
@@ -103,8 +116,8 @@ export async function extractMeta(
     );
     const fmt = json.format ?? {};
     return {
-      // Audio has no intrinsic dimensions or frame rate. Left null even when the
-      // file embeds cover art, whose size describes the artwork and not the track.
+      // Audio has no intrinsic dimensions. Left null even when the file embeds
+      // cover art, whose size describes the artwork and not the track.
       width: wantAudio ? null : (v?.width ?? null),
       height: wantAudio ? null : (v?.height ?? null),
       duration: fmt.duration
@@ -113,7 +126,7 @@ export async function extractMeta(
           ? Number(v.duration)
           : null,
       codec: v?.codec_name ?? null,
-      fps: wantAudio ? null : parseRational(v?.avg_frame_rate),
+      fps: frameRate(kind, v),
       capturedAt:
         parseDate(fmt.tags?.creation_time) ??
         parseDate(v?.tags?.creation_time) ??
