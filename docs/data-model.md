@@ -32,7 +32,9 @@ The main tables:
   `duration`, `codec`, `fps`, `captured_at`), `thumb_path` / `thumb_status`, and
   `deleted_at` / `excluded_at` markers. For audio, `width` / `height` / `fps`
   stay NULL even when the file embeds cover art — the artwork's dimensions
-  describe the jacket, not the track.
+  describe the jacket, not the track. Images keep `fps` NULL too, except
+  animated ones (a GIF with more than one frame, or an APNG): ffprobe reports a
+  default 25/1 for a still, which is not a property of the file.
 - `tags` — the tag master, unique on `(namespace, name)`. An empty namespace
   means the tag is the user's own; a non-empty one means it is owned by a
   pipeline (see [Derived tags](#derived-tags)).

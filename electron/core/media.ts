@@ -60,14 +60,15 @@ function parseDate(s: string | undefined): number | null {
 }
 
 /** Frame rate of the stream that describes the file, or null when it has none.
- *  Audio has no frame rate, and neither do stills: ffprobe 7 reports a default
- *  25/1 for single images (older builds said 0/0), which is not a property of the
- *  file. An animated image (a GIF with more than one frame) keeps its real rate. */
+ *  Audio has no frame rate, and neither do stills: ffprobe 6 and later report a
+ *  default 25/1 for single images (4.x said 0/0), which is not a property of the
+ *  file. An animated image keeps its real rate: a GIF with more than one frame, or
+ *  an APNG (whose demuxer reports no `nb_frames`, and which ffprobe only names
+ *  `apng` when the file carries animation control). */
 function frameRate(kind: Kind, v: FfprobeStream | undefined): number | null {
   if (kind === "video") return parseRational(v?.avg_frame_rate);
-  if (kind === "image" && Number(v?.nb_frames) > 1) {
-    return parseRational(v?.avg_frame_rate);
-  }
+  const animated = Number(v?.nb_frames) > 1 || v?.codec_name === "apng";
+  if (kind === "image" && animated) return parseRational(v?.avg_frame_rate);
   return null;
 }
 

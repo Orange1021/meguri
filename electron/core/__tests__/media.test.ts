@@ -255,7 +255,7 @@ describe("extractMeta", () => {
     expect(meta.width).toBe(32);
     expect(meta.height).toBe(24);
     expect(meta.codec).toBe("png");
-    // ffprobe 7 reports the image2 demuxer's default 25/1 here.
+    // ffprobe 6 and later report the image2 demuxer's default 25/1 here.
     expect(meta.fps).toBeNull();
   });
 
@@ -272,6 +272,27 @@ describe("extractMeta", () => {
     ]);
     const meta = await extractMeta(gif, "image");
     expect(meta.codec).toBe("gif");
+    expect(meta.fps).toBe(5);
+  });
+
+  it("keeps the frame rate of an animated PNG", async () => {
+    const apng = path.join(dir, "anim.png");
+    execFileSync(FFMPEG, [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc=size=32x24:rate=5:duration=1",
+      "-f",
+      "apng",
+      "-plays",
+      "0",
+      apng,
+    ]);
+    const meta = await extractMeta(apng, "image");
+    // No nb_frames here, unlike a GIF: the codec name is what marks it animated.
+    expect(meta.codec).toBe("apng");
     expect(meta.fps).toBe(5);
   });
 
