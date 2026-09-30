@@ -30,7 +30,7 @@ interface FfprobeStream {
   duration?: string;
   avg_frame_rate?: string;
   nb_frames?: string;
-  disposition?: { attached_pic?: number };
+  disposition?: { attached_pic?: number; default?: number };
   tags?: { creation_time?: string };
 }
 
@@ -116,11 +116,15 @@ export async function extractMeta(
       wantAudio ? s.codec_type === "audio" : s.codec_type === "video",
     );
     const fmt = json.format ?? {};
+    const tiled = kind === "image" && isTiledImage(streams);
+    // Audio has no intrinsic dimensions. Left null even when the file embeds
+    // cover art, whose size describes the artwork and not the track. A tiled
+    // image's streams each describe one tile (see isTiledImage).
+    const sized = !wantAudio && !tiled;
     return {
-      // Audio has no intrinsic dimensions. Left null even when the file embeds
-      // cover art, whose size describes the artwork and not the track.
-      width: wantAudio ? null : (v?.width ?? null),
-      height: wantAudio ? null : (v?.height ?? null),
+      // `|| null`: ffprobe 6.1 reports a tiled AVIF as one 0x0 stream.
+      width: sized ? v?.width || null : null,
+      height: sized ? v?.height || null : null,
       duration: fmt.duration
         ? Number(fmt.duration)
         : v?.duration
@@ -132,11 +136,40 @@ export async function extractMeta(
         parseDate(fmt.tags?.creation_time) ??
         parseDate(v?.tags?.creation_time) ??
         null,
-      raw: json,
+      // A 48MP phone photo has 192 tiles, ~175KB of near-identical stream
+      // entries in files.meta; one stands for them all.
+      raw: tiled ? { ...json, streams: [v] } : json,
     };
-  } catch {
+  } catch (err) {
+    warnIfProbeUnavailable(err);
     return empty;
   }
+}
+
+/** A HEIF/AVIF grid image (what phone cameras write): ffprobe 7 lists each tile
+ *  (512x512 on an iPhone) as its own video stream, none marked default, and the
+ *  full size only in a stream group, which 6.1 has no option to print. Its size
+ *  is left unknown so the thumbnail pass treats it as a large image. A plain
+ *  HEIF, and each stream of an animated AVIF, is marked default. */
+function isTiledImage(streams: FfprobeStream[]): boolean {
+  const video = streams.filter((s) => s.codec_type === "video");
+  return video.length > 1 && !video.some((s) => s.disposition?.default === 1);
+}
+
+let probeUnavailableWarned = false;
+
+/** Logs once when ffprobe itself could not be started, as opposed to a probe that
+ *  ran and failed on one file. The bundled binary is fetched for a single arch at
+ *  install time, so a missing or wrong-arch binary (an unpinned cross build, or
+ *  node_modules shared with a host of another arch) would otherwise leave every
+ *  file's metadata null with nothing in the log. Only spawn errors (ENOENT, EACCES,
+ *  ENOEXEC) count; a non-zero exit, a timeout or an abort is a per-file outcome. */
+function warnIfProbeUnavailable(err: unknown): void {
+  if (probeUnavailableWarned) return;
+  const e = err as NodeJS.ErrnoException | null;
+  if (!e?.syscall?.startsWith("spawn")) return;
+  probeUnavailableWarned = true;
+  log.warn(`ffprobe could not be started (${e.code}): ${FFPROBE}`);
 }
 
 /** The ffprobe stream index of a file's embedded cover picture, or null if it has

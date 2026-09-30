@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { FFMPEG } from "../ffmpeg-paths.js";
 import {
   coverArtStreamIndex,
@@ -294,6 +295,19 @@ describe("extractMeta", () => {
     // No nb_frames here, unlike a GIF: the codec name is what marks it animated.
     expect(meta.codec).toBe("apng");
     expect(meta.fps).toBe(5);
+  });
+
+  it("leaves the size of a tiled HEIF unknown instead of reporting one tile", async () => {
+    // 1024x512 cut into two 512x512 tiles (heif-enc --cut-tiles 512); ffmpeg
+    // cannot write a grid itself, so the file is committed.
+    const heic = fileURLToPath(
+      new URL("./fixtures/grid-1024x512.heic", import.meta.url),
+    );
+    const meta = await extractMeta(heic, "image");
+    expect(meta.codec).toBe("hevc");
+    expect(meta.width).toBeNull();
+    expect(meta.height).toBeNull();
+    expect((meta.raw as { streams: unknown[] }).streams).toHaveLength(1);
   });
 
   it("returns empty meta for a broken file instead of throwing", async () => {

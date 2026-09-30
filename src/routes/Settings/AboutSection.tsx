@@ -32,7 +32,7 @@ const THIRD_PARTY: ThirdPartyEntry[] = [
   },
   {
     name: "ffmpeg-static (npm)",
-    license: "GPL-3.0",
+    license: "GPL-3.0-or-later",
     licenseUrl:
       "https://github.com/eugeneware/ffmpeg-static/blob/master/LICENSE",
     sourceUrl: "https://github.com/eugeneware/ffmpeg-static",
