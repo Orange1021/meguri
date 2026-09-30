@@ -109,8 +109,11 @@ view offers "Show folder in library", which turns the option on and moves
 there through `showFolderInLibrary` (switching workspace when needed). Such a
 request commits only once its workspace is active: switches are serialized, a
 removed workspace is refused before `workspace_switch` (which would rescan the
-active one instead), and a request overtaken by another, by a move
-(`useFolderNav().moves`) or by a change of conditions is dropped. Over `All`
+active one instead), and a request overtaken by another request or by another
+workspace becoming active is dropped. A move (`useFolderNav().moves`) or a
+change of conditions drops it only once it is in its own workspace, since a
+switch cannot be taken back. A folder that cannot be resolved is not gone to:
+with other conditions the view would only search it, never correct it. Over `All`
 or a collection the view is drawn flat (`isFolderView`) without overwriting the
 stored option.
 

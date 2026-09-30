@@ -43,14 +43,17 @@ export function useFolderFilter({
     [filter, folderView, path],
   );
 
-  // Bumped by every request to open a folder and by every change the user
-  // makes to the conditions: a request still in flight commits only if
-  // nothing came after it.
+  // Bumped by every request to open a folder (or saved search): a request
+  // still in flight commits only if no other came after it.
   const latestOpen = useRef(0);
+  // Bumped by every change the user makes to the conditions. Like a move,
+  // it drops a request only once that request is in the workspace it opens:
+  // see openFolder.
+  const conditionEdits = useRef(0);
 
   const onFilterChange = useCallback(
     (next: SearchQuery) => {
-      latestOpen.current++;
+      conditionEdits.current++;
       const { folder, ...rest } = next;
       // Removing the folder chip (or clearing everything) leaves for the root.
       const target = folder?.path ?? ROOT_FOLDER;
@@ -94,23 +97,26 @@ export function useFolderFilter({
 
   // Browse `folder` of workspace `ws` by folder; `next` replaces the filter as
   // well (a saved search). Nothing changes until the workspace is the one
-  // shown: a failed switch leaves the list as it was. A request overtaken by
-  // another, by a move or by a change of conditions is dropped.
+  // shown: a failed switch leaves the list as it was.
+  //
+  // A request is dropped when overtaken by another request, or by another
+  // workspace becoming active. A move or a change of conditions drops it only
+  // once it is in its own workspace: a switch cannot be taken back, so what
+  // the user did in the workspace being left does not stop the request from
+  // finishing the move it has started (and moves are kept per workspace).
   const openFolder = useCallback(
     async (ws: string, folder: string, next?: SearchQuery) => {
       const request = ++latestOpen.current;
-      const movesAtStart = moves();
-      const stale = () =>
-        request !== latestOpen.current || moves() !== movesAtStart;
+      const overtaken = () => request !== latestOpen.current;
       while (switching.current) {
         await switching.current.catch(() => {});
       }
-      if (stale()) return;
+      if (overtaken()) return;
       if (ws !== activeWorkspace()) {
         try {
           await switchWorkspace(ws);
         } catch (error) {
-          if (stale()) return;
+          if (overtaken()) return;
           toast.error(t("folder.showFailed"), {
             id: "folder-show-failed",
             description: error instanceof Error ? error.message : String(error),
@@ -118,21 +124,36 @@ export function useFolderFilter({
           return;
         }
       }
+      // In its own workspace now: from here on the user's moves and edits
+      // there come after it.
+      const movesAtSwitch = moves();
+      const editsAtSwitch = conditionEdits.current;
+      const stale = () =>
+        overtaken() ||
+        moves() !== movesAtSwitch ||
+        conditionEdits.current !== editsAtSwitch ||
+        // Another workspace picked meanwhile (the rail).
+        activeWorkspace() !== ws;
       // A saved folder may be gone by now. Browsing, the view would move up on
       // its own, but with other conditions it only searches, never lists the
-      // folder — so resolve its nearest remaining ancestor here.
-      let target = folder;
+      // folder — so resolve its nearest remaining ancestor here, and go
+      // nowhere if that cannot be done: a missing folder would stay searched.
+      let target: string;
       try {
         const listing = await qc.fetchQuery({
           queryKey: ["folders_list", ws, folder],
           queryFn: () => api.foldersList(ws, folder),
         });
         target = listing.path;
-      } catch {
-        // Go as asked; browsing will resolve it when the listing loads.
+      } catch (error) {
+        if (stale()) return;
+        toast.error(t("folder.showFailed"), {
+          id: "folder-show-failed",
+          description: error instanceof Error ? error.message : String(error),
+        });
+        return;
       }
-      // Also dropped if another workspace was picked meanwhile (the rail).
-      if (stale() || activeWorkspace() !== ws) return;
+      if (stale()) return;
       if (target !== folder)
         toast.info(t("folder.moved"), { id: "folder-moved" });
       visit(ws, target);

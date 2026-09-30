@@ -888,6 +888,103 @@ describe("Home folder view", () => {
     expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false });
   });
 
+  it("finishes a switch the user moved on from in the workspace being left", async () => {
+    let release: () => void = () => {};
+    mocks.workspaceSwitch.mockReset();
+    mocks.workspaceSwitch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => {
+            mocks.appStatus.mockResolvedValue({
+              ...defaultAppStatus,
+              workspaceId: "ws-other",
+            });
+            resolve(undefined);
+          };
+        }),
+    );
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    await waitFor(() => expect(mocks.workspacesList).toHaveBeenCalled());
+
+    showFolderInLibrary({ workspaceId: "ws-other", path: "Clips" });
+    await waitFor(() =>
+      expect(mocks.workspaceSwitch).toHaveBeenCalledWith("ws-other"),
+    );
+    // A move in the workspace being left, while the switch is under way.
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    release();
+
+    // The switch cannot be taken back, so the request finishes where it went
+    // rather than leaving ws-other active at its root.
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith("ws-other", "Clips"),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Clips", recursive: false }),
+    );
+  });
+
+  it("goes nowhere when the folder to open cannot be resolved", async () => {
+    mocks.foldersList.mockImplementation((_ws: string, path: string) =>
+      path === "Movie/Old"
+        ? Promise.reject(new Error("worker down"))
+        : Promise.resolve({
+            path,
+            folders: path === "" ? [movie] : [],
+            fileCount: 1,
+          }),
+    );
+    toasts.error.mockClear();
+    localStorage.setItem(
+      SMART_COLLECTIONS_KEY,
+      JSON.stringify([
+        {
+          id: "1",
+          name: "Old videos",
+          query: {
+            kind: "video",
+            folder: { path: "Movie/Old", recursive: true },
+          },
+          workspaceId: WS_ID,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    try {
+      renderWithProviders(<AppRoutes />);
+      await screen.findByTestId("folder-card");
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Smart collections" }),
+        { button: 0, ctrlKey: false },
+      );
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: /Old videos/ }),
+      );
+
+      // With a condition on, the view would only search the missing folder
+      // and never list it — so it is not gone to at all.
+      await waitFor(() =>
+        expect(toasts.error).toHaveBeenCalledWith(
+          "Couldn't show the folder",
+          expect.objectContaining({ description: "worker down" }),
+        ),
+      );
+      expect(
+        mocks.filesSearch.mock.calls.some(
+          ([q]) =>
+            (q as { folder?: { path: string } }).folder?.path === "Movie/Old",
+        ),
+      ).toBe(false);
+      expect(screen.queryByText("Folder: Movie/Old")).toBeNull();
+    } finally {
+      localStorage.removeItem(SMART_COLLECTIONS_KEY);
+    }
+  });
+
   it("returns to the root for a saved search without a folder, even with the option off", async () => {
     localStorage.setItem(
       SMART_COLLECTIONS_KEY,
