@@ -30,6 +30,7 @@ const VIDEO_EXTS = new Set([
   "m4v",
   "wmv",
   "flv",
+  // Shared with TypeScript sources: walk() confirms it with looksLikeMpegTs().
   "ts",
 ]);
 const IMAGE_EXTS = new Set([
@@ -59,6 +60,73 @@ export function kindForExt(ext: string): Kind | null {
   return null;
 }
 
+// MPEG transport stream packets start with this sync byte. The `ts` extension is
+// shared with TypeScript sources, so the extension alone can't tell them apart.
+const TS_SYNC_BYTE = 0x47;
+const TS_PACKET = 188;
+// M2TS (Blu-ray / AVCHD) prefixes each packet with a 4-byte timecode.
+const M2TS_PACKET = 192;
+const M2TS_PREFIX = 4;
+// Packets inspected per candidate layout. Requiring the sync byte in several
+// consecutive packets keeps a text file that happens to start with "G" out.
+const TS_PROBE_PACKETS = 4;
+const TS_MIN_PACKETS = 2;
+
+/** `stride` is the full packet size including the `prefix` before the sync byte. */
+function hasSyncRun(
+  buf: Buffer,
+  len: number,
+  prefix: number,
+  stride: number,
+): boolean {
+  // Only whole packets count: a trailing partial packet is ignored.
+  const packets = Math.min(TS_PROBE_PACKETS, Math.floor(len / stride));
+  if (packets < TS_MIN_PACKETS) return false;
+  for (let i = 0; i < packets; i++) {
+    if (buf[prefix + i * stride] !== TS_SYNC_BYTE) return false;
+  }
+  return true;
+}
+
+/**
+ * Whether the file's head looks like an MPEG transport stream (plain 188-byte
+ * packets, or the 192-byte M2TS layout). Streams whose first packet is not at
+ * offset 0 are not recognized.
+ *
+ * A file that vanished counts as not a stream. Any other read error keeps the
+ * extension's verdict (true): a transient failure on a network FS must not drop
+ * an indexed recording, the same as for other extensions once stat succeeded.
+ */
+export async function looksLikeMpegTs(file: string): Promise<boolean> {
+  const buf = Buffer.alloc(M2TS_PACKET * TS_PROBE_PACKETS);
+  let len = 0;
+  let fd: fsp.FileHandle;
+  try {
+    fd = await fsp.open(file, "r");
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code !== "ENOENT";
+  }
+  try {
+    // Network filesystems may return short reads; fill the probe window.
+    while (len < buf.length) {
+      const { bytesRead } = await fd.read(buf, len, buf.length - len, len);
+      if (bytesRead === 0) break;
+      len += bytesRead;
+    }
+  } catch {
+    return true;
+  } finally {
+    await fd.close().catch(() => {});
+  }
+  return (
+    hasSyncRun(buf, len, 0, TS_PACKET) ||
+    hasSyncRun(buf, len, M2TS_PREFIX, M2TS_PACKET)
+  );
+}
+
+// Dependency trees of code repositories: never media, and often huge.
+const SKIPPED_DIRS = new Set(["node_modules"]);
+
 export interface Discovered {
   absPath: string;
   relPath: string;
@@ -72,7 +140,9 @@ export interface Discovered {
 }
 
 /**
- * Recursively enumerate media files under the root. Hidden directories are excluded.
+ * Recursively enumerate media files under the root. Hidden directories and
+ * dependency directories (node_modules) are excluded, and `.ts` files are kept
+ * only when their content is an MPEG transport stream.
  * Directory traversal (readdir) and file stat run in concurrent pools so that IO
  * waits don't stall even on network FS such as SMB (the main thread yields to the
  * event loop on each await, so it doesn't freeze).
@@ -107,6 +177,7 @@ export async function walk(
           if (ent.name.startsWith(".")) continue; // exclude hidden
           const full = path.join(dir, ent.name);
           if (ent.isDirectory()) {
+            if (SKIPPED_DIRS.has(ent.name)) continue;
             if (!signal?.aborted) next.push(full);
             continue;
           }
@@ -132,6 +203,8 @@ export async function walk(
         } catch {
           return;
         }
+        // Only the ambiguous extension pays for the extra read.
+        if (t.ext === "ts" && !(await looksLikeMpegTs(t.full))) return;
         out.push({
           absPath: t.full,
           relPath: path.relative(root, t.full),

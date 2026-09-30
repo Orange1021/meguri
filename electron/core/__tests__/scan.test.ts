@@ -7,7 +7,36 @@ import os from "node:os";
 import path from "node:path";
 import { openDb, type DB } from "../db.js";
 import { upsertScanRoot } from "../queries.js";
-import { contentHash, kindForExt, syncFiles, walk } from "../scan.js";
+import {
+  contentHash,
+  kindForExt,
+  looksLikeMpegTs,
+  syncFiles,
+  walk,
+} from "../scan.js";
+
+/** `packets` MPEG-TS packets (sync byte + null-PID filler), optionally in the M2TS layout. */
+function tsBytes(packets: number, m2ts = false): Buffer {
+  const prefix = m2ts ? 4 : 0;
+  const stride = 188 + prefix;
+  const buf = Buffer.alloc(stride * packets, 0xff);
+  for (let i = 0; i < packets; i++) {
+    const at = i * stride;
+    if (m2ts) buf.writeUInt32BE(0, at); // timecode prefix
+    buf[at + prefix] = 0x47;
+    buf[at + prefix + 1] = 0x1f; // PID 0x1fff (null packet)
+    buf[at + prefix + 2] = 0xff;
+    buf[at + prefix + 3] = 0x10;
+  }
+  return buf;
+}
+
+const TYPESCRIPT_SOURCE = `import { foo } from "./foo";
+
+export function greet(name: string): string {
+  return \`Hello, \${name}\`;
+}
+`.repeat(10);
 
 describe("kindForExt", () => {
   it("classifies known video and image extensions case-insensitively", () => {
@@ -33,6 +62,78 @@ describe("kindForExt", () => {
     expect(kindForExt("txt")).toBeNull();
     expect(kindForExt("")).toBeNull();
     expect(kindForExt("doc")).toBeNull();
+  });
+});
+
+describe("looksLikeMpegTs", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await fsp.mkdtemp(path.join(os.tmpdir(), "meguri-sniff-"));
+  });
+  afterEach(async () => {
+    await fsp.rm(dir, { recursive: true, force: true });
+  });
+
+  async function sniff(name: string, data: string | Buffer): Promise<boolean> {
+    const f = path.join(dir, name);
+    await fsp.writeFile(f, data);
+    return looksLikeMpegTs(f);
+  }
+
+  it("accepts a real MPEG-TS header", async () => {
+    expect(await sniff("rec.ts", tsBytes(8))).toBe(true);
+  });
+
+  it("accepts a short stream of two packets and a trailing partial packet", async () => {
+    expect(
+      await sniff("short.ts", Buffer.concat([tsBytes(2), Buffer.alloc(50)])),
+    ).toBe(true);
+  });
+
+  it("accepts the 192-byte M2TS layout", async () => {
+    expect(await sniff("bd.ts", tsBytes(8, true))).toBe(true);
+  });
+
+  it("rejects TypeScript sources and declaration files", async () => {
+    expect(await sniff("app.ts", TYPESCRIPT_SOURCE)).toBe(false);
+    expect(
+      await sniff(
+        "standalone.d.ts",
+        "export declare function format(src: string): Promise<string>;\n".repeat(
+          20,
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects text that merely starts with the sync byte ("G")', async () => {
+    expect(await sniff("g.ts", "Global" + "x".repeat(1000))).toBe(false);
+  });
+
+  it("rejects an empty file and a file shorter than one packet", async () => {
+    expect(await sniff("empty.ts", "")).toBe(false);
+    expect(await sniff("tiny.ts", tsBytes(1).subarray(0, 100))).toBe(false);
+  });
+
+  it("rejects a single packet (too little to confirm the stride)", async () => {
+    expect(await sniff("one.ts", tsBytes(1))).toBe(false);
+  });
+
+  it("rejects a stream whose later packet loses sync", async () => {
+    const buf = tsBytes(4);
+    buf[188 * 2] = 0x00;
+    expect(await sniff("broken.ts", buf)).toBe(false);
+  });
+
+  it("returns false for a missing file", async () => {
+    expect(await looksLikeMpegTs(path.join(dir, "nope.ts"))).toBe(false);
+  });
+
+  it("keeps the extension's verdict when the file exists but can't be read", async () => {
+    // A directory opens but fails to read (EISDIR), standing in for an I/O error.
+    const sub = path.join(dir, "unreadable.ts");
+    await fsp.mkdir(sub);
+    expect(await looksLikeMpegTs(sub)).toBe(true);
   });
 });
 
@@ -224,6 +325,30 @@ describe("syncFiles lifecycle", () => {
     expect(totalRows).toBe(2); // soft delete keeps the row
   });
 
+  it("drops a .ts row indexed by an older scan once its content is found not to be MPEG-TS", async () => {
+    const f = path.join(root, "app.ts");
+    await fsp.writeFile(f, TYPESCRIPT_SOURCE);
+    const st = await fsp.stat(f);
+    // What the extension-only walk used to produce for this file.
+    await syncFiles(db, rootId, [
+      {
+        absPath: f,
+        relPath: "app.ts",
+        ext: "ts",
+        kind: "video",
+        size: st.size,
+        mtime: Math.floor(st.mtimeMs / 1000),
+        btime: null,
+        inode: Number(st.ino),
+      },
+    ]);
+    expect(aliveCount()).toBe(1);
+
+    const { stats } = await rescan();
+    expect(stats.deleted).toBe(1);
+    expect(aliveCount()).toBe(0);
+  });
+
   it("does not re-insert a returning file: a deleted-then-restored file is revived in place", async () => {
     const f = path.join(root, "x.mp4");
     await fsp.writeFile(f, "XXXXXXXXXX");
@@ -276,5 +401,26 @@ describe("walk", () => {
     const found = (await walk(root)).map((d) => d.relPath).sort();
     expect(found).toEqual(["keep.mp4", path.join("vids", "deep.webm")]);
     expect(fs.existsSync(path.join(root, "note.txt"))).toBe(true); // sanity: file existed, just not indexed
+  });
+
+  it("keeps real MPEG-TS files and skips TypeScript .ts files", async () => {
+    await fsp.writeFile(path.join(root, "rec.ts"), tsBytes(8));
+    await fsp.writeFile(path.join(root, "bd.TS"), tsBytes(8, true));
+    await fsp.writeFile(path.join(root, "app.ts"), TYPESCRIPT_SOURCE);
+    await fsp.writeFile(path.join(root, "types.d.ts"), "export {};\n");
+
+    const found = (await walk(root)).map((d) => d.relPath).sort();
+    expect(found).toEqual(["bd.TS", "rec.ts"]);
+  });
+
+  it("does not descend into node_modules", async () => {
+    await fsp.mkdir(path.join(root, "node_modules", "pkg"), {
+      recursive: true,
+    });
+    await fsp.writeFile(path.join(root, "node_modules", "pkg", "a.mp4"), "x");
+    await fsp.writeFile(path.join(root, "keep.mp4"), "x");
+
+    const found = (await walk(root)).map((d) => d.relPath);
+    expect(found).toEqual(["keep.mp4"]);
   });
 });
