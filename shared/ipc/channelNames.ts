@@ -33,6 +33,7 @@ export const INVOKE_CHANNELS = [
   "file_set_favorite",
   "file_delete_from_index",
   "file_record_play",
+  "file_save_position",
   "history_list",
   "duplicates_list",
   "history_clear",

@@ -68,7 +68,7 @@ afterEach(() => {
 });
 
 function Probe({ file }: { file: FileDetail }) {
-  useAudioDetail({
+  const { startedHere } = useAudioDetail({
     file,
     wsId: WS_ID,
     mediaBase: defaultAppStatus.mediaBase ?? "",
@@ -76,8 +76,11 @@ function Probe({ file }: { file: FileDetail }) {
     startAt: 0,
     pauseVideo: () => {},
   });
-  return null;
+  return <span data-testid="started-here">{String(startedHere)}</span>;
 }
+
+const startedHere = () =>
+  document.querySelector('[data-testid="started-here"]')?.textContent;
 
 describe("useAudioDetail auto-start", () => {
   it("starts over after prev/next leaves the track and comes back", () => {
@@ -112,5 +115,20 @@ describe("useAudioDetail auto-start", () => {
     // Nothing paused it (no video started): coming back must not restart it.
     rerender(<Probe file={audio} />);
     expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("says it started the track only on a visit that did", () => {
+    const { rerender } = renderWithProviders(<Probe file={audio} />);
+    expect(startedHere()).toBe("true");
+    act(() => {
+      el.dispatchEvent(new Event("play"));
+    });
+    rerender(<Probe file={video} />);
+    expect(startedHere()).toBe("false");
+    // Back on the track it finds still playing and leaves alone: it did not
+    // place playback this time, so it must not claim a resume.
+    rerender(<Probe file={audio} />);
+    expect(playSpy).toHaveBeenCalledTimes(1);
+    expect(startedHere()).toBe("false");
   });
 });

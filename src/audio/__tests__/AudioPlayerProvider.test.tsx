@@ -16,11 +16,13 @@ import {
   useExclusivePlayback,
 } from "@/audio/useAudioPlayer";
 import { setVolume } from "@/hooks/useVolume";
+import { PreferencesProvider } from "@/settings/PreferencesProvider";
 import { defaultAppStatus, sampleAudioRow, WS_ID } from "@/test/fixtures";
 
 const mocks = vi.hoisted(() => ({
   appStatus: vi.fn(),
   fileRecordPlay: vi.fn(),
+  fileSavePosition: vi.fn(),
 }));
 
 vi.mock("@/ipc/client", () => ({
@@ -28,6 +30,8 @@ vi.mock("@/ipc/client", () => ({
     appStatus: (): Promise<unknown> => mocks.appStatus() as Promise<unknown>,
     fileRecordPlay: (...args: unknown[]): Promise<void> =>
       mocks.fileRecordPlay(...args) as Promise<void>,
+    fileSavePosition: (...args: unknown[]): Promise<void> =>
+      mocks.fileSavePosition(...args) as Promise<void>,
   },
   ALL_ID: "__all__",
 }));
@@ -43,6 +47,7 @@ let pauseSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   mocks.appStatus.mockReset().mockResolvedValue(defaultAppStatus);
   mocks.fileRecordPlay.mockReset().mockResolvedValue(undefined);
+  mocks.fileSavePosition.mockReset().mockResolvedValue(undefined);
   localStorage.clear();
   // Volume lives in a module-level store shared with the video players, so
   // clearing storage alone would leave the previous case's level behind.
@@ -500,6 +505,153 @@ describe("AudioPlayerProvider", () => {
       expect(playSpy).toHaveBeenCalled();
       // A plain play() still starts from the top.
       click("play");
+      expect(el.currentTime).toBe(0);
+    });
+  });
+
+  describe("recording where playback stopped", () => {
+    /** The element has data and stands at `at`, playing or paused. */
+    function standAt(at: number, paused: boolean) {
+      Object.defineProperty(el, "readyState", {
+        value: 1,
+        configurable: true,
+      });
+      Object.defineProperty(el, "paused", {
+        value: paused,
+        configurable: true,
+      });
+      Object.defineProperty(el, "currentTime", {
+        value: at,
+        writable: true,
+        configurable: true,
+      });
+    }
+
+    /** Start the track and let it report that playback is under way. */
+    function startPlaying() {
+      click("play");
+      setDuration(240);
+      standAt(0, false);
+      emit("playing");
+    }
+
+    const lastReport = () => mocks.fileSavePosition.mock.lastCall as unknown[];
+
+    it("reports the position on pause, urgently", () => {
+      setup();
+      startPlaying();
+      standAt(90, true);
+      emit("pause");
+      expect(lastReport()).toEqual([
+        sampleAudioRow.id,
+        WS_ID,
+        { position: 90, duration: 240, urgent: true },
+      ]);
+    });
+
+    it("reports the end as finished", () => {
+      setup();
+      startPlaying();
+      standAt(240, true);
+      Object.defineProperty(el, "ended", { value: true, configurable: true });
+      emit("ended");
+      expect(lastReport()).toEqual([
+        sampleAudioRow.id,
+        WS_ID,
+        { position: 240, duration: 240, ended: true, urgent: true },
+      ]);
+    });
+
+    it("reports nothing for a track that never played", () => {
+      setup();
+      click("play");
+      setDuration(240);
+      standAt(30, true);
+      emit("pause");
+      click("close");
+      expect(mocks.fileSavePosition).not.toHaveBeenCalled();
+    });
+
+    it("books the outgoing track's position against it when another replaces it", () => {
+      setup();
+      startPlaying();
+      standAt(75, false);
+      click("play-other");
+      expect(lastReport()).toEqual([
+        sampleAudioRow.id,
+        WS_ID,
+        { position: 75, duration: 240, urgent: true },
+      ]);
+      // Events of the new source, before it plays, are nobody's to report.
+      standAt(0, true);
+      emit("pause");
+      expect(mocks.fileSavePosition).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports where the track was left when the bar closes", () => {
+      setup();
+      startPlaying();
+      standAt(120, false);
+      click("close");
+      expect(lastReport()).toEqual([
+        sampleAudioRow.id,
+        WS_ID,
+        { position: 120, duration: 240, urgent: true },
+      ]);
+    });
+  });
+
+  describe("resuming", () => {
+    function Starter() {
+      const { play } = useAudioActions();
+      const inProgress = { ...sampleAudioRow, resumePosition: 90 };
+      return (
+        <>
+          <button onClick={() => play(inProgress, WS_ID)}>play-resume</button>
+          <button onClick={() => play(inProgress, WS_ID, { startAt: 12 })}>
+            play-explicit
+          </button>
+          <button onClick={() => play(inProgress, WS_ID, { startAt: 0 })}>
+            play-top
+          </button>
+        </>
+      );
+    }
+
+    // Preferences sit outside the audio provider, as in the app (main.tsx).
+    function WithPrefs({ children }: { children: ReactNode }) {
+      return (
+        <PreferencesProvider>
+          <Wrapper>{children}</Wrapper>
+        </PreferencesProvider>
+      );
+    }
+
+    function renderStarter() {
+      render(<Starter />, { wrapper: WithPrefs });
+    }
+
+    it("starts a list play where the track was left", () => {
+      renderStarter();
+      click("play-resume");
+      expect(el.currentTime).toBe(90);
+    });
+
+    it("lets a caller's start win over the stored position", () => {
+      renderStarter();
+      click("play-explicit");
+      expect(el.currentTime).toBe(12);
+      click("play-top");
+      expect(el.currentTime).toBe(0);
+    });
+
+    it("starts from the top when resuming is turned off", () => {
+      localStorage.setItem(
+        "meguri.prefs",
+        JSON.stringify({ resumePlayback: false }),
+      );
+      renderStarter();
+      click("play-resume");
       expect(el.currentTime).toBe(0);
     });
   });

@@ -108,6 +108,9 @@ CREATE TABLE IF NOT EXISTS file_meta (
   -- files.thumb_path; this column records "where the frame came from" so a rebuild can
   -- regenerate it deterministically and so the UI can highlight the source scene.
   thumb_offset_sec REAL,
+  -- Where playback was last stopped (seconds). NULL when there is nothing to
+  -- resume: never played, played to the end, or barely begun (shared/resume.ts).
+  resume_position REAL,
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_file_meta_favorite ON file_meta(favorite);
@@ -186,6 +189,15 @@ function backfillColumns(db: DB): void {
   if (!hasColumn(db, "file_meta", "thumb_offset_sec")) {
     db.exec("ALTER TABLE file_meta ADD COLUMN thumb_offset_sec REAL");
   }
+  if (!hasColumn(db, "file_meta", "resume_position")) {
+    db.exec("ALTER TABLE file_meta ADD COLUMN resume_position REAL");
+  }
+  // Drives the "In progress" filter (see appendSearchConditions): only a
+  // handful of files are ever part-way through, so the filter starts from
+  // them rather than scanning every file for a meta row that has one.
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_file_meta_resume ON file_meta(meta_key) WHERE resume_position IS NOT NULL",
+  );
   // Filesystem creation time (birthtime), NULL where the filesystem doesn't
   // provide it. The index lives here (not in CORE_DDL) because on pre-existing
   // DBs the column only exists after this ALTER runs.

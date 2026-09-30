@@ -147,6 +147,7 @@ export const zhCN: Record<TranslationKey, string> = {
   "filter.all": "全部",
   "filter.played": "已播放",
   "filter.unplayed": "未播放",
+  "filter.inProgress": "观看中",
   "filter.sortLabel": "{label}",
   "filter.ratingFilter": "按最低评分筛选",
   "filter.btime": "创建日期",
@@ -259,6 +260,8 @@ export const zhCN: Record<TranslationKey, string> = {
   "player.errSrcNotSupported": "无法播放此格式 (MEDIA_ERR_SRC_NOT_SUPPORTED)",
   "player.errUnknown": "未知错误",
   "player.errCode": "错误代码 {code}",
+  "player.resumedFrom": "从 {time} 继续",
+  "player.startOver": "从头开始",
 
   // 音频播放器（底部栏）
   "player.audio.region": "音频播放器",
@@ -549,6 +552,9 @@ export const zhCN: Record<TranslationKey, string> = {
   "playlist.emptyHint": "请打开包含视频或图片的列表后再开始播放。",
   "playlist.unplayable": "这些项目都无法播放。",
   "playlist.reorderNeedsManual": "切换到手动排序即可重新排列。",
+  "settings.resumePlayback": "从上次位置继续",
+  "settings.resumePlaybackHint":
+    "在上次停止的位置打开视频和音轨。关闭后始终从头播放。",
   "settings.playlistImageSeconds": "图片显示时长",
   "settings.playlistImageSecondsHint":
     "每张图片在自动切换到下一项之前的显示时长。",

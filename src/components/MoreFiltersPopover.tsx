@@ -52,6 +52,28 @@ function fromDateInput(
   return Number.isFinite(sec) ? sec : undefined;
 }
 
+type PlayState = "all" | "played" | "inProgress" | "unplayed";
+
+/** The segment a query selects. "In progress" is its own field (a file can be
+ *  both played and in progress), so the two are folded into one choice here. */
+function playStateOf(query: SearchQuery): PlayState {
+  if (query.inProgress) return "inProgress";
+  if (query.played === true) return "played";
+  if (query.played === false) return "unplayed";
+  return "all";
+}
+
+/** The query fields a segment sets; each choice clears the other field. */
+function playStatePatch(
+  state: PlayState,
+): Pick<SearchQuery, "played" | "inProgress"> {
+  return {
+    played:
+      state === "played" ? true : state === "unplayed" ? false : undefined,
+    inProgress: state === "inProgress" ? true : undefined,
+  };
+}
+
 function Section({
   label,
   className,
@@ -158,16 +180,17 @@ export function MoreFiltersPopover({
         {/* Full width: three labels side by side outgrow half the panel in the
             wordier locales. */}
         <Section label={t("filter.playState")} className="col-span-2">
-          <SegmentedControl
+          <SegmentedControl<PlayState>
             slot="play-state-group"
             label={t("filter.playState")}
-            value={value.played}
+            value={playStateOf(value)}
             options={[
-              { value: undefined, label: t("filter.all") },
-              { value: true, label: t("filter.played") },
-              { value: false, label: t("filter.unplayed") },
+              { value: "all", label: t("filter.all") },
+              { value: "played", label: t("filter.played") },
+              { value: "inProgress", label: t("filter.inProgress") },
+              { value: "unplayed", label: t("filter.unplayed") },
             ]}
-            onChange={(played) => patch({ played })}
+            onChange={(state) => patch(playStatePatch(state))}
           />
         </Section>
 

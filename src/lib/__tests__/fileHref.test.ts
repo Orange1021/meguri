@@ -13,6 +13,12 @@ describe("fileHref", () => {
     );
   });
 
+  it("carries an explicit start at 0, and omits a missing one", () => {
+    // A scene at the very start asks for 0 over any stored resume point.
+    expect(fileHref(1, "ws1", { t: 0 })).toBe("/file/1?ws=ws1&t=0");
+    expect(fileHref(1, "ws1", { t: undefined })).toBe("/file/1?ws=ws1");
+  });
+
   it("composes Discovery's origin, seek position and filter", () => {
     // What Discovery's slides and scene rail hand to the detail view, so its
     // close lands back on the same queue.

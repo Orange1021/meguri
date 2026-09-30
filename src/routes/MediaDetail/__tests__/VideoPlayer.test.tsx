@@ -7,7 +7,8 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { StrictMode } from "react";
+import { StrictMode, useState, type ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { NAV_BINDINGS } from "@/settings/keybindings";
 import {
@@ -17,12 +18,26 @@ import {
 import { announceVideoHandOff, resetVideoHandOff } from "@/video/videoHandOff";
 
 const fileRecordPlay = vi.fn().mockResolvedValue(undefined);
+const fileSavePosition = vi
+  .fn<(...args: unknown[]) => Promise<void>>()
+  .mockResolvedValue(undefined);
 vi.mock("@/ipc/client", () => ({
   api: {
     fileRecordPlay: (...args: unknown[]) => fileRecordPlay(...args),
+    fileSavePosition: (...args: unknown[]) => fileSavePosition(...args),
     openExternal: vi.fn().mockResolvedValue(undefined),
   },
 }));
+
+/** The player reports positions into the query cache, so it needs a client. */
+function Providers({ children }: { children: ReactNode }) {
+  const [client] = useState(() => new QueryClient());
+  return (
+    <QueryClientProvider client={client}>
+      <I18nProvider>{children}</I18nProvider>
+    </QueryClientProvider>
+  );
+}
 
 function renderPlayer(
   overrides: Partial<Parameters<typeof VideoPlayer>[0]> = {},
@@ -59,16 +74,17 @@ function renderPlayer(
   };
 
   const ref = createRef<PlayerHandle>();
-  render(
-    <I18nProvider>
+  const view = render(
+    <Providers>
       <VideoPlayer ref={ref} {...props} />
-    </I18nProvider>,
+    </Providers>,
   );
 
   const video = document.querySelector("video") as HTMLVideoElement;
   return {
     video,
     ref,
+    view,
     onAddBookmark,
     onRemoveBookmark,
     onExportFrame,
@@ -215,7 +231,7 @@ describe("VideoPlayer", () => {
       const onEnded = vi.fn();
       render(
         <StrictMode>
-          <I18nProvider>
+          <Providers>
             <VideoPlayer
               id={1}
               src="http://127.0.0.1:17345/ws/ws1/media/1"
@@ -231,7 +247,7 @@ describe("VideoPlayer", () => {
               onEnded={onEnded}
               t={(key: string) => key}
             />
-          </I18nProvider>
+          </Providers>
         </StrictMode>,
       );
       // The effect ran twice; the playlist must move on one item, not two.
@@ -570,5 +586,117 @@ describe("VideoPlayer", () => {
 
     expect(screen.queryByText("player.playFailed")).toBeNull();
     expect(document.querySelector("video")).not.toBeNull();
+  });
+  describe("recording where playback stopped", () => {
+    beforeEach(() => {
+      fileSavePosition.mockClear();
+    });
+
+    /** A loaded element standing at `at`, playing or paused. */
+    function standAt(video: HTMLVideoElement, at: number, paused: boolean) {
+      Object.defineProperty(video, "readyState", {
+        configurable: true,
+        value: 1,
+      });
+      Object.defineProperty(video, "paused", {
+        configurable: true,
+        value: paused,
+      });
+      video.currentTime = at;
+    }
+
+    it("reports the position on pause, urgently", () => {
+      const { video } = renderPlayer({ autoplay: false });
+      loadVideo(video);
+      standAt(video, 0, false);
+      fireEvent.play(video);
+      standAt(video, 42, true);
+      fireEvent.pause(video);
+      expect(fileSavePosition).toHaveBeenLastCalledWith(1, "ws1", {
+        position: 42,
+        duration: 120,
+        urgent: true,
+      });
+    });
+
+    it("reports the end as finished", () => {
+      const { video } = renderPlayer({ autoplay: false });
+      loadVideo(video);
+      standAt(video, 0, false);
+      fireEvent.play(video);
+      standAt(video, 120, true);
+      fireEvent.ended(video);
+      expect(fileSavePosition).toHaveBeenLastCalledWith(1, "ws1", {
+        position: 120,
+        duration: 120,
+        ended: true,
+        urgent: true,
+      });
+    });
+
+    it("reports where it was left when the player closes", () => {
+      const { video, view } = renderPlayer({ autoplay: false });
+      loadVideo(video);
+      standAt(video, 0, false);
+      fireEvent.play(video);
+      standAt(video, 30, false);
+      fireEvent.timeUpdate(video);
+      // Well inside the throttle interval: nothing went out yet.
+      expect(fileSavePosition).not.toHaveBeenCalled();
+      view.unmount();
+      expect(fileSavePosition).toHaveBeenLastCalledWith(1, "ws1", {
+        position: 30,
+        duration: 120,
+        urgent: true,
+      });
+    });
+
+    it("reports nothing for a file that never played", () => {
+      const { video, view } = renderPlayer({ autoplay: false, startAt: 30 });
+      loadVideo(video);
+      standAt(video, 30, true);
+      fireEvent.seeked(video);
+      fireEvent.pause(video);
+      view.unmount();
+      expect(fileSavePosition).not.toHaveBeenCalled();
+    });
+
+    it("applies a start position that arrives after the metadata, once", () => {
+      const props = {
+        id: 1,
+        src: "http://127.0.0.1:17345/ws/ws1/media/1",
+        duration: 120,
+        width: 1920,
+        height: 1080,
+        mediaBase: "http://127.0.0.1:17345",
+        wsId: "ws1",
+        autoplay: false,
+        navKeys: NAV_BINDINGS.normal,
+        onNativeDuration: () => undefined,
+        onPlayed: () => undefined,
+        t: (key: string) => key,
+      };
+      const view = render(
+        <Providers>
+          <VideoPlayer {...props} startAt={0} />
+        </Providers>,
+      );
+      const video = document.querySelector("video") as HTMLVideoElement;
+      loadVideo(video);
+      expect(video.currentTime).toBe(0);
+      view.rerender(
+        <Providers>
+          <VideoPlayer {...props} startAt={30} />
+        </Providers>,
+      );
+      expect(video.currentTime).toBe(30);
+      // Owed once: a later change does not move playback again.
+      view.rerender(
+        <Providers>
+          <VideoPlayer {...props} startAt={60} />
+        </Providers>,
+      );
+      expect(video.currentTime).toBe(30);
+    });
   });
 });

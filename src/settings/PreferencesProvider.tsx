@@ -106,6 +106,12 @@ interface Prefs {
   audioSpectrumPattern: SpectrumPattern;
   /** Thumbnail width in the list view. */
   listThumbSize: ListThumbSize;
+  /**
+   * Whether a video or track opens where it was last stopped. Off, everything
+   * starts from zero; positions are still recorded, so the progress bars and
+   * the "In progress" filter keep working.
+   */
+  resumePlayback: boolean;
 }
 
 const DEFAULTS: Prefs = {
@@ -124,6 +130,7 @@ const DEFAULTS: Prefs = {
   audioSpectrum: true,
   audioSpectrumPattern: DEFAULT_SPECTRUM_PATTERN,
   listThumbSize: DEFAULT_LIST_THUMB_SIZE,
+  resumePlayback: true,
 };
 
 function clampSceneCount(n: number): number {
@@ -201,6 +208,10 @@ function loadPrefs(): Prefs {
         listThumbSize: isListThumbSize(parsed.listThumbSize)
           ? parsed.listThumbSize
           : DEFAULT_LIST_THUMB_SIZE,
+        resumePlayback:
+          typeof parsed.resumePlayback === "boolean"
+            ? parsed.resumePlayback
+            : DEFAULTS.resumePlayback,
       };
     }
   } catch {
@@ -225,6 +236,7 @@ interface PrefsCtx extends Prefs {
   setAudioSpectrum: (enabled: boolean) => void;
   setAudioSpectrumPattern: (p: SpectrumPattern) => void;
   setListThumbSize: (s: ListThumbSize) => void;
+  setResumePlayback: (enabled: boolean) => void;
 }
 
 const Ctx = createContext<PrefsCtx | null>(null);
@@ -282,11 +294,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         setPrefs((p) => ({ ...p, audioSpectrumPattern: pattern })),
       setListThumbSize: (size) =>
         setPrefs((p) => ({ ...p, listThumbSize: size })),
+      setResumePlayback: (enabled) =>
+        setPrefs((p) => ({ ...p, resumePlayback: enabled })),
     }),
     [prefs],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+/**
+ * The preferences, or null outside PreferencesProvider. For the few consumers
+ * mounted where the provider may be absent (the audio provider sits above the
+ * router and is rendered on its own in tests).
+ */
+export function useOptionalPreferences(): PrefsCtx | null {
+  return useContext(Ctx);
 }
 
 export function usePreferences(): PrefsCtx {

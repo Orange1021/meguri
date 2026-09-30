@@ -152,6 +152,7 @@ export const ja = {
   "filter.all": "すべて",
   "filter.played": "視聴済み",
   "filter.unplayed": "未視聴",
+  "filter.inProgress": "視聴途中",
   "filter.sortLabel": "{label}",
   "filter.ratingFilter": "最低レーティングで絞り込み",
   "filter.btime": "作成日",
@@ -266,6 +267,8 @@ export const ja = {
     "この形式は再生できません (MEDIA_ERR_SRC_NOT_SUPPORTED)",
   "player.errUnknown": "不明なエラー",
   "player.errCode": "エラーコード {code}",
+  "player.resumedFrom": "{time}から再開",
+  "player.startOver": "最初から",
 
   // オーディオプレイヤー（ボトムバー）
   "player.audio.region": "オーディオプレイヤー",
@@ -570,6 +573,9 @@ export const ja = {
     "動画や画像を含む一覧を開いてから再生を始めてください。",
   "playlist.unplayable": "再生できるメディアがありませんでした。",
   "playlist.reorderNeedsManual": "並び替えるには手動順に切り替えます。",
+  "settings.resumePlayback": "続きから再生",
+  "settings.resumePlaybackHint":
+    "動画や音声を前回停止した位置から開きます。オフにすると常に最初から再生します。",
   "settings.playlistImageSeconds": "画像の表示時間",
   "settings.playlistImageSecondsHint": "自動再生で画像を次へ送るまでの秒数。",
   "settings.playlistImageMotion": "画像に動きを付ける",

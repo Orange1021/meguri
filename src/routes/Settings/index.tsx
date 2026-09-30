@@ -157,6 +157,8 @@ export default function Settings() {
     setFrameQuality,
     listThumbSize,
     setListThumbSize,
+    resumePlayback,
+    setResumePlayback,
     emojiStyle,
     setEmojiStyle,
   } = usePreferences();
@@ -537,6 +539,24 @@ export default function Settings() {
 
           {tab === "playback" && (
             <>
+              {/* Resume where a video or track was stopped (positions are
+                  recorded either way; this only decides where playback starts). */}
+              <section className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-bright-fg">
+                    {t("settings.resumePlayback")}
+                  </span>
+                  <span className="text-xs text-muted">
+                    {t("settings.resumePlaybackHint")}
+                  </span>
+                </div>
+                <Switch
+                  checked={resumePlayback}
+                  onCheckedChange={setResumePlayback}
+                  aria-label={t("settings.resumePlayback")}
+                />
+              </section>
+
               {/* Playlist: image duration (also the pan/zoom duration) */}
               <section className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3">
                 <div className="flex flex-col">

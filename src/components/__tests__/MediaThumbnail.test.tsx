@@ -7,6 +7,7 @@ import { fireEvent, render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PreferencesProvider } from "@/settings/PreferencesProvider";
+import { I18nProvider } from "@/i18n/I18nProvider";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
 import {
   sampleAudioRow,
@@ -19,13 +20,15 @@ function renderThumb(file: FileRow): ReturnType<typeof render> {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const ui: ReactElement = (
     <QueryClientProvider client={qc}>
-      <PreferencesProvider>
-        <MediaThumbnail
-          file={file}
-          mediaBase="http://127.0.0.1:17345"
-          version={0}
-        />
-      </PreferencesProvider>
+      <I18nProvider>
+        <PreferencesProvider>
+          <MediaThumbnail
+            file={file}
+            mediaBase="http://127.0.0.1:17345"
+            version={0}
+          />
+        </PreferencesProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
   return render(ui);
@@ -39,6 +42,24 @@ function iconNames(container: HTMLElement): string[] {
 }
 
 describe("MediaThumbnail", () => {
+  it("announces how far an in-progress file got", () => {
+    const { getByRole } = renderThumb({
+      ...sampleFileRow,
+      resumePosition: 30,
+      progress: 0.254,
+    });
+    const bar = getByRole("progressbar");
+    expect(bar.getAttribute("aria-valuenow")).toBe("25");
+    expect(bar.getAttribute("aria-valuemin")).toBe("0");
+    expect(bar.getAttribute("aria-valuemax")).toBe("100");
+    expect(bar.getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("shows no progress bar for a file with nothing to resume", () => {
+    const { queryByRole } = renderThumb(sampleFileRow);
+    expect(queryByRole("progressbar")).toBeNull();
+  });
+
   it("renders the audio icon for an audio row that has no thumbnail", () => {
     const { container } = renderThumb(sampleAudioRow);
     const names = iconNames(container);

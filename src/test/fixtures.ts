@@ -35,6 +35,8 @@ export const sampleFileRow: FileRow = {
   capturedAt: null,
   btime: null,
   lastAccessedAt: null,
+  resumePosition: null,
+  progress: null,
   tags: [],
 };
 
@@ -58,6 +60,8 @@ export const sampleAudioRow: FileRow = {
   capturedAt: null,
   btime: null,
   lastAccessedAt: null,
+  resumePosition: null,
+  progress: null,
   tags: [],
 };
 

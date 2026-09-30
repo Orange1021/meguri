@@ -15,7 +15,9 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/ipc/client";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useExclusivePlayback } from "@/audio/useAudioPlayer";
+import { useAudioActions, useExclusivePlayback } from "@/audio/useAudioPlayer";
+import { ResumeNotice } from "@/components/ResumeNotice";
+import { useResumeStart } from "@/hooks/useResumeStart";
 import { useAppStatus } from "@/hooks/useAppStatus";
 import { usePlaybackQueue } from "@/hooks/usePlaybackQueue";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
@@ -66,7 +68,7 @@ const TRANSITION_MS = 260;
  * instead. A `?t=` on a stream makes the server re-encode from that second, so
  * paying for it to land back where the file already begins is pure waste.
  */
-const RESUME_MIN_SEC = 3;
+const HANDOFF_MIN_SEC = 3;
 
 export default function Player() {
   const navigate = useNavigate();
@@ -195,7 +197,7 @@ export default function Player() {
     void navigate(
       fileHref(current.fileId, current.workspaceId, {
         from: "player",
-        t: sec >= RESUME_MIN_SEC ? sec : undefined,
+        t: sec >= HANDOFF_MIN_SEC ? sec : undefined,
         // Audio keeps playing in the bar across the trip; the detail view must
         // neither restart it nor resume a track the user had paused here.
         autoplay: !isAudio,
@@ -212,7 +214,21 @@ export default function Player() {
   // opposed to a fresh pass started from the detail view: the two differ in
   // what they owe the bar's track (see usePlaylistAudio).
   const isResumeItem = isArrivalItem && !!arrival?.queue;
-  const resumeSec = isArrivalItem && arrival ? arrival.sec : 0;
+  // Where the item starts: the second handed back by the detail view first,
+  // else where the file was left last time. The details (and with them the
+  // resume point) arrive after the item is on stage; the video player takes a
+  // late start position once (see VideoPlayer), and audio waits for the
+  // details anyway. Keyed on the pass position as well as the item, so a
+  // later lap over the same file settles afresh.
+  const detailFor = file && current && file.id === current.fileId ? file : null;
+  const resumeStart = useResumeStart({
+    visitKey: detailFor ? `${currentKey}#${queue.position}` : null,
+    // The arrival item's handed-back second, 0 included; any other item has
+    // none, so its stored resume point applies.
+    explicit: isArrivalItem && arrival ? arrival.sec : null,
+    resume: isImage ? null : detailFor?.resumePosition,
+  });
+  const { seek: seekAudio } = useAudioActions();
 
   // Without its details there is nothing to render for this item, so a failed
   // fetch would leave the stage blank for good. Treat it like any other
@@ -298,7 +314,7 @@ export default function Player() {
     file,
     mediaBase,
     isResumeItem,
-    resumeSec,
+    resumeSec: resumeStart.startAt,
     goNext,
     skipCurrent,
   });
@@ -445,7 +461,7 @@ export default function Player() {
                   height={file?.height ?? null}
                   mediaBase={mediaBase}
                   wsId={wsId}
-                  startAt={resumeSec}
+                  startAt={resumeStart.startAt}
                   autoplay
                   navKeys={navBinding}
                   fullscreenTargetRef={rootRef}
@@ -476,6 +492,20 @@ export default function Player() {
             </PlayerStage>
           </div>
         </>
+      )}
+
+      {/* Resumed where it was left: shown with the rest of the chrome. */}
+      {resumeStart.resumed && !isImage && chromeVisible && (
+        <ResumeNotice
+          sec={resumeStart.startAt}
+          onStartOver={() => {
+            if (isAudio) seekAudio(0);
+            else videoRef.current?.seek(0);
+            resumeStart.dismiss();
+          }}
+          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 bg-black/60 text-white/80 backdrop-blur-sm [&_button]:text-white"
+          t={t}
+        />
       )}
 
       {!empty && !queue.unplayable && (

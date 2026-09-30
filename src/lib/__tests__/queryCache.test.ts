@@ -34,6 +34,8 @@ describe("syncFileRowAcrossCaches", () => {
       capturedAt: null,
       btime: null,
       lastAccessedAt: null,
+      resumePosition: null,
+      progress: null,
     };
     qc.setQueryData<InfiniteData<SearchResult>>(["files_search", "ws", {}], {
       pages: [{ items: [row], nextCursor: null }],

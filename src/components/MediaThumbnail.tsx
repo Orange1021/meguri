@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useHoverFramePreview } from "@/hooks/useHoverFramePreview";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/I18nProvider";
 
 interface Props {
   file: FileRow;
@@ -24,6 +25,30 @@ interface Props {
   showPlayOverlay?: boolean;
   /** Set to false to turn off the hover scrub preview (e.g. a folder card's mosaic tile). */
   scrubPreview?: boolean;
+  /** Set to false to omit the watched-so-far bar (e.g. a folder card's mosaic tile). */
+  showProgress?: boolean;
+}
+
+/**
+ * How far into the file playback was left, as a thin bar along the bottom edge.
+ * Only for files in progress: finished and unplayed files carry no resume point.
+ */
+function ResumeProgress({ progress }: { progress: number }) {
+  const { t } = useI18n();
+  const percent = Math.round(progress * 100);
+  return (
+    <div
+      data-slot="resume-progress"
+      role="progressbar"
+      aria-label={t("filter.inProgress")}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-bg/50"
+    >
+      <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
+    </div>
+  );
 }
 
 /**
@@ -49,6 +74,7 @@ export function MediaThumbnail({
   playIconSize = "size-5",
   showPlayOverlay = true,
   scrubPreview = true,
+  showProgress = true,
 }: Props) {
   // Keys on whether a thumbnail file actually exists, not on kind: audio is
   // marked thumb_status 'done' whether or not it embeds cover art, so status
@@ -76,6 +102,11 @@ export function MediaThumbnail({
       fileId: file.id,
     });
 
+  const progress =
+    showProgress && file.progress != null && file.progress > 0
+      ? file.progress
+      : null;
+
   if (!src || failedSrc === src) {
     // Reached for audio without embedded cover art, for any file whose
     // thumbnail generation failed or has not run yet, and for a recorded
@@ -84,6 +115,7 @@ export function MediaThumbnail({
     return (
       <div className="flex h-full w-full items-center justify-center">
         {createElement(kindIcon(file.kind), { className: fallbackIconSize })}
+        {progress != null && <ResumeProgress progress={progress} />}
       </div>
     );
   }
@@ -113,6 +145,10 @@ export function MediaThumbnail({
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
         />
+      )}
+      {/* The scrub bar takes the same edge while the pointer is over it. */}
+      {progress != null && !(previewSrc && scrubFraction != null) && (
+        <ResumeProgress progress={progress} />
       )}
       {previewSrc && scrubFraction != null && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-bg/40">

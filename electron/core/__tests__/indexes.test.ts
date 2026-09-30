@@ -51,6 +51,14 @@ describe("index query plans", () => {
     expect(p).toContain("COVERING INDEX idx_files_alive");
   });
 
+  it("the In progress filter starts from the resume-point index", () => {
+    const p = plan(
+      db,
+      `SELECT ${FILE_COLS} ${FILE_FROM} WHERE f.deleted_at IS NULL AND f.meta_key IN (SELECT meta_key FROM file_meta WHERE resume_position IS NOT NULL) ORDER BY ${orderByFor(undefined, undefined)} LIMIT 101 OFFSET 0`,
+    );
+    expect(p).toContain("idx_file_meta_resume");
+  });
+
   it("sort=name uses idx_files_alive_rel_path in both directions", () => {
     for (const dir of ["asc", "desc"]) {
       const p = plan(db, searchSql("name", dir));

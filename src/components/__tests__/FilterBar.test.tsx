@@ -162,12 +162,35 @@ describe("the panel", () => {
       '[data-slot="play-state-group"]',
     ) as HTMLElement;
     const segments = within(playGroup).getAllByRole("radio");
-    expect(segments).toHaveLength(3);
+    // All / Played / In progress / Unplayed.
+    expect(segments).toHaveLength(4);
     expect(segments[0].getAttribute("aria-checked")).toBe("true");
 
-    fireEvent.click(segments[2]);
+    fireEvent.click(segments[3]);
     expect(latest()?.played).toBe(false);
+    expect(latest()?.inProgress).toBeUndefined();
     expect(badge()?.textContent).toBe("1");
+  });
+
+  it("sets and clears In progress, which excludes the played filter", async () => {
+    const { latest } = setup({ played: false });
+    fireEvent.click(trigger());
+    await waitFor(() => expect(panel()).not.toBeNull());
+
+    const playGroup = document.querySelector(
+      '[data-slot="play-state-group"]',
+    ) as HTMLElement;
+    const segments = within(playGroup).getAllByRole("radio");
+    expect(segments[3].getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(segments[2]);
+    expect(latest()?.inProgress).toBe(true);
+    expect(latest()?.played).toBeUndefined();
+    expect(badge()?.textContent).toBe("1");
+
+    fireEvent.click(segments[0]);
+    expect(latest()?.inProgress).toBeUndefined();
+    expect(latest()?.played).toBeUndefined();
   });
 
   it("keeps a condition set inside it applied after it closes", async () => {

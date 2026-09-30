@@ -132,6 +132,12 @@ export const api = {
     via: ChannelInput<"file_record_play">["via"],
     position?: number,
   ) => invoke("file_record_play", { id, workspaceId, via, position }),
+  /** Where playback of a file stands; see PositionWriter (main) and usePlaybackPosition. */
+  fileSavePosition: (
+    id: number,
+    workspaceId: string,
+    report: Omit<ChannelInput<"file_save_position">, "id" | "workspaceId">,
+  ) => invoke("file_save_position", { id, workspaceId, ...report }),
   /** Cross-file play-history timeline (scoped to the active workspace, or all for All/collections). */
   historyList: (query?: ChannelInput<"history_list">["query"]) =>
     invoke("history_list", { query }),

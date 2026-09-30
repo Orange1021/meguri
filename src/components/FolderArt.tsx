@@ -103,6 +103,7 @@ function Mosaic({
             fallbackIconSize="size-5"
             showPlayOverlay={false}
             scrubPreview={false}
+            showProgress={false}
           />
         </div>
       ))}

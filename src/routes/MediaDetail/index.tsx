@@ -22,6 +22,8 @@ import { useSpectrumPatternHotkey } from "@/audio/useSpectrumPatternHotkey";
 import { useI18n } from "@/i18n/I18nProvider";
 import { formatChords } from "@/settings/keybindings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useResumeStart } from "@/hooks/useResumeStart";
+import { ResumeNotice } from "@/components/ResumeNotice";
 import { MediaModal, TopBar } from "./MediaModal";
 import { VideoPlayer, type PlayerHandle } from "./VideoPlayer";
 import { useAudioActions } from "@/audio/useAudioPlayer";
@@ -53,14 +55,25 @@ export default function MediaDetail() {
   const fileId = Number(id);
   // Optional initial seek position (seconds), e.g. when arriving from a Discovery scene click.
   const [searchParams] = useSearchParams();
-  const startAt = Number(searchParams.get("t")) || 0;
+  // Null when absent: `?t=0` is a start asked for, not a missing one.
+  const tParam = searchParams.get("t");
+  const explicitStartAt =
+    tParam != null && Number.isFinite(Number(tParam)) ? Number(tParam) : null;
+  // Arrived from the playlist player: it hands over where it was with `?t=`,
+  // or leaves `t` off when that was near the top — either way it, not the
+  // stored resume point (which may predate a "start over" there), decides.
+  const fromPlayer = searchParams.get("from") === "player";
   // `?autoplay=0` opts out of automatic playback (e.g. when entering from a
   // file-name click). Any other value (including omission) keeps the default
   // auto-play behavior.
   const autoplay = searchParams.get("autoplay") !== "0";
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { pause: pauseAudio } = useAudioActions();
+  const {
+    pause: pauseAudio,
+    seek: seekAudio,
+    isCurrent: isCurrentAudio,
+  } = useAudioActions();
   // Filtering the library by a tag only makes sense with the library visible, so
   // this closes the detail — to `/` rather than back to Discovery, since Discovery
   // has no notion of the list's filter.
@@ -103,6 +116,18 @@ export default function MediaDetail() {
     enabled: Number.isFinite(fileId) && wsId !== "",
   });
   const kind = detail.data?.kind;
+  // Where playback starts: `?t=` wins, else where the file was left last time
+  // (settled once per visit; see useResumeStart). Keyed on `?t=` too, so a
+  // scene or bookmark opened for the same file is a visit of its own.
+  const resumeStart = useResumeStart({
+    visitKey: detail.data ? `${wsId}:${fileId}:${explicitStartAt ?? ""}` : null,
+    explicit: explicitStartAt,
+    resume:
+      !fromPlayer && (kind === "video" || kind === "audio")
+        ? detail.data?.resumePosition
+        : null,
+  });
+  const startAt = resumeStart.startAt;
   const {
     modalSize,
     toggleModalSize,
@@ -178,6 +203,7 @@ export default function MediaDetail() {
   // Bar suppression, auto-start and video↔audio exclusivity for audio files.
   const {
     isAudio,
+    startedHere: audioStartedHere,
     claimPlayback,
     closeIfCurrent: closeAudioIfCurrent,
   } = useAudioDetail({
@@ -392,6 +418,24 @@ export default function MediaDetail() {
               />
             </div>
           )}
+
+          {/* Resumed where it was left: say so, and offer the way back to
+              zero. Audio only when this view started the track itself —
+              opened without autoplay nothing has started, and a track found
+              already playing in the bar was left where it was. */}
+          {resumeStart.resumed &&
+            (d.kind === "video" ||
+              (d.kind === "audio" && audioStartedHere)) && (
+              <ResumeNotice
+                sec={resumeStart.startAt}
+                onStartOver={() => {
+                  if (d.kind === "video") playerRef.current?.seek(0);
+                  else if (isCurrentAudio(fileId, wsId)) seekAudio(0);
+                  resumeStart.dismiss();
+                }}
+                t={t}
+              />
+            )}
 
           {/* Title + controls */}
           <DetailActions

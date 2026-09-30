@@ -154,6 +154,15 @@ export function describeConditions(
       clear: (q) => without(q, "played"),
     });
 
+  if (query.inProgress)
+    out.push({
+      key: "inProgress",
+      label: t("filter.inProgress"),
+      group: "collapsed",
+      chip: true,
+      clear: (q) => without(q, "inProgress"),
+    });
+
   if (query.btimeFrom != null || query.btimeTo != null)
     out.push({
       key: "btime",
