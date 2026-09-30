@@ -70,6 +70,12 @@ export interface SelectionApi extends SelectionView {
   isSelected: (file: FileRow) => boolean;
   /** A click on a card while selecting, or a modified click that starts it. */
   click: (file: FileRow, index: number, mods: SelectionClickMods) => void;
+  /**
+   * Take a row out of the selection because the file itself is gone (dropped
+   * from the index). A selected row is kept even when the list no longer
+   * shows it, so a deleted one has to be removed explicitly.
+   */
+  forget: (file: FileRow) => void;
   /** Every loaded row. "Loaded" is the honest scope; see the comment on it. */
   selectAll: () => void;
   /** Empty the selection but stay in selection mode. */
@@ -219,6 +225,31 @@ class SelectionStore {
     }
     this.active = true;
     this.selected = next;
+    this.rebuild(false);
+  };
+
+  forget = (file: FileRow): void => {
+    const key = selectionKey(file);
+    let changed = false;
+    if (this.selected.has(key)) {
+      const next = new Map(this.selected);
+      next.delete(key);
+      this.selected = next;
+      if (this.anchorKey === key) this.anchorKey = null;
+      changed = true;
+    }
+    // A picked folder holds its files as fetched; the file goes from there
+    // too, and from the folder's count.
+    const folders = new Map(this.folders);
+    for (const [path, pick] of this.folders) {
+      if (!pick.rows) continue;
+      const rows = pick.rows.filter((row) => selectionKey(row) !== key);
+      if (rows.length === pick.rows.length) continue;
+      folders.set(path, { ...pick, rows, total: pick.total - 1 });
+      changed = true;
+    }
+    if (!changed) return;
+    this.folders = folders;
     this.rebuild(false);
   };
 
@@ -381,6 +412,7 @@ export function useSelection(): SelectionApi {
       ...view,
       isSelected: store.isSelected,
       click: store.click,
+      forget: store.forget,
       selectAll: store.selectAll,
       deselectAll: store.deselectAll,
       exit: store.exit,
