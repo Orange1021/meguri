@@ -5,6 +5,8 @@ import {
   COLLECTION_ID_PREFIX,
   Workspaces,
 } from "../core/workspaces.js";
+import { droppedDirectory } from "../core/paths.js";
+import type { WorkspaceAddResult } from "../../shared/ipc/channels.js";
 import type { IpcContext } from "./context.js";
 import { bulkTargetCores } from "./helpers.js";
 
@@ -17,17 +19,36 @@ export function registerWorkspaceHandlers(ctx: IpcContext): void {
     activeId: ws.activeId,
   }));
 
+  // Register a folder, make it active and start its scan. Shared by the picker
+  // and by a folder dropped from the OS, so the two cannot drift apart.
+  const register = (dir: string): WorkspaceAddResult => {
+    // addRoot() reports whether the folder was new itself: it matches an
+    // existing root case-insensitively on Windows, which comparing ids (a hash)
+    // would not.
+    const { path: np, added } = ws.addRoot(dir);
+    const existing = !added;
+    ws.setActive(np);
+    const scanJobId = ctx.scans.start();
+    emit("workspace:changed", { activeId: ws.activeId });
+    return { added: true, id: Workspaces.idFor(np), scanJobId, existing };
+  };
+
   handle("workspace_add", async () => {
     const res = await dialog.showOpenDialog(ctx.mainWindow() ?? undefined!, {
       title: "Add video directory",
       properties: ["openDirectory", "createDirectory"],
     });
     if (res.canceled || res.filePaths.length === 0) return { added: false };
-    const np = ws.add(res.filePaths[0]);
-    ws.setActive(np);
-    const scanJobId = ctx.scans.start();
-    emit("workspace:changed", { activeId: ws.activeId });
-    return { added: true, id: Workspaces.idFor(np), scanJobId };
+    return register(res.filePaths[0]);
+  });
+
+  // A folder dropped onto the window. The preload resolved the path from the
+  // dropped File; it is re-checked here, since only main can tell a directory
+  // from a file, and a file must never become a workspace.
+  handle("workspace_add_path", async ({ path }) => {
+    const dir = await droppedDirectory(path);
+    if (!dir) return { added: false, notDirectory: true };
+    return register(dir);
   });
 
   handle("workspace_remove", async ({ id }) => {

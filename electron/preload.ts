@@ -1,5 +1,5 @@
 // preload: expose a minimal, safe IPC bridge to the renderer.
-import { contextBridge, ipcRenderer, webFrame } from "electron";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 // Side-effect import: bridges `electron-log/renderer` calls from the sandboxed
 // renderer to the main process via its own dedicated IPC channels
 // (__ELECTRON_LOG__ / __ELECTRON_LOG_IPC__). Independent of the API whitelist below.
@@ -7,6 +7,7 @@ import "electron-log/preload";
 import {
   EVENT_CHANNELS as EVENT_CHANNEL_NAMES,
   INVOKE_CHANNELS as INVOKE_CHANNEL_NAMES,
+  type PreloadInvokeChannel,
 } from "../shared/ipc/channelNames.js";
 
 // Whitelist of allowed IPC channel names. The preload is the security boundary
@@ -36,4 +37,14 @@ contextBridge.exposeInMainWorld("api", {
   /** Content zoom factor (native zoom). Unlike CSS zoom, it doesn't break coordinate calculations. */
   setZoomFactor: (factor: number) => webFrame.setZoomFactor(factor),
   getZoomFactor: () => webFrame.getZoomFactor(),
+  /**
+   * Register a folder dropped from the OS as a workspace. The File's path is
+   * resolved here and handed straight to main, so the renderer never sees or
+   * supplies a raw filesystem path; "workspace_add_path" is deliberately not on
+   * the INVOKE_CHANNELS whitelist above. Main checks the path is a directory.
+   */
+  addDroppedWorkspace: (file: File) =>
+    ipcRenderer.invoke("workspace_add_path" satisfies PreloadInvokeChannel, {
+      path: webUtils.getPathForFile(file),
+    }),
 });

@@ -501,6 +501,24 @@ export const ja = {
   "workspace.addedToast": "ワークスペースを追加しました",
   "workspace.removedToast": "ワークスペースを削除しました",
   "workspace.removedToastDetail": "「{label}」を削除しました。",
+  "workspace.alreadyAddedToast":
+    "このフォルダはすでにワークスペースに登録されています",
+  "drop.overlayTitle": "フォルダをドロップしてワークスペースに追加",
+  "drop.foldersOnly":
+    "巡はファイル単体ではなくフォルダを取り込みます。フォルダをドロップしてください。",
+  "drop.addTitle": "ワークスペースを追加",
+  "drop.addConfirm": "「{name}」をワークスペースに追加してスキャンしますか？",
+  "drop.addAction": "追加",
+  "drop.notDirectory": "「{name}」はフォルダではないため追加しませんでした",
+  "drop.addFailed": "「{name}」を追加できませんでした",
+  "drop.addedToCollection": "{count}件を「{name}」に追加しました",
+  "drop.addedOneToCollection": "1件を「{name}」に追加しました",
+  "drop.alreadyInCollection": "すべて「{name}」に追加済みです",
+  "drop.alreadyOneInCollection": "すでに「{name}」に追加済みです",
+  "drop.addToCollectionFailed": "コレクションに追加できませんでした",
+  "drag.fileCount": "{count}件",
+  "drag.selectionPending":
+    "選択したフォルダを読み込み中です。少し待ってからもう一度ドラッグしてください",
 
   // ユーザコレクション
   "collection.create": "ユーザコレクションを作成",

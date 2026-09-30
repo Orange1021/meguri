@@ -13,11 +13,20 @@ import type { BulkTargets } from "@shared/ipc/channels";
  * view and collections routinely produce several groups.
  */
 export function bulkTargets(rows: FileRow[]): BulkTargets {
+  return groupBulkTargets(
+    rows.map((row) => ({ workspaceId: row.workspaceId, fileId: row.id })),
+  );
+}
+
+/** The same regrouping for bare `workspaceId + fileId` pairs (a drag payload). */
+export function groupBulkTargets(
+  files: { workspaceId: string; fileId: number }[],
+): BulkTargets {
   const groups = new Map<string, number[]>();
-  for (const row of rows) {
-    const ids = groups.get(row.workspaceId);
-    if (ids) ids.push(row.id);
-    else groups.set(row.workspaceId, [row.id]);
+  for (const { workspaceId, fileId } of files) {
+    const ids = groups.get(workspaceId);
+    if (ids) ids.push(fileId);
+    else groups.set(workspaceId, [fileId]);
   }
   return [...groups].map(([workspaceId, fileIds]) => ({
     workspaceId,

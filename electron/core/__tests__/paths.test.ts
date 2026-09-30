@@ -13,6 +13,7 @@ const {
   isInsideRoot,
   folderDirInsideRoot,
   folderPathUnderRoot,
+  droppedDirectory,
 } = await import("../paths.js");
 
 describe("pathHash", () => {
@@ -167,3 +168,54 @@ describe("folderPathUnderRoot", () => {
   });
 });
 
+describe("droppedDirectory", () => {
+  const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "meguri-drop-"));
+
+  it("accepts an existing directory", async () => {
+    const dir = tmp();
+    try {
+      expect(await droppedDirectory(dir)).toBe(fs.realpathSync(dir));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a regular file", async () => {
+    const dir = tmp();
+    try {
+      const file = path.join(dir, "clip.mp4");
+      fs.writeFileSync(file, "");
+      expect(await droppedDirectory(file)).toBeNull();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a path that does not exist", async () => {
+    const dir = tmp();
+    fs.rmSync(dir, { recursive: true, force: true });
+    expect(await droppedDirectory(dir)).toBeNull();
+  });
+
+  it("rejects an empty or relative path", async () => {
+    expect(await droppedDirectory("")).toBeNull();
+    expect(await droppedDirectory("some/relative/dir")).toBeNull();
+    expect(await droppedDirectory(".")).toBeNull();
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "resolves a symlink to the directory it points at",
+    async () => {
+      const dir = tmp();
+      try {
+        const target = path.join(dir, "target");
+        const link = path.join(dir, "link");
+        fs.mkdirSync(target);
+        fs.symlinkSync(target, link);
+        expect(await droppedDirectory(link)).toBe(fs.realpathSync(target));
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+});

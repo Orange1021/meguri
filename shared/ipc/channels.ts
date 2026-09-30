@@ -140,6 +140,11 @@ export const ChannelInputs = {
   workspace_stats: z.void(),
   workspaces_list: z.void(),
   workspace_add: z.void(),
+  // Preload-only (PRELOAD_INVOKE_CHANNELS): the path of a folder dropped from
+  // the OS. Bounded so a forged payload cannot hand main megabytes to stat.
+  // An empty path (a File not backed by the filesystem) is let through to be
+  // refused by the directory check, which reports it as "not a folder".
+  workspace_add_path: z.object({ path: z.string().max(4096) }),
   workspace_remove: z.object({ id: z.string() }),
   workspace_reorder: z.object({ ids: z.array(z.string()) }),
   workspace_switch: z.object({ id: z.string() }),
@@ -342,7 +347,7 @@ type AssertChannelInputsMatch =
           Exclude<ChannelInputKeys, InvokeChannel>,
         ]
     : [
-        "INVOKE_CHANNELS missing from ChannelInputs",
+        "INVOKE_CHANNELS / PRELOAD_INVOKE_CHANNELS missing from ChannelInputs",
         Exclude<InvokeChannel, ChannelInputKeys>,
       ];
 type Expect<T extends true> = T;
@@ -355,6 +360,24 @@ export type ChannelInput<C extends ChannelName> = z.infer<
   (typeof ChannelInputs)[C]
 >;
 
+/**
+ * What registering a workspace did. `existing` means the folder was already
+ * registered and was only switched to; `notDirectory` means a dropped path was
+ * refused because it is not a directory (or no longer exists).
+ */
+export interface WorkspaceAddResult {
+  /**
+   * A folder was registered or, when `existing`, switched to: either way the
+   * active workspace changed and a scan may have started. False when nothing
+   * happened (the picker was cancelled, or a dropped path was refused).
+   */
+  added: boolean;
+  id?: string;
+  scanJobId?: string;
+  existing?: boolean;
+  notDirectory?: boolean;
+}
+
 // Return types per channel. Adding a channel here forces both the handler
 // signature and the renderer client wrapper to match.
 export interface ChannelOutputs {
@@ -362,7 +385,8 @@ export interface ChannelOutputs {
   about_info: AboutInfo;
   workspace_stats: WorkspaceStats;
   workspaces_list: WorkspacesList;
-  workspace_add: { added: boolean; id?: string; scanJobId?: string };
+  workspace_add: WorkspaceAddResult;
+  workspace_add_path: WorkspaceAddResult;
   workspace_remove: void;
   workspace_reorder: void;
   workspace_switch: void;
@@ -453,7 +477,7 @@ type AssertChannelOutputsMatch =
           Exclude<ChannelOutputKeys, InvokeChannel>,
         ]
     : [
-        "INVOKE_CHANNELS missing from ChannelOutputs",
+        "INVOKE_CHANNELS / PRELOAD_INVOKE_CHANNELS missing from ChannelOutputs",
         Exclude<InvokeChannel, ChannelOutputKeys>,
       ];
 

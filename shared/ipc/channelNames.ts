@@ -66,6 +66,15 @@ export const INVOKE_CHANNELS = [
   "logo_set",
 ] as const;
 
+/**
+ * Invoke channels the preload calls itself and never forwards from the
+ * renderer's generic `invoke`. They take something the renderer must not be
+ * able to forge — a filesystem path resolved from a dropped File — so the
+ * preload resolves it and is the only caller. Main still validates them like
+ * any other channel.
+ */
+export const PRELOAD_INVOKE_CHANNELS = ["workspace_add_path"] as const;
+
 /** Main → renderer event channels (webContents.send). */
 export const EVENT_CHANNELS = [
   "scan:progress",
@@ -75,5 +84,8 @@ export const EVENT_CHANNELS = [
   "update:available",
 ] as const;
 
-export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
+export type PreloadInvokeChannel = (typeof PRELOAD_INVOKE_CHANNELS)[number];
+/** Every channel main handles: the whitelisted ones and the preload-only ones. */
+export type InvokeChannel =
+  (typeof INVOKE_CHANNELS)[number] | PreloadInvokeChannel;
 export type EventChannel = (typeof EVENT_CHANNELS)[number];

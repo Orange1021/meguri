@@ -497,6 +497,23 @@ export const ko: Record<TranslationKey, string> = {
   "workspace.addedToast": "워크스페이스를 추가했습니다",
   "workspace.removedToast": "워크스페이스를 삭제했습니다",
   "workspace.removedToastDetail": "「{label}」을(를) 삭제했습니다.",
+  "workspace.alreadyAddedToast": "이미 워크스페이스로 등록된 폴더입니다",
+  "drop.overlayTitle": "폴더를 드롭하여 워크스페이스로 추가",
+  "drop.foldersOnly":
+    "巡는 개별 파일이 아닌 폴더를 색인합니다. 폴더를 드롭해 주세요.",
+  "drop.addTitle": "워크스페이스 추가",
+  "drop.addConfirm": "「{name}」을(를) 워크스페이스로 추가하고 스캔할까요?",
+  "drop.addAction": "추가",
+  "drop.notDirectory": "「{name}」은(는) 폴더가 아니므로 추가하지 않았습니다",
+  "drop.addFailed": "「{name}」을(를) 추가하지 못했습니다",
+  "drop.addedToCollection": "{count}개 파일을 「{name}」에 추가했습니다",
+  "drop.addedOneToCollection": "1개 파일을 「{name}」에 추가했습니다",
+  "drop.alreadyInCollection": "모두 이미 「{name}」에 있습니다",
+  "drop.alreadyOneInCollection": "이미 「{name}」에 있습니다",
+  "drop.addToCollectionFailed": "컬렉션에 추가하지 못했습니다",
+  "drag.fileCount": "{count}개 파일",
+  "drag.selectionPending":
+    "선택한 폴더를 불러오는 중입니다. 잠시 후 다시 드래그해 주세요.",
 
   // user collections
   "collection.create": "사용자 컬렉션 만들기",

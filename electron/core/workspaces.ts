@@ -263,6 +263,14 @@ export class Workspaces {
 
   /** Register a root and return its normalized path (duplicates are ignored). */
   add(p: string): string {
+    return this.addRoot(p).path;
+  }
+
+  /**
+   * Register a root, reporting whether it was new. `path` is the stored
+   * (normalized) path: for a folder already registered, the stored casing.
+   */
+  addRoot(p: string): { path: string; added: boolean } {
     const np = normalizeDir(p);
     // Windows paths are case-insensitive; don't register the same folder
     // twice under a different casing. Return the already-registered casing so
@@ -271,10 +279,10 @@ export class Workspaces {
       process.platform === "win32"
         ? this.config.roots.find((r) => r.toLowerCase() === np.toLowerCase())
         : this.config.roots.find((r) => r === np);
-    if (existing !== undefined) return existing;
+    if (existing !== undefined) return { path: existing, added: false };
     this.config.roots.push(np);
     this.persist();
-    return np;
+    return { path: np, added: true };
   }
 
   /**

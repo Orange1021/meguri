@@ -3,6 +3,7 @@ import {
   bulkFlagOf,
   bulkTargets,
   bulkToggleTarget,
+  groupBulkTargets,
   uniformRating,
 } from "@/lib/bulkEdit";
 import { sampleFileRow } from "@/test/fixtures";
@@ -29,6 +30,21 @@ describe("bulkTargets", () => {
 
   it("returns nothing for an empty selection", () => {
     expect(bulkTargets([])).toEqual([]);
+  });
+});
+
+describe("groupBulkTargets", () => {
+  it("groups bare workspace/file pairs the same way", () => {
+    expect(
+      groupBulkTargets([
+        { workspaceId: "ws-a", fileId: 1 },
+        { workspaceId: "ws-b", fileId: 3 },
+        { workspaceId: "ws-a", fileId: 2 },
+      ]),
+    ).toEqual([
+      { workspaceId: "ws-a", fileIds: [1, 2] },
+      { workspaceId: "ws-b", fileIds: [3] },
+    ]);
   });
 });
 

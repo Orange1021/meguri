@@ -9,6 +9,7 @@ import type {
   ChannelName,
   ChannelOutput,
 } from "@shared/ipc/channels";
+import type { PreloadInvokeChannel } from "@shared/ipc/channelNames";
 import type {
   LogoId,
   ScanDone,
@@ -21,6 +22,7 @@ import type {
 interface Bridge {
   invoke<T = unknown>(channel: string, args?: unknown): Promise<T>;
   on(channel: string, cb: (payload: unknown) => void): () => void;
+  addDroppedWorkspace(file: File): Promise<unknown>;
 }
 
 // Fallback for when the preload hasn't loaded (prevents a blank screen and surfaces the cause).
@@ -32,12 +34,19 @@ const fallback: Bridge = {
       ),
     ),
   on: () => () => {},
+  addDroppedWorkspace: () =>
+    Promise.reject(
+      new Error(
+        "IPC bridge (window.api) is not initialized. The preload script failed to load.",
+      ),
+    ),
 };
 
 const bridge: Bridge = (window as unknown as { api?: Bridge }).api ?? fallback;
 
 // Channel-name-aware invoke. Args are required when ChannelInput<C> is non-void.
-function invoke<C extends ChannelName>(
+// Preload-only channels are excluded: the preload refuses them from here.
+function invoke<C extends Exclude<ChannelName, PreloadInvokeChannel>>(
   channel: C,
   ...args: ChannelInput<C> extends void ? [] : [ChannelInput<C>]
 ): Promise<ChannelOutput<C>> {
@@ -51,6 +60,11 @@ export const api = {
   workspaceStats: () => invoke("workspace_stats"),
   workspacesList: () => invoke("workspaces_list"),
   workspaceAdd: () => invoke("workspace_add"),
+  /** Register a folder dropped from the OS; the preload resolves its path. */
+  workspaceAddDropped: (file: File) =>
+    bridge.addDroppedWorkspace(file) as Promise<
+      ChannelOutput<"workspace_add_path">
+    >,
   workspaceRemove: (id: string) => invoke("workspace_remove", { id }),
   workspaceSwitch: (id: string) => invoke("workspace_switch", { id }),
   workspaceReorder: (ids: string[]) => invoke("workspace_reorder", { ids }),
