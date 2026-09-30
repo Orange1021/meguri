@@ -158,10 +158,8 @@ describe("FolderHeader", () => {
       const trigger = screen.getByRole("button", {
         name: 'Subfolders of "Movie"',
       });
-      // Still marked as the level shown.
-      expect(
-        within(trigger).getByText("Movie").getAttribute("aria-current"),
-      ).toBe("page");
+      // Still marked as the level shown, on the button its label names.
+      expect(trigger.getAttribute("aria-current")).toBe("page");
       fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
 
       fireEvent.click(await screen.findByRole("menuitem", { name: /2024/ }));

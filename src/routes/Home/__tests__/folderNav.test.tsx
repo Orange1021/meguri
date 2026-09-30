@@ -119,4 +119,18 @@ describe("useFolderNav", () => {
     expect(result.current.path).toBe("");
     expect(result.current.canGoBack).toBe(false);
   });
+
+  it("counts the user's moves, not the view's own corrections", () => {
+    const { result } = setup();
+    const start = result.current.moves();
+    act(() => result.current.enter("a"));
+    act(() => result.current.goTo("a/b"));
+    act(() => result.current.goUp());
+    act(() => result.current.goBack());
+    expect(result.current.moves()).toBe(start + 4);
+    // A folder gone (replace) or one opened from elsewhere (visit) is no move.
+    act(() => result.current.replace(""));
+    act(() => result.current.visit("ws1", "c"));
+    expect(result.current.moves()).toBe(start + 4);
+  });
 });

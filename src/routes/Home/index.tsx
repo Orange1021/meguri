@@ -160,7 +160,6 @@ export default function Home() {
   );
 
   const { filterValue, onFilterChange, onApplySaved } = useFolderFilter({
-    workspaceId,
     folderView,
     folderNav,
     filter,

@@ -30,6 +30,9 @@ import { api } from "@/ipc/client";
 import { useI18n, type TFunc } from "@/i18n/I18nProvider";
 import { ROOT_FOLDER, splitFolderPath } from "@shared/folderPath";
 
+/** How long a folder listing serves the subfolder menu without a refetch. */
+const SUBFOLDER_STALE_MS = 30_000;
+
 /** Levels above the current one shown before the middle folds away. */
 const MAX_ANCESTORS = 3;
 
@@ -152,12 +155,15 @@ export function FolderHeader({
         )}
         {workspaceId ? (
           <DropdownMenu>
+            {/* The current level, as the menu's trigger: the button carries
+                aria-current, since its label replaces what is inside it. */}
             <DropdownMenuTrigger
+              aria-current="page"
               aria-label={t("folder.subfolderMenu", { name: current.label })}
               title={t("folder.subfolderMenu", { name: current.label })}
               className="-mx-1 flex min-w-0 items-center gap-1 rounded px-1 transition hover:bg-fg/10"
             >
-              <CurrentLabel label={current.label} />
+              <CurrentLabel label={current.label} marked={false} />
               <ChevronDown aria-hidden className="size-4 shrink-0 text-muted" />
             </DropdownMenuTrigger>
             {/* Capped by max-height, not sized: the scroll area is a flex
@@ -213,10 +219,17 @@ export function FolderHeader({
   );
 }
 
-function CurrentLabel({ label }: { label: string }) {
+function CurrentLabel({
+  label,
+  marked = true,
+}: {
+  label: string;
+  /** Whether the label itself is marked as the current level. */
+  marked?: boolean;
+}) {
   return (
     <span
-      aria-current="page"
+      aria-current={marked ? "page" : undefined}
       title={label}
       className="truncate text-base font-bold leading-5 text-bright-fg"
     >
@@ -244,9 +257,9 @@ function SubfolderItems({
   const listing = useQuery({
     queryKey: ["folders_list", workspaceId, path],
     queryFn: () => api.foldersList(workspaceId, path),
-    // Kept fresh by the view's own invalidations (scans, thumbnails), so
-    // opening the menu while browsing costs no second listing.
-    staleTime: Infinity,
+    // Opening the menu right after the view listed the folder costs no second
+    // listing; later, the cached one is shown at once and refreshed behind it.
+    staleTime: SUBFOLDER_STALE_MS,
   });
   if (listing.isPending) {
     return <DropdownMenuItem disabled>{t("folder.loading")}</DropdownMenuItem>;

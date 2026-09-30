@@ -5,7 +5,7 @@
 // state kept here survives opening and closing them untouched — while a
 // "?folder=" on "/" would be dropped by the first navigate to "/file/:id".
 // Nothing needs it across a restart (the view opens at the workspace root).
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ROOT_FOLDER, parentOf } from "@shared/folderPath";
 
 /** How many steps "back" remembers per workspace. */
@@ -42,6 +42,12 @@ export interface FolderNav {
    * switched by the caller.
    */
   visit: (workspaceId: string, path: string) => void;
+  /**
+   * How many moves the user has made (enter, goTo, goBack, goUp; not replace
+   * or visit). A request that resolves later compares it to tell whether the
+   * user has moved on meanwhile.
+   */
+  moves: () => number;
 }
 
 export function useFolderNav(
@@ -50,8 +56,10 @@ export function useFolderNav(
   const [byWorkspace, setByWorkspace] = useState<Record<string, Entry>>({});
   const key = workspaceId ?? "";
   const entry = byWorkspace[key] ?? START;
+  const moveCount = useRef(0);
+  const moves = useCallback(() => moveCount.current, []);
 
-  const update = useCallback(
+  const apply = useCallback(
     (fn: (e: Entry) => Entry) =>
       setByWorkspace((all) => {
         const current = all[key] ?? START;
@@ -59,6 +67,15 @@ export function useFolderNav(
         return next === current ? all : { ...all, [key]: next };
       }),
     [key],
+  );
+  // A user's move: counted (see `moves`) outside the updater, which StrictMode
+  // may run twice.
+  const update = useCallback(
+    (fn: (e: Entry) => Entry) => {
+      moveCount.current++;
+      apply(fn);
+    },
+    [apply],
   );
 
   const move = useCallback(
@@ -118,13 +135,13 @@ export function useFolderNav(
   // never lands on the folder already shown.
   const replace = useCallback(
     (path: string) =>
-      update((e) => {
+      apply((e) => {
         if (e.path === path) return e;
         let end = e.back.length;
         while (end > 0 && e.back[end - 1] === path) end--;
         return { path, back: e.back.slice(0, end) };
       }),
-    [update],
+    [apply],
   );
 
   return useMemo(
@@ -137,7 +154,8 @@ export function useFolderNav(
       goUp,
       replace,
       visit,
+      moves,
     }),
-    [entry, move, goBack, goUp, replace, visit],
+    [entry, move, goBack, goUp, replace, visit, moves],
   );
 }

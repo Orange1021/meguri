@@ -106,7 +106,11 @@ the query the bar sees; `onFilterChange` splits it off again), so removing it
 or "Clear all" returns to the root and a saved search carries it. The folder
 shown in the header opens a menu of its child folders, and a file's detail
 view offers "Show folder in library", which turns the option on and moves
-there through `showFolderInLibrary` (switching workspace when needed). Over `All`
+there through `showFolderInLibrary` (switching workspace when needed). Such a
+request commits only once its workspace is active: switches are serialized, a
+removed workspace is refused before `workspace_switch` (which would rescan the
+active one instead), and a request overtaken by another, by a move
+(`useFolderNav().moves`) or by a change of conditions is dropped. Over `All`
 or a collection the view is drawn flat (`isFolderView`) without overwriting the
 stored option.
 

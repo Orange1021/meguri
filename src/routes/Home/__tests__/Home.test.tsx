@@ -442,9 +442,11 @@ describe("Home folder view", () => {
       expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false }),
     );
     const crumbs = screen.getByRole("navigation", { name: "Folder path" });
-    expect(within(crumbs).getByText("Movie").getAttribute("aria-current")).toBe(
-      "page",
-    );
+    expect(
+      within(crumbs)
+        .getByRole("button", { name: 'Subfolders of "Movie"' })
+        .getAttribute("aria-current"),
+    ).toBe("page");
 
     // Back up through the breadcrumb.
     fireEvent.click(within(crumbs).getByRole("button", { name: "Media" }));
@@ -702,9 +704,11 @@ describe("Home folder view", () => {
     // Already the workspace shown: nothing to switch.
     expect(mocks.workspaceSwitch).not.toHaveBeenCalled();
     const crumbs = screen.getByRole("navigation", { name: "Folder path" });
-    expect(within(crumbs).getByText("2024").getAttribute("aria-current")).toBe(
-      "page",
-    );
+    expect(
+      within(crumbs)
+        .getByRole("button", { name: 'Subfolders of "2024"' })
+        .getAttribute("aria-current"),
+    ).toBe("page");
   });
 
   it("switches to the file's workspace to show its folder from All", async () => {
@@ -744,7 +748,7 @@ describe("Home folder view", () => {
     await screen.findByText("sample.mp4");
 
     localStorage.setItem(BY_FOLDER_KEY, "false");
-    showFolderInLibrary({ workspaceId: "ws-removed", path: "Movie" });
+    showFolderInLibrary({ workspaceId: "ws-other", path: "Movie" });
 
     await waitFor(() =>
       expect(toasts.error).toHaveBeenCalledWith(
@@ -756,19 +760,19 @@ describe("Home folder view", () => {
     expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
   });
 
-  it("says so when the workspace to show is gone, which the switch does not refuse", async () => {
+  it("says so, without switching, when the workspace to show is gone", async () => {
     mocks.appStatus.mockResolvedValue({
       ...defaultAppStatus,
       root: "All",
       workspaceId: "__all__",
     });
     mocks.workspaceSwitch.mockReset();
-    // A removed workspace's ID: the main process leaves All active and resolves.
-    mocks.workspaceSwitch.mockResolvedValue(undefined);
     toasts.error.mockClear();
     localStorage.setItem(BY_FOLDER_KEY, "false");
     renderWithProviders(<AppRoutes />);
     await screen.findByText("sample.mp4");
+    // The rail's list is what tells a removed workspace apart.
+    await waitFor(() => expect(mocks.workspacesList).toHaveBeenCalled());
 
     showFolderInLibrary({ workspaceId: "ws-removed", path: "Movie" });
 
@@ -780,8 +784,149 @@ describe("Home folder view", () => {
         }),
       ),
     );
+    // workspace_switch would not refuse it, and would rescan the active one.
+    expect(mocks.workspaceSwitch).not.toHaveBeenCalled();
+    expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
+  });
+
+  it("says so when the switch leaves another workspace active", async () => {
+    mocks.appStatus.mockResolvedValue({
+      ...defaultAppStatus,
+      root: "All",
+      workspaceId: "__all__",
+    });
+    mocks.workspaceSwitch.mockReset();
+    // Listed, but gone by the time of the switch: All stays active.
+    mocks.workspaceSwitch.mockResolvedValue(undefined);
+    toasts.error.mockClear();
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+
+    showFolderInLibrary({ workspaceId: "ws-other", path: "Movie" });
+
+    await waitFor(() =>
+      expect(toasts.error).toHaveBeenCalledWith(
+        "Couldn't show the folder",
+        expect.objectContaining({
+          description: "The workspace is no longer available",
+        }),
+      ),
+    );
     expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
     expect(lastSearch().folder).toBeUndefined();
+  });
+
+  it("switches back when a later request asks for the workspace a slow switch leaves", async () => {
+    let release: () => void = () => {};
+    mocks.workspaceSwitch.mockReset();
+    mocks.workspaceSwitch.mockImplementation((id: string) => {
+      if (id === "ws-other") {
+        return new Promise((resolve) => {
+          release = () => {
+            mocks.appStatus.mockResolvedValue({
+              ...defaultAppStatus,
+              workspaceId: "ws-other",
+            });
+            resolve(undefined);
+          };
+        });
+      }
+      mocks.appStatus.mockResolvedValue(defaultAppStatus);
+      return Promise.resolve(undefined);
+    });
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    await waitFor(() => expect(mocks.workspacesList).toHaveBeenCalled());
+
+    // From the workspace shown: first another one (slow), then back here.
+    showFolderInLibrary({ workspaceId: "ws-other", path: "Clips" });
+    await waitFor(() =>
+      expect(mocks.workspaceSwitch).toHaveBeenCalledWith("ws-other"),
+    );
+    showFolderInLibrary({ workspaceId: WS_ID, path: "Movie" });
+    release();
+
+    // The later request waits the switch out, then switches back.
+    await waitFor(() =>
+      expect(mocks.workspaceSwitch).toHaveBeenLastCalledWith(WS_ID),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false }),
+    );
+  });
+
+  it("drops a pending request once the user has moved on", async () => {
+    let release: () => void = () => {};
+    mocks.foldersList.mockImplementation((_ws: string, path: string) =>
+      path === "Deep"
+        ? new Promise((resolve) => {
+            release = () => resolve({ path, folders: [], fileCount: 1 });
+          })
+        : Promise.resolve({
+            path,
+            folders: path === "" ? [movie] : [],
+            fileCount: 1,
+          }),
+    );
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+
+    showFolderInLibrary({ workspaceId: WS_ID, path: "Deep" });
+    await waitFor(() =>
+      expect(mocks.foldersList).toHaveBeenCalledWith(WS_ID, "Deep"),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false }),
+    );
+    release();
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false });
+  });
+
+  it("returns to the root for a saved search without a folder, even with the option off", async () => {
+    localStorage.setItem(
+      SMART_COLLECTIONS_KEY,
+      JSON.stringify([
+        {
+          id: "1",
+          name: "Videos",
+          query: { kind: "video" },
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    try {
+      renderWithProviders(<AppRoutes />);
+      await screen.findByTestId("folder-card");
+      fireEvent.click(
+        screen.getByRole("button", { name: 'Open folder "Movie"' }),
+      );
+      await screen.findByText("Folder: Movie");
+      fireEvent.click(screen.getByRole("button", { name: "Show by folder" }));
+      await waitFor(() => expect(lastSearch().folder).toBeUndefined());
+
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Smart collections" }),
+        { button: 0, ctrlKey: false },
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: /Videos/ }));
+      await waitFor(() => expect(lastSearch().kind).toBe("video"));
+
+      // Turning the option back on opens at the root, not at Movie.
+      fireEvent.click(screen.getByRole("button", { name: "Show by folder" }));
+      await waitFor(() =>
+        expect(lastSearch().folder).toEqual({ path: "", recursive: true }),
+      );
+      expect(screen.queryByText("Folder: Movie")).toBeNull();
+    } finally {
+      localStorage.removeItem(SMART_COLLECTIONS_KEY);
+    }
   });
 
   it("opens a saved search whose folder is gone at its nearest ancestor", async () => {
