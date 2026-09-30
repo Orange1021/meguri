@@ -3,7 +3,13 @@
 // the track on arrival unless told not to, and keeps the bar's audio and the
 // video player from sounding at once. Kept apart from index.tsx the way
 // VideoPlayer is, so the route stays about layout, queries and mutations.
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { FileDetail } from "@/ipc/types";
 import { useAudioPlayer, useExclusivePlayback } from "@/audio/useAudioPlayer";
 import { holdBarSuppressed } from "@/audio/barVisibility";
@@ -75,10 +81,17 @@ export function useAudioDetail({
   // side by side), and it is cleared whenever a non-audio file is shown so
   // "A → video → A" starts A again.
   const autoStartedFor = useRef<string | null>(null);
+  // The visit this view itself started playing (from `startAt`), as opposed
+  // to one it found already playing in the bar and left alone. Only the former
+  // began where the caller said, so only it may say "resumed from …".
+  const [startedFor, setStartedFor] = useState<string | null>(null);
   useEffect(() => {
     if (!file) return;
     if (file.kind !== "audio") {
       autoStartedFor.current = null;
+      // A later visit of the same track has to earn it again.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStartedFor(null);
       return;
     }
     if (!autoplay) return;
@@ -95,8 +108,13 @@ export function useAudioDetail({
     // alone rather than restarting from zero. Loaded but paused — in practice
     // prev/next back to the track after a video interrupted it — starts over,
     // like arriving at any other item, rather than resuming mid-track.
-    if (loaded && isPlaying) return;
+    if (loaded && isPlaying) {
+      setStartedFor(null);
+      return;
+    }
     play({ ...file, workspaceId: wsId }, wsId, { startAt });
+    // Recorded alongside the play() it describes, in the same effect.
+    setStartedFor(visitKey);
   }, [file, wsId, mediaBase, autoplay, startAt, current, isPlaying, play]);
 
   /** For "delete from index": the bar outlives this modal, so a track that was
@@ -105,5 +123,8 @@ export function useAudioDetail({
     if (isCurrentAudio) close();
   }, [isCurrentAudio, close]);
 
-  return { isAudio, claimPlayback: claim, closeIfCurrent };
+  const startedHere =
+    isAudio && startedFor === `${wsId}:${file?.id}` && isCurrentAudio;
+
+  return { isAudio, claimPlayback: claim, closeIfCurrent, startedHere };
 }

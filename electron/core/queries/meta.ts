@@ -187,10 +187,17 @@ export function savePlayPosition(
          (SELECT id FROM play_history WHERE meta_key = ? AND via = 'browser'
           ORDER BY played_at DESC, id DESC LIMIT 1)`,
     ).run(position, row.k);
-    db.prepare(
-      `INSERT INTO file_meta (meta_key, resume_position, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT(meta_key) DO UPDATE SET resume_position = excluded.resume_position, updated_at = excluded.updated_at`,
-    ).run(row.k, resume, nowUnix());
+    if (resume == null) {
+      // Nothing to keep: clear an existing point, but create no row for it.
+      db.prepare(
+        "UPDATE file_meta SET resume_position = NULL, updated_at = ? WHERE meta_key = ? AND resume_position IS NOT NULL",
+      ).run(nowUnix(), row.k);
+    } else {
+      db.prepare(
+        `INSERT INTO file_meta (meta_key, resume_position, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(meta_key) DO UPDATE SET resume_position = excluded.resume_position, updated_at = excluded.updated_at`,
+      ).run(row.k, resume, nowUnix());
+    }
   })();
   return resume;
 }

@@ -68,7 +68,7 @@ const TRANSITION_MS = 260;
  * instead. A `?t=` on a stream makes the server re-encode from that second, so
  * paying for it to land back where the file already begins is pure waste.
  */
-const RESUME_MIN_SEC = 3;
+const HANDOFF_MIN_SEC = 3;
 
 export default function Player() {
   const navigate = useNavigate();
@@ -197,7 +197,7 @@ export default function Player() {
     void navigate(
       fileHref(current.fileId, current.workspaceId, {
         from: "player",
-        t: sec >= RESUME_MIN_SEC ? sec : undefined,
+        t: sec >= HANDOFF_MIN_SEC ? sec : undefined,
         // Audio keeps playing in the bar across the trip; the detail view must
         // neither restart it nor resume a track the user had paused here.
         autoplay: !isAudio,
@@ -214,7 +214,6 @@ export default function Player() {
   // opposed to a fresh pass started from the detail view: the two differ in
   // what they owe the bar's track (see usePlaylistAudio).
   const isResumeItem = isArrivalItem && !!arrival?.queue;
-  const resumeSec = isArrivalItem && arrival ? arrival.sec : 0;
   // Where the item starts: the second handed back by the detail view first,
   // else where the file was left last time. The details (and with them the
   // resume point) arrive after the item is on stage; the video player takes a
@@ -224,7 +223,9 @@ export default function Player() {
   const detailFor = file && current && file.id === current.fileId ? file : null;
   const resumeStart = useResumeStart({
     visitKey: detailFor ? `${currentKey}#${queue.position}` : null,
-    explicit: resumeSec,
+    // The arrival item's handed-back second, 0 included; any other item has
+    // none, so its stored resume point applies.
+    explicit: isArrivalItem && arrival ? arrival.sec : null,
     resume: isImage ? null : detailFor?.resumePosition,
   });
   const { seek: seekAudio } = useAudioActions();

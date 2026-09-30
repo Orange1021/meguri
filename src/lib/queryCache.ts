@@ -166,6 +166,8 @@ export function invalidateFileCaches(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: ["files_search"] });
   void qc.invalidateQueries({ queryKey: ["files_random"] });
   void qc.invalidateQueries({ queryKey: ["file_get"] });
+  // Its groups carry file rows too (their resume progress, among others).
+  void qc.invalidateQueries({ queryKey: ["duplicates_list"] });
 }
 
 /**

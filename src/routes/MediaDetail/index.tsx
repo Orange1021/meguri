@@ -55,7 +55,14 @@ export default function MediaDetail() {
   const fileId = Number(id);
   // Optional initial seek position (seconds), e.g. when arriving from a Discovery scene click.
   const [searchParams] = useSearchParams();
-  const explicitStartAt = Number(searchParams.get("t")) || 0;
+  // Null when absent: `?t=0` is a start asked for, not a missing one.
+  const tParam = searchParams.get("t");
+  const explicitStartAt =
+    tParam != null && Number.isFinite(Number(tParam)) ? Number(tParam) : null;
+  // Arrived from the playlist player: it hands over where it was with `?t=`,
+  // or leaves `t` off when that was near the top — either way it, not the
+  // stored resume point (which may predate a "start over" there), decides.
+  const fromPlayer = searchParams.get("from") === "player";
   // `?autoplay=0` opts out of automatic playback (e.g. when entering from a
   // file-name click). Any other value (including omission) keeps the default
   // auto-play behavior.
@@ -113,10 +120,12 @@ export default function MediaDetail() {
   // (settled once per visit; see useResumeStart). Keyed on `?t=` too, so a
   // scene or bookmark opened for the same file is a visit of its own.
   const resumeStart = useResumeStart({
-    visitKey: detail.data ? `${wsId}:${fileId}:${explicitStartAt}` : null,
+    visitKey: detail.data ? `${wsId}:${fileId}:${explicitStartAt ?? ""}` : null,
     explicit: explicitStartAt,
     resume:
-      kind === "video" || kind === "audio" ? detail.data?.resumePosition : null,
+      !fromPlayer && (kind === "video" || kind === "audio")
+        ? detail.data?.resumePosition
+        : null,
   });
   const startAt = resumeStart.startAt;
   const {
@@ -194,6 +203,7 @@ export default function MediaDetail() {
   // Bar suppression, auto-start and video↔audio exclusivity for audio files.
   const {
     isAudio,
+    startedHere: audioStartedHere,
     claimPlayback,
     closeIfCurrent: closeAudioIfCurrent,
   } = useAudioDetail({
@@ -410,11 +420,12 @@ export default function MediaDetail() {
           )}
 
           {/* Resumed where it was left: say so, and offer the way back to
-              zero. Audio only once it is the bar's track — opened without
-              autoplay nothing has started, and the bar may be playing
-              something else entirely. */}
+              zero. Audio only when this view started the track itself —
+              opened without autoplay nothing has started, and a track found
+              already playing in the bar was left where it was. */}
           {resumeStart.resumed &&
-            (d.kind === "video" || (d.kind === "audio" && autoplay)) && (
+            (d.kind === "video" ||
+              (d.kind === "audio" && audioStartedHere)) && (
               <ResumeNotice
                 sec={resumeStart.startAt}
                 onStartOver={() => {

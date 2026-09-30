@@ -102,6 +102,9 @@ export function usePlaybackPosition(
       if (!visit.state.played) return;
       visit.reporter.flush();
       invalidateInProgressSearches(qc);
+      // The duplicates screen lists file rows with their progress too, but
+      // outside the caches patched above.
+      void qc.invalidateQueries({ queryKey: ["duplicates_list"] });
     };
   }, [visit, qc]);
 

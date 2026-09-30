@@ -63,10 +63,16 @@ describe("startAt precedence", () => {
     ).toEqual({ startAt: 42, resumed: false });
   });
 
-  it("falls back to the stored position when nothing explicit was given", () => {
+  it("takes an explicit 0 as asked for, not as missing", () => {
     expect(resolveStartAt({ explicit: 0, resume: 300, enabled: true })).toEqual(
-      { startAt: 300, resumed: true },
+      { startAt: 0, resumed: false },
     );
+  });
+
+  it("falls back to the stored position when nothing explicit was given", () => {
+    expect(
+      resolveStartAt({ explicit: null, resume: 300, enabled: true }),
+    ).toEqual({ startAt: 300, resumed: true });
     expect(
       resolveStartAt({ explicit: undefined, resume: 300, enabled: true }),
     ).toEqual({ startAt: 300, resumed: true });
@@ -74,10 +80,10 @@ describe("startAt precedence", () => {
 
   it("starts from zero when resuming is turned off or nothing is stored", () => {
     expect(
-      resolveStartAt({ explicit: 0, resume: 300, enabled: false }),
+      resolveStartAt({ explicit: null, resume: 300, enabled: false }),
     ).toEqual({ startAt: 0, resumed: false });
     expect(
-      resolveStartAt({ explicit: 0, resume: null, enabled: true }),
+      resolveStartAt({ explicit: null, resume: null, enabled: true }),
     ).toEqual({ startAt: 0, resumed: false });
   });
 });
@@ -139,6 +145,12 @@ describe("savePlayPosition", () => {
     expect(savePlayPosition(db, id, { position: 50, duration: 100 })).toBe(50);
     // No duration on the row, so no progress fraction either.
     expect(fileDetail(db, id)!.progress).toBeNull();
+  });
+
+  it("creates no metadata row when there is nothing to keep", () => {
+    const id = insertFile(db, rootId, { relPath: "a.mp4", duration: 1000 });
+    expect(savePlayPosition(db, id, { position: 2 })).toBeNull();
+    expect(db.prepare("SELECT COUNT(*) FROM file_meta").pluck().get()).toBe(0);
   });
 
   it("does nothing for a file that is gone", () => {

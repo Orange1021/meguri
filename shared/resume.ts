@@ -63,7 +63,8 @@ export function resumeProgressOf(
 
 /**
  * Where to start a file: an explicit `?t=` (a scene click, a bookmark, the
- * playlist handing over its position) always wins; otherwise the stored resume
+ * playlist handing over its position) always wins, 0 included — a scene at the
+ * very start is still a place asked for; otherwise the stored resume
  * point when resuming is on; otherwise the top. `resumed` says whether the
  * resume point was the one taken, which is when the "start over" notice shows.
  */
@@ -76,7 +77,7 @@ export function resolveStartAt({
   resume: number | null | undefined;
   enabled: boolean;
 }): { startAt: number; resumed: boolean } {
-  if (explicit != null && Number.isFinite(explicit) && explicit > 0)
+  if (explicit != null && Number.isFinite(explicit) && explicit >= 0)
     return { startAt: explicit, resumed: false };
   if (enabled && resume != null && Number.isFinite(resume) && resume > 0)
     return { startAt: resume, resumed: true };

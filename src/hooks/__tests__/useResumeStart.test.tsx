@@ -26,8 +26,13 @@ describe("useResumeStart", () => {
     expect(result.current.resumed).toBe(false);
   });
 
-  it("opens at the stored position and says so", () => {
+  it("lets an explicit ?t=0 win too", () => {
     const { result } = setup({ visitKey: "a", explicit: 0, resume: 300 });
+    expect(result.current).toMatchObject({ startAt: 0, resumed: false });
+  });
+
+  it("opens at the stored position and says so", () => {
+    const { result } = setup({ visitKey: "a", explicit: null, resume: 300 });
     expect(result.current.startAt).toBe(300);
     expect(result.current.resumed).toBe(true);
   });
@@ -37,7 +42,7 @@ describe("useResumeStart", () => {
       "meguri.prefs",
       JSON.stringify({ resumePlayback: false }),
     );
-    const { result } = setup({ visitKey: "a", explicit: 0, resume: 300 });
+    const { result } = setup({ visitKey: "a", explicit: null, resume: 300 });
     expect(result.current.startAt).toBe(0);
     expect(result.current.resumed).toBe(false);
   });
@@ -45,18 +50,18 @@ describe("useResumeStart", () => {
   it("holds its answer while the stored position moves during the visit", () => {
     const { result, rerender } = setup({
       visitKey: "a",
-      explicit: 0,
+      explicit: null,
       resume: 300,
     });
-    rerender({ visitKey: "a", explicit: 0, resume: 420 });
+    rerender({ visitKey: "a", explicit: null, resume: 420 });
     expect(result.current.startAt).toBe(300);
     // A new visit settles afresh.
-    rerender({ visitKey: "b", explicit: 0, resume: 420 });
+    rerender({ visitKey: "b", explicit: null, resume: 420 });
     expect(result.current.startAt).toBe(420);
   });
 
   it("hides the notice once the user starts over", () => {
-    const { result } = setup({ visitKey: "a", explicit: 0, resume: 300 });
+    const { result } = setup({ visitKey: "a", explicit: null, resume: 300 });
     act(() => result.current.dismiss());
     expect(result.current.resumed).toBe(false);
   });
