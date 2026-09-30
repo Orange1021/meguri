@@ -22,6 +22,7 @@ import {
 import { mediaSortId } from "@/lib/mediaSortId";
 import { SelectionCheck } from "@/components/SelectionCheck";
 import { useSelectableClick } from "@/hooks/useSelectableClick";
+import { useFileDrag } from "@/hooks/useFileDrag";
 import type { FileRow, FolderEntry } from "@/ipc/types";
 import { FolderRow } from "@/components/FolderRow";
 import { useFolderEntries } from "@/hooks/useFolderEntries";
@@ -295,6 +296,7 @@ export const MediaList = memo(function MediaList({
                     focused={focused}
                     watchLater={watchLaterMembership}
                     watchLaterRef={focused ? focusedWatchLaterRef : undefined}
+                    fileDraggable={!reorder}
                   />
                 );
                 return reorder ? (
@@ -322,6 +324,7 @@ const MediaRow = memo(function MediaRow({
   focused,
   watchLater,
   watchLaterRef,
+  fileDraggable,
 }: {
   file: FileRow;
   /** Position in the loaded list — what a Shift-click ranges from. */
@@ -335,6 +338,8 @@ const MediaRow = memo(function MediaRow({
   watchLater: WatchLaterMembership;
   /** Set only on the focused row, so the "W" shortcut can drive this toggle. */
   watchLaterRef?: Ref<HTMLButtonElement>;
+  /** Can be dragged onto a collection in the rail (off while reordering). */
+  fileDraggable: boolean;
 }) {
   // The row has two click regions so the click target controls whether the
   // detail view auto-plays. Thumbnail click → auto-play (default); anywhere
@@ -348,6 +353,7 @@ const MediaRow = memo(function MediaRow({
   const { t } = useI18n();
   const { onThumbnailClick } = useActivateFile();
   const { selected, onSelectableClick } = useSelectableClick(file, index);
+  const dragProps = useFileDrag(file, selected, fileDraggable);
   const dir = dirOf(file.relPath);
   const dims =
     file.width && file.height ? `${file.width}×${file.height}` : null;
@@ -363,6 +369,7 @@ const MediaRow = memo(function MediaRow({
       : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
   return (
     <div
+      {...dragProps}
       aria-current={focused ? "true" : undefined}
       className={cn(
         "group @container relative flex items-center gap-4 rounded-lg p-2 pr-4 transition-colors hover:bg-overlay/50",

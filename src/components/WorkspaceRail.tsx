@@ -43,6 +43,7 @@ import type {
   WorkspaceInfo,
   WorkspacesList,
 } from "@/ipc/types";
+import type { WorkspaceAddResult } from "@shared/ipc/channels";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { CollectionEditDialog } from "@/components/CollectionEditDialog";
 import {
@@ -57,9 +58,21 @@ import { cn } from "@/lib/utils";
 import { openCommandMenu, openShortcuts } from "@/lib/ui-events";
 import { useI18n, type TFunc } from "@/i18n/I18nProvider";
 import { LOGO_SRC, useLogo } from "@/hooks/useLogo";
+import { useFileDropTarget } from "@/hooks/useFileDropTarget";
+import { useOsFolderDrop, type DroppedItems } from "@/hooks/useOsFolderDrop";
+import { useAddFilesToCollection } from "@/hooks/useAddFilesToCollection";
+import type { DraggedFile } from "@/lib/fileDrag";
 
 /** Never animate sortable layout changes, so items snap to their final position on drop. */
 const animateLayoutChanges: AnimateLayoutChanges = () => false;
+
+/**
+ * Highlight of a collection while files are dragged over it. The ring is the
+ * signal and shows for everyone; only the grow is motion, so reduced-motion
+ * users get the same highlight without it.
+ */
+const DROP_OVER =
+  "rounded-xl ring-2 ring-primary ring-offset-2 ring-offset-bg motion-safe:scale-110 motion-reduce:transition-none";
 
 /** Builds avatar initials from a label (2 chars for alphanumerics, 1 char for Japanese, etc.). */
 function initials(label: string): string {
@@ -129,18 +142,68 @@ export function WorkspaceRail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qc, t]);
 
-  const add = useMutation({
+  // What registering a folder did, however it was chosen: the picker or a
+  // drop from the OS.
+  const onAdded = (r: WorkspaceAddResult) => {
+    if (r.added) {
+      if (r.existing) toast.info(t("workspace.alreadyAddedToast"));
+      else toast.success(t("workspace.addedToast"));
+      if (r.scanJobId) addedWorkspaceScanJobs.current.add(r.scanJobId);
+      void refreshAll();
+    } else {
+      void qc.invalidateQueries({ queryKey: ["workspaces_list"] });
+    }
+  };
+  const addViaPicker = useMutation({
     mutationFn: () => api.workspaceAdd(),
-    onSuccess: (r) => {
-      if (r.added) {
-        toast.success(t("workspace.addedToast"));
-        if (r.scanJobId) addedWorkspaceScanJobs.current.add(r.scanJobId);
-        void refreshAll();
-      } else {
-        void qc.invalidateQueries({ queryKey: ["workspaces_list"] });
-      }
-    },
+    onSuccess: onAdded,
   });
+  const addDropped = useMutation({
+    mutationFn: (dir: File) => api.workspaceAddDropped(dir),
+    onSuccess: (r, dir) => {
+      if (r.notDirectory) {
+        toast.error(t("drop.notDirectory", { name: dir.name }));
+      }
+      onAdded(r);
+    },
+    onError: (e, dir) =>
+      toast.error(t("drop.addFailed", { name: dir.name }), {
+        description: e instanceof Error ? e.message : String(e),
+      }),
+  });
+
+  // Dropped folders are confirmed and registered one at a time, so every
+  // confirm names its folder. A drop that lands while a confirm is still open
+  // joins the same queue rather than starting a second loop: the confirm
+  // dialog shows one prompt at a time.
+  const dropQueue = useRef<File[]>([]);
+  const draining = useRef(false);
+  const drainDropQueue = async () => {
+    if (draining.current) return;
+    draining.current = true;
+    try {
+      for (let dir; (dir = dropQueue.current.shift());) {
+        const ok = await confirm({
+          title: t("drop.addTitle"),
+          message: t("drop.addConfirm", { name: dir.name }),
+          confirmText: t("drop.addAction"),
+        });
+        // Failures are reported by addDropped's onError; carry on with the rest.
+        if (ok) await addDropped.mutateAsync(dir).catch(() => {});
+      }
+    } finally {
+      draining.current = false;
+    }
+  };
+  const { active: osDragActive } = useOsFolderDrop(
+    ({ dirs, others }: DroppedItems) => {
+      if (others > 0) toast.info(t("drop.foldersOnly"));
+      dropQueue.current.push(...dirs);
+      void drainDropQueue();
+    },
+  );
+
+  const dropOnto = useAddFilesToCollection();
   const switchTo = useMutation({
     mutationFn: (id: string) => api.workspaceSwitch(id),
     onSuccess: refreshAll,
@@ -298,6 +361,7 @@ export function WorkspaceRail() {
                     if (!watchLater.active)
                       switchTo.mutate(collectionTarget(watchLater.id));
                   }}
+                  onDropFiles={dropOnto(watchLater.id, t("watchLater.name"))}
                   t={t}
                 />
               )}
@@ -331,6 +395,7 @@ export function WorkspaceRail() {
                       })();
                     }}
                     onEdit={() => openEditDialog(collection)}
+                    onDropFiles={dropOnto(collection.id, collection.name)}
                     t={t}
                   />
                 ))}
@@ -378,7 +443,7 @@ export function WorkspaceRail() {
             </DndContext>
             <button
               type="button"
-              onClick={() => add.mutate()}
+              onClick={() => addViaPicker.mutate()}
               title={t("workspace.addDirectory")}
               className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-dashed border-border text-muted transition hover:rounded-xl hover:border-primary hover:text-primary"
             >
@@ -421,6 +486,8 @@ export function WorkspaceRail() {
         </button>
       </nav>
 
+      {osDragActive && <FolderDropOverlay t={t} />}
+
       <CollectionEditDialog
         open={collectionDialogOpen}
         onOpenChange={setCollectionDialogOpen}
@@ -440,24 +507,29 @@ export function WorkspaceRail() {
 function WatchLaterButton({
   collection,
   onClick,
+  onDropFiles,
   t,
 }: {
   collection: UserCollection;
   onClick: () => void;
+  onDropFiles: (files: DraggedFile[]) => void;
   t: TFunc;
 }) {
   const label = t("watchLater.name");
+  const drop = useFileDropTarget(onDropFiles);
   return (
     <button
       type="button"
       onClick={onClick}
       title={`${label} (${collection.items.length})`}
       aria-label={label}
+      {...drop.handlers}
       className={cn(
         "flex size-11 shrink-0 items-center justify-center text-sm font-semibold transition",
         collection.active
           ? "rounded-xl bg-primary text-primary-foreground ring-2 ring-fg/40"
           : "rounded-2xl bg-surface text-fg hover:rounded-xl hover:bg-overlay",
+        drop.over && DROP_OVER,
       )}
     >
       {collection.emoji ? (
@@ -474,15 +546,18 @@ function CollectionButton({
   onClick,
   onRemove,
   onEdit,
+  onDropFiles,
   t,
 }: {
   collection: UserCollection;
   onClick: () => void;
   onRemove: () => void;
   onEdit: () => void;
+  onDropFiles: (files: DraggedFile[]) => void;
   t: TFunc;
 }) {
   const sortable = useSortable({ id: collection.id, animateLayoutChanges });
+  const drop = useFileDropTarget(onDropFiles);
   const style = {
     transform: CSS.Transform.toString(sortable.transform),
     transition: sortable.transition,
@@ -513,11 +588,13 @@ function CollectionButton({
             {...sortable.attributes}
             // eslint-disable-next-line react-hooks/refs
             {...sortable.listeners}
+            {...drop.handlers}
             className={cn(
               "flex size-11 touch-none items-center justify-center text-sm font-semibold transition",
               collection.active
                 ? "rounded-xl bg-primary text-primary-foreground ring-2 ring-fg/40"
                 : "rounded-2xl bg-surface text-fg hover:rounded-xl hover:bg-overlay",
+              drop.over && DROP_OVER,
             )}
           >
             {collection.emoji ? (
@@ -628,6 +705,28 @@ function WorkspaceButton({
           <X className="size-2.5" />
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Full-window drop zone while a drag from the OS is over the window. It never
+ * takes the pointer: the drag events keep reaching the window listeners that
+ * count enters and leaves.
+ */
+function FolderDropOverlay({ t }: { t: TFunc }) {
+  return (
+    <div
+      data-testid="folder-drop-overlay"
+      className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-bg/70 p-6 backdrop-blur-sm"
+    >
+      <div className="flex max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-surface/90 px-10 py-8 text-center">
+        <FolderPlus className="size-10 text-primary" />
+        <p className="text-base font-semibold text-bright-fg">
+          {t("drop.overlayTitle")}
+        </p>
+        <p className="text-sm text-muted">{t("drop.foldersOnly")}</p>
+      </div>
     </div>
   );
 }

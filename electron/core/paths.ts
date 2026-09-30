@@ -97,3 +97,23 @@ export function folderDirInsideRoot(
     return null;
   }
 }
+
+/**
+ * A folder dropped onto the window, accepted only if it is an existing
+ * directory given as an absolute path; anything else yields null.
+ *
+ * The path is resolved in the preload from a dropped File, but the channel is
+ * still an input from outside main: a dropped regular file, a folder deleted
+ * since the drop, or an empty string (what the preload gets for a File that did
+ * not come from the filesystem) must not be registered as a workspace. stat
+ * follows symlinks, so a link to a directory counts as one.
+ */
+export async function droppedDirectory(p: string): Promise<string | null> {
+  if (!p || !path.isAbsolute(p)) return null;
+  // Async: a folder on an unresponsive network mount must not stall main.
+  try {
+    return (await fs.promises.stat(p)).isDirectory() ? p : null;
+  } catch {
+    return null;
+  }
+}

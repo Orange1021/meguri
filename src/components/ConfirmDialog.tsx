@@ -62,7 +62,17 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const confirm = useCallback((opts: ConfirmOptions) => {
     setChecked(opts.checkbox?.defaultChecked ?? false);
     return new Promise<boolean | ConfirmResult>((resolve) =>
-      setState({ ...opts, resolve }),
+      setState((prev) => {
+        // Only one prompt shows at a time. One still open when another is
+        // requested is answered as cancelled, so its caller is never left
+        // awaiting a promise nothing will settle.
+        if (prev) {
+          prev.resolve(
+            prev.checkbox ? { confirmed: false, checked: false } : false,
+          );
+        }
+        return { ...opts, resolve };
+      }),
     );
   }, []) as ConfirmFn;
 

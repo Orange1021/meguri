@@ -432,6 +432,15 @@ export function useFolderSelection(path: string): {
   return { active, selected, pending, toggle: store.toggleFolder };
 }
 
+/**
+ * Reads the selection at the moment it is called, without subscribing: for an
+ * event handler (a drag starting) that needs the selection once and must not
+ * re-render its row every time the selection changes.
+ */
+export function useReadSelection(): () => SelectionView {
+  return useStore().getView;
+}
+
 /** Whether this one row is selected, as its own subscription. */
 export function useIsSelected(file: FileRow): boolean {
   const store = useStore();

@@ -503,6 +503,22 @@ export const es: Record<TranslationKey, string> = {
   "workspace.addedToast": "Espacio de trabajo añadido",
   "workspace.removedToast": "Espacio de trabajo eliminado",
   "workspace.removedToastDetail": "Se eliminó «{label}».",
+  "workspace.alreadyAddedToast": "Esta carpeta ya es un espacio de trabajo",
+  "drop.overlayTitle":
+    "Suelta carpetas para añadirlas como espacios de trabajo",
+  "drop.foldersOnly":
+    "Meguri indexa carpetas, no archivos sueltos. Suelta una carpeta.",
+  "drop.addTitle": "Añadir espacio de trabajo",
+  "drop.addConfirm": "¿Añadir «{name}» como espacio de trabajo y escanearla?",
+  "drop.addAction": "Añadir",
+  "drop.notDirectory": "«{name}» no es una carpeta, así que no se añadió",
+  "drop.addFailed": "No se pudo añadir «{name}»",
+  "drop.addedToCollection": "Se añadieron {count} archivos a «{name}»",
+  "drop.alreadyInCollection": "Ya están en «{name}»",
+  "drop.addToCollectionFailed": "No se pudo añadir a la colección",
+  "drag.fileCount": "{count} archivos",
+  "drag.selectionPending":
+    "Las carpetas seleccionadas aún se están cargando. Vuelve a arrastrar en un momento.",
 
   // user collections
   "collection.create": "Crear colección",

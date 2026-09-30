@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { WorkspaceRail } from "@/components/WorkspaceRail";
 import { defaultAppStatus, defaultWorkspacesList } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import { FILE_DRAG_MIME } from "@/lib/fileDrag";
 
 const mocks = vi.hoisted(() => ({
   appStatus: vi.fn(),
@@ -10,6 +11,19 @@ const mocks = vi.hoisted(() => ({
   workspaceSwitch: vi.fn(),
   workspaceAdd: vi.fn(),
   workspaceRemove: vi.fn(),
+  workspaceAddDropped: vi.fn(),
+  collectionSetMembership: vi.fn(),
+}));
+
+const toasts = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), toasts),
+  Toaster: () => null,
 }));
 
 vi.mock("@/ipc/client", () => ({
@@ -23,6 +37,9 @@ vi.mock("@/ipc/client", () => ({
     collectionCreate: vi.fn().mockResolvedValue({ id: "c1" }),
     collectionRemove: vi.fn().mockResolvedValue(undefined),
     collectionReorder: vi.fn().mockResolvedValue(undefined),
+    workspaceAddDropped: (file: File) => mocks.workspaceAddDropped(file),
+    collectionSetMembership: (...args: unknown[]) =>
+      mocks.collectionSetMembership(...args),
   },
   events: {
     onWorkspaceChanged: vi.fn().mockResolvedValue(() => {}),
@@ -174,6 +191,237 @@ describe("WorkspaceRail", () => {
       // dnd-kit's useSortable applies these to every draggable element.
       expect(button.getAttribute("aria-roledescription")).toBeNull();
       expect(button.getAttribute("aria-describedby")).toBeNull();
+    });
+  });
+
+  describe("drag and drop", () => {
+    const watchLater = {
+      id: "watch-later",
+      name: "Watch Later",
+      emoji: "🕒",
+      active: false,
+      items: [],
+      createdAt: 0,
+      updatedAt: 0,
+      locked: true,
+    };
+    const userCollection = {
+      id: "c1",
+      name: "Favourites",
+      active: false,
+      items: [],
+      createdAt: 0,
+      updatedAt: 0,
+      locked: false,
+    };
+    const files = [
+      { workspaceId: "ws-a", fileId: 1 },
+      { workspaceId: "ws-b", fileId: 2 },
+    ];
+    const fileDrag = () => ({
+      types: [FILE_DRAG_MIME],
+      getData: (type: string) =>
+        type === FILE_DRAG_MIME ? JSON.stringify(files) : "",
+      dropEffect: "none",
+    });
+
+    beforeEach(() => {
+      mocks.workspacesList.mockResolvedValue({
+        ...defaultWorkspacesList,
+        collections: [watchLater, userCollection],
+      });
+      mocks.collectionSetMembership.mockReset();
+      mocks.collectionSetMembership.mockResolvedValue({ changed: 2 });
+      mocks.workspaceAddDropped.mockReset();
+      mocks.workspaceAddDropped.mockResolvedValue({
+        added: true,
+        id: "ws-new",
+        scanJobId: "job-1",
+      });
+    });
+
+    it("adds dropped files to a user collection", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      const target = await screen.findByRole("button", { name: "Favourites" });
+
+      fireEvent.dragEnter(target, { dataTransfer: fileDrag() });
+      fireEvent.dragOver(target, { dataTransfer: fileDrag() });
+      fireEvent.drop(target, { dataTransfer: fileDrag() });
+
+      await waitFor(() =>
+        expect(mocks.collectionSetMembership).toHaveBeenCalledWith(
+          "c1",
+          [
+            { workspaceId: "ws-a", fileIds: [1] },
+            { workspaceId: "ws-b", fileIds: [2] },
+          ],
+          "add",
+        ),
+      );
+    });
+
+    it("adds dropped files to Watch Later", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      const target = await screen.findByRole("button", {
+        name: "Watch Later",
+      });
+
+      fireEvent.drop(target, { dataTransfer: fileDrag() });
+
+      await waitFor(() =>
+        expect(mocks.collectionSetMembership).toHaveBeenCalledWith(
+          "watch-later",
+          expect.any(Array),
+          "add",
+        ),
+      );
+    });
+
+    it("does not accept files on workspaces or All", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      const workspace = await screen.findByRole("button", { name: "Media" });
+      const all = screen.getByRole("button", { name: "All" });
+
+      for (const target of [workspace, all]) {
+        const dataTransfer = { ...fileDrag(), dropEffect: "unset" };
+        fireEvent.dragOver(target, { dataTransfer });
+        // Shown to the user as a refused drop.
+        expect(dataTransfer.dropEffect).toBe("none");
+        fireEvent.drop(target, { dataTransfer: fileDrag() });
+      }
+      expect(mocks.collectionSetMembership).not.toHaveBeenCalled();
+    });
+
+    it("confirms and registers a folder dropped from the OS", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      await screen.findByRole("button", { name: "Media" });
+      const dir = new File([], "Movies");
+      const osDrag = () => ({
+        types: ["Files"],
+        items: [
+          {
+            kind: "file",
+            getAsFile: () => dir,
+            webkitGetAsEntry: () => ({ isDirectory: true }),
+          },
+        ],
+        dropEffect: "none",
+      });
+
+      fireEvent.dragEnter(window, { dataTransfer: osDrag() });
+      expect(await screen.findByTestId("folder-drop-overlay")).toBeTruthy();
+
+      fireEvent.drop(window, { dataTransfer: osDrag() });
+      await waitFor(() =>
+        expect(screen.queryByTestId("folder-drop-overlay")).toBeNull(),
+      );
+
+      expect(
+        await screen.findByText('Add "Movies" as a workspace and scan it?'),
+      ).toBeTruthy();
+      expect(mocks.workspaceAddDropped).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+      await waitFor(() =>
+        expect(mocks.workspaceAddDropped).toHaveBeenCalledWith(dir),
+      );
+    });
+
+    it("does not register dropped files that are not folders", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      await screen.findByRole("button", { name: "Media" });
+
+      fireEvent.drop(window, {
+        dataTransfer: {
+          types: ["Files"],
+          items: [
+            {
+              kind: "file",
+              getAsFile: () => new File([], "clip.mp4"),
+              webkitGetAsEntry: () => ({ isDirectory: false }),
+            },
+          ],
+        },
+      });
+
+      await new Promise((r) => setTimeout(r, 0));
+      expect(screen.queryByText(/as a workspace and scan it\?/)).toBeNull();
+      expect(mocks.workspaceAddDropped).not.toHaveBeenCalled();
+      expect(toasts.info).toHaveBeenCalledWith(
+        "Meguri indexes folders, not individual files. Drop a folder instead.",
+      );
+    });
+
+    const osDrop = (...dirs: File[]) => ({
+      dataTransfer: {
+        types: ["Files"],
+        items: dirs.map((dir) => ({
+          kind: "file",
+          getAsFile: () => dir,
+          webkitGetAsEntry: () => ({ isDirectory: true }),
+        })),
+      },
+    });
+
+    it("queues a folder dropped while a confirm is still open", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      await screen.findByRole("button", { name: "Media" });
+      const first = new File([], "First");
+      const second = new File([], "Second");
+
+      fireEvent.drop(window, osDrop(first));
+      await screen.findByText('Add "First" as a workspace and scan it?');
+      // A second drop must not replace the open prompt and strand the first.
+      fireEvent.drop(window, osDrop(second));
+      fireEvent.click(screen.getByRole("button", { name: "Add" }));
+      await waitFor(() =>
+        expect(mocks.workspaceAddDropped).toHaveBeenCalledWith(first),
+      );
+
+      await screen.findByText('Add "Second" as a workspace and scan it?');
+      fireEvent.click(screen.getByRole("button", { name: "Add" }));
+      await waitFor(() =>
+        expect(mocks.workspaceAddDropped).toHaveBeenCalledWith(second),
+      );
+      expect(mocks.workspaceAddDropped).toHaveBeenCalledTimes(2);
+    });
+
+    it("reports a dropped path main refused as not a folder", async () => {
+      mocks.workspaceAddDropped.mockResolvedValue({
+        added: false,
+        notDirectory: true,
+      });
+      renderWithProviders(<WorkspaceRail />);
+      await screen.findByRole("button", { name: "Media" });
+
+      fireEvent.drop(window, osDrop(new File([], "Gone")));
+      await screen.findByText('Add "Gone" as a workspace and scan it?');
+      fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+      await waitFor(() =>
+        expect(toasts.error).toHaveBeenCalledWith(
+          '"Gone" is not a folder, so it was not added',
+        ),
+      );
+    });
+
+    it("ignores an OS drag while an in-app drag is in progress", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      await screen.findByRole("button", { name: "Media" });
+
+      fireEvent.dragStart(document.body);
+      fireEvent.dragEnter(window, { dataTransfer: { types: ["Files"] } });
+      expect(screen.queryByTestId("folder-drop-overlay")).toBeNull();
+    });
+
+    it("cancels a drop it does not handle, so the window never navigates", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      await screen.findByRole("button", { name: "Media" });
+
+      const handled = fireEvent.drop(window, {
+        dataTransfer: { types: ["text/uri-list"], items: [] },
+      });
+      expect(handled).toBe(false);
     });
   });
 });

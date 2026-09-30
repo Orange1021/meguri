@@ -94,4 +94,35 @@ test.describe("Collections", () => {
     await expect(ready.getByText(FIXTURE_FILE)).toBeVisible();
     await expect(ready.getByText("♥ Favorites")).toBeVisible();
   });
+
+  test("drags a file card onto a user collection", async ({ ready }) => {
+    await ready.getByRole("button", { name: "Create user collection" }).click();
+    await ready.getByPlaceholder("Collection name").fill("Drop Target");
+    await ready.getByRole("button", { name: "Create" }).click();
+
+    await ready.getByRole("button", { name: "media" }).click();
+    await waitForIndexedMedia(ready);
+
+    await fileCard(ready).dragTo(
+      ready.getByRole("button", { name: "Drop Target" }),
+    );
+    await expect(
+      ready.getByText('Added 1 files to "Drop Target"'),
+    ).toBeVisible();
+    // An in-app drag is not a folder from the OS: no drop zone, no confirm.
+    await expect(ready.getByTestId("folder-drop-overlay")).toHaveCount(0);
+
+    await ready.getByRole("button", { name: "Drop Target" }).click();
+    await expect(ready.getByText(FIXTURE_FILE)).toBeVisible();
+  });
+
+  test("drags a file card onto Watch Later", async ({ ready }) => {
+    await waitForIndexedMedia(ready);
+    await fileCard(ready).dragTo(
+      ready.getByRole("button", { name: "Watch Later", exact: true }),
+    );
+    await expect(
+      ready.getByText('Added 1 files to "Watch Later"'),
+    ).toBeVisible();
+  });
 });

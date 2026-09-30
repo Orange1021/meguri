@@ -503,6 +503,23 @@ export const fr: Record<TranslationKey, string> = {
   "workspace.addedToast": "Espace de travail ajouté",
   "workspace.removedToast": "Espace de travail supprimé",
   "workspace.removedToastDetail": "« {label} » a été supprimé.",
+  "workspace.alreadyAddedToast": "Ce dossier est déjà un espace de travail",
+  "drop.overlayTitle":
+    "Déposez des dossiers pour les ajouter comme espaces de travail",
+  "drop.foldersOnly":
+    "Meguri indexe des dossiers, pas des fichiers isolés. Déposez un dossier.",
+  "drop.addTitle": "Ajouter un espace de travail",
+  "drop.addConfirm":
+    "Ajouter « {name} » comme espace de travail et l’analyser ?",
+  "drop.addAction": "Ajouter",
+  "drop.notDirectory": "« {name} » n’est pas un dossier et n’a pas été ajouté",
+  "drop.addFailed": "Impossible d’ajouter « {name} »",
+  "drop.addedToCollection": "{count} fichiers ajoutés à « {name} »",
+  "drop.alreadyInCollection": "Déjà dans « {name} »",
+  "drop.addToCollectionFailed": "Impossible d’ajouter à la collection",
+  "drag.fileCount": "{count} fichiers",
+  "drag.selectionPending":
+    "Les dossiers sélectionnés sont encore en cours de chargement. Réessayez dans un instant.",
 
   // user collections
   "collection.create": "Créer une collection",

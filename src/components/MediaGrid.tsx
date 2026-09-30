@@ -36,6 +36,7 @@ import { MediaThumbnail } from "@/components/MediaThumbnail";
 import { TagChips } from "@/components/TagChips";
 import { SelectionCheck } from "@/components/SelectionCheck";
 import { useSelectableClick } from "@/hooks/useSelectableClick";
+import { useFileDrag } from "@/hooks/useFileDrag";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -390,6 +391,7 @@ export const MediaGrid = memo(function MediaGrid({
                       focused={focused}
                       watchLater={watchLaterMembership}
                       watchLaterRef={focused ? focusedWatchLaterRef : undefined}
+                      fileDraggable={!reorder}
                     />
                   );
                   const key = mediaSortId(f);
@@ -421,6 +423,7 @@ const MediaCard = memo(function MediaCard({
   focused,
   watchLater,
   watchLaterRef,
+  fileDraggable,
 }: {
   file: FileRow;
   /** Position in the loaded list — what a Shift-click ranges from. */
@@ -432,6 +435,8 @@ const MediaCard = memo(function MediaCard({
   watchLater: WatchLaterMembership;
   /** Set only on the focused card, so the "W" shortcut can drive this toggle. */
   watchLaterRef?: Ref<HTMLButtonElement>;
+  /** Can be dragged onto a collection in the rail (off while reordering). */
+  fileDraggable: boolean;
 }) {
   // The card is split into two click regions so the click target controls
   // whether the detail view auto-plays. Thumbnail click → auto-play (default);
@@ -440,8 +445,10 @@ const MediaCard = memo(function MediaCard({
   // metadata region opens the detail view without starting playback.
   const { onThumbnailClick } = useActivateFile();
   const { selected, onSelectableClick } = useSelectableClick(file, index);
+  const dragProps = useFileDrag(file, selected, fileDraggable);
   return (
     <div
+      {...dragProps}
       data-testid="media-card"
       aria-current={focused ? "true" : undefined}
       className={cn(

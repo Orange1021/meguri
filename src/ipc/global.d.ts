@@ -8,6 +8,7 @@ declare global {
       on(channel: string, cb: (payload: unknown) => void): () => void;
       setZoomFactor(factor: number): void;
       getZoomFactor(): number;
+      addDroppedWorkspace(file: File): Promise<unknown>;
     };
   }
 }

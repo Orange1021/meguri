@@ -487,6 +487,21 @@ export const en: Record<TranslationKey, string> = {
   "workspace.addedToast": "Workspace added",
   "workspace.removedToast": "Workspace deleted",
   "workspace.removedToastDetail": '"{label}" was removed.',
+  "workspace.alreadyAddedToast": "This folder is already a workspace",
+  "drop.overlayTitle": "Drop folders to add them as workspaces",
+  "drop.foldersOnly":
+    "Meguri indexes folders, not individual files. Drop a folder instead.",
+  "drop.addTitle": "Add workspace",
+  "drop.addConfirm": 'Add "{name}" as a workspace and scan it?',
+  "drop.addAction": "Add",
+  "drop.notDirectory": '"{name}" is not a folder, so it was not added',
+  "drop.addFailed": 'Could not add "{name}"',
+  "drop.addedToCollection": 'Added {count} files to "{name}"',
+  "drop.alreadyInCollection": 'Already in "{name}"',
+  "drop.addToCollectionFailed": "Could not add to the collection",
+  "drag.fileCount": "{count} files",
+  "drag.selectionPending":
+    "The selected folders are still loading. Drag again in a moment.",
 
   // user collections
   "collection.create": "Create user collection",

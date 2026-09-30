@@ -91,6 +91,16 @@ The event channels are listed in `EVENT_CHANNELS` in `shared/ipc/channelNames.ts
 The preload whitelist is built from `shared/ipc/channelNames.ts` at bundle time,
 so it stays in sync without a separate manual list.
 
+A channel whose input the renderer must not be able to forge goes in
+`PRELOAD_INVOKE_CHANNELS` instead. Those channels are validated and handled like
+any other, but they are left off the whitelist: only a dedicated preload function
+calls them. `workspace_add_path` is the one such channel. A folder dropped from
+the OS reaches the renderer as a `File`; `window.api.addDroppedWorkspace(file)`
+resolves its path in the preload with `webUtils.getPathForFile()` and sends it to
+main. The renderer never sees the path. Main still re-checks that it is an
+existing directory (`droppedDirectory()` in `electron/core/paths.ts`) before
+registering it.
+
 ## Tray-resident lifecycle
 
 The app lives in the system tray and **does not quit when its window is closed**.
