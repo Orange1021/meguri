@@ -188,7 +188,9 @@ need no bookkeeping.
   itself is the ordinary `files_search` with `SearchQuery.folder`
   (`{ path, recursive }`). All three run on the query worker.
 - **Scope.** Folders exist inside one real workspace only. The renderer does not
-  offer the "show by folder" option over `All` or a collection.
+  offer the "show by folder" option over `All` or a collection; showing a
+  folder from elsewhere (a file's detail, a saved search) switches to its
+  workspace first.
 
 ## Collections
 
@@ -216,4 +218,8 @@ they persist in the renderer's `localStorage` (`SMART_COLLECTIONS_KEY`). The
 schema and normalization live in `src/lib/smartCollections.ts`, the hook in
 `src/hooks/useSmartCollections.ts`, and the UI in
 `src/components/SmartCollectionsMenu.tsx`. A query is passed through
-`cleanSearchQuery()` to drop empty fields before it is stored.
+`cleanSearchQuery()` to drop empty fields before it is stored. A folder below
+the root is kept as `folder: { path, recursive: true }` and saved together with
+the collection's `workspaceId`, since a folder path means nothing outside its
+own workspace; a folder with no workspace to place it in is dropped. Opening
+such a search switches to that workspace and browses the folder by folder.

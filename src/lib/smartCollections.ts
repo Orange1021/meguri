@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SearchQuerySchema, type SearchQuery } from "@shared/ipc/schema";
+import { ROOT_FOLDER } from "@shared/folderPath";
 import { resolveSortDir } from "@shared/sortDir";
 import { parseQualifiedTagName } from "@shared/tags";
 import type { TFunc } from "@/i18n/I18nProvider";
@@ -13,12 +14,26 @@ export const SmartCollectionSchema = z.object({
   id: z.string(),
   name: z.string(),
   query: SearchQuerySchema,
+  /**
+   * The workspace `query.folder` lies in. A folder path means nothing outside
+   * its own workspace, so it is saved only together with one.
+   */
+  workspaceId: z.string().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
 export type SmartCollection = z.infer<typeof SmartCollectionSchema>;
 
 const SmartCollectionsSchema = z.array(SmartCollectionSchema);
+
+/**
+ * The folder a query is scoped to, when that narrows anything: a folder below
+ * the root. The root is the whole workspace, so it is no condition at all.
+ */
+export function scopedFolderPath(query: SearchQuery): string | null {
+  const path = query.folder?.path;
+  return path != null && path !== ROOT_FOLDER ? path : null;
+}
 
 export function cleanSearchQuery(query: SearchQuery): SearchQuery {
   const next: SearchQuery = {};
@@ -39,6 +54,9 @@ export function cleanSearchQuery(query: SearchQuery): SearchQuery {
   if (query.btimeTo != null) next.btimeTo = query.btimeTo;
   if (query.sort) next.sort = query.sort;
   if (query.sortDir) next.sortDir = query.sortDir;
+  // Kept as "everything under it", the way a saved search reopens.
+  const folder = scopedFolderPath(query);
+  if (folder != null) next.folder = { path: folder, recursive: true };
   return next;
 }
 
@@ -47,14 +65,16 @@ export function hasSearchConditions(query: SearchQuery): boolean {
 }
 
 /**
- * Whether the query narrows the list at all — anything but the sort. The folder
- * view keys off it: with nothing narrowing, a folder shows its own contents;
- * with a condition, it searches everything below it.
+ * Whether the query narrows the list at all — anything but the sort and the
+ * folder. The folder view keys off it: with nothing narrowing, a folder shows
+ * its own contents; with a condition, it searches everything below it.
  */
 export function hasFilterConditions(query: SearchQuery): boolean {
   const rest = cleanSearchQuery(query);
   delete rest.sort;
   delete rest.sortDir;
+  // The folder is where the view is, not what narrows it.
+  delete rest.folder;
   return Object.keys(rest).length > 0;
 }
 
@@ -77,15 +97,23 @@ export function saveSmartCollections(collections: SmartCollection[]): void {
   }
 }
 
+/**
+ * `workspaceId` is the workspace the list shows; it is kept only when the
+ * query has a folder, and a folder with no workspace to place it is dropped.
+ */
 export function makeSmartCollection(
   name: string,
   query: SearchQuery,
+  workspaceId?: string | null,
 ): SmartCollection {
   const now = Math.floor(Date.now() / 1000);
+  const cleaned = cleanSearchQuery(query);
+  if (cleaned.folder && !workspaceId) delete cleaned.folder;
   return {
     id: `${now}-${Math.random().toString(36).slice(2, 10)}`,
     name: name.trim(),
-    query: cleanSearchQuery(query),
+    query: cleaned,
+    ...(cleaned.folder && workspaceId ? { workspaceId } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -115,6 +143,8 @@ export function describeDateRange(
 
 export function describeSearchQuery(t: TFunc, query: SearchQuery): string {
   const parts: string[] = [];
+  const folder = scopedFolderPath(query);
+  if (folder != null) parts.push(`${t("folder.chip")}: ${folder}`);
   if (query.q) parts.push(`"${query.q}"`);
   if (query.kind) {
     const key = kindLabelKey(query.kind);

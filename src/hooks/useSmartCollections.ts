@@ -31,8 +31,8 @@ export function useSmartCollections() {
   );
 
   const addCollection = useCallback(
-    (name: string, query: SearchQuery) => {
-      const collection = makeSmartCollection(name, query);
+    (name: string, query: SearchQuery, workspaceId?: string | null) => {
+      const collection = makeSmartCollection(name, query, workspaceId);
       persist((prev) => [collection, ...prev]);
       return collection;
     },

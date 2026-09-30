@@ -100,7 +100,20 @@ Discovery through its filter. Both name the folder they draw from
 (`FolderScopeChip`, spelled from the workspace down — the workspace alone for
 its root). Both buttons are
 enabled on the same rule — something to draw from, which by folder is the
-listing's direct files plus its child folders' counts. Over `All`
+listing's direct files plus its child folders' counts. Below the root, the
+folder is also read back in the filter bar as a chip (`filterValue` adds it to
+the query the bar sees; `onFilterChange` splits it off again), so removing it
+or "Clear all" returns to the root and a saved search carries it. The folder
+shown in the header opens a menu of its child folders, and a file's detail
+view offers "Show folder in library", which turns the option on and moves
+there through `showFolderInLibrary` (switching workspace when needed). Such a
+request commits only once its workspace is active: switches are serialized, a
+removed workspace is refused before `workspace_switch` (which would rescan the
+active one instead), and a request overtaken by another request or by another
+workspace becoming active is dropped. A move (`useFolderNav().moves`) or a
+change of conditions drops it only once it is in its own workspace, since a
+switch cannot be taken back. A folder that cannot be resolved is not gone to:
+with other conditions the view would only search it, never correct it. Over `All`
 or a collection the view is drawn flat (`isFolderView`) without overwriting the
 stored option.
 

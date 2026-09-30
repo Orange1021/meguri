@@ -54,6 +54,7 @@ import { SelectionProvider } from "@/components/SelectionContext";
 import { FolderHeader } from "@/components/FolderHeader";
 import { hasFilterConditions } from "@/lib/smartCollections";
 import { useFolderNav } from "./useFolderNav";
+import { useFolderFilter } from "./useFolderFilter";
 import { setListCounts, type ListCounts } from "@/hooks/useListCounts";
 import { useFolderNavKeys } from "./useFolderNavKeys";
 import { useFolderPlaylist } from "./useFolderPlaylist";
@@ -145,8 +146,8 @@ export default function Home() {
   // everything below it instead, as a flat result.
   const folderSearching = folderView && hasFilterConditions(filter);
   // The folder rides on the query sent, never on `filter` itself: that state
-  // is what smart collections save and Discover opens with, and neither has a
-  // folder to go to.
+  // is what Discover opens with, which scopes to the folder its own way. The
+  // filter bar reads the folder back through `filterValue` instead.
   const searchQuery = useMemo<SearchQuery>(
     () =>
       folderView
@@ -157,6 +158,14 @@ export default function Home() {
         : filter,
     [filter, folderView, folderNav.path, folderSearching],
   );
+
+  const { filterValue, onFilterChange, onApplySaved } = useFolderFilter({
+    folderView,
+    folderNav,
+    filter,
+    setFilter,
+    setByFolder,
+  });
 
   // Include the workspace ID in the key so switching workspaces (incl. "All") refetches separately.
   const search = useFilesSearch(
@@ -748,13 +757,16 @@ export default function Home() {
       )}
 
       <FilterBar
-        value={filter}
-        onChange={setFilter}
+        value={filterValue}
+        onChange={onFilterChange}
         manualSortAvailable={!!activeCollection}
+        workspaceId={folderAvailable ? workspaceId : null}
+        onApplySaved={onApplySaved}
       />
 
       {folderView && (
         <FolderHeader
+          workspaceId={workspaceId ?? undefined}
           rootLabel={activeWorkspace?.label ?? t("folder.root")}
           path={folderNav.path}
           onNavigate={folderNav.goTo}

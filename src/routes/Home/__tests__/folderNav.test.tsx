@@ -91,4 +91,46 @@ describe("useFolderNav", () => {
     rerender({ ws: "ws1" });
     expect(result.current.path).toBe("Movie");
   });
+
+  it("visits a folder of the workspace shown, remembered for back", () => {
+    const { result } = setup();
+    act(() => result.current.enter("Movie"));
+    act(() => result.current.visit("ws1", "Photos/2024"));
+    expect(result.current.path).toBe("Photos/2024");
+    act(() => result.current.goBack());
+    expect(result.current.path).toBe("Movie");
+  });
+
+  it("visits a folder of another workspace, waiting there for the switch", () => {
+    const { result, rerender } = setup();
+    act(() => result.current.visit("ws2", "Clips"));
+    // The workspace shown is untouched until the caller switches to ws2.
+    expect(result.current.path).toBe("");
+    rerender({ ws: "ws2" });
+    expect(result.current.path).toBe("Clips");
+    expect(result.current.canGoBack).toBe(true);
+  });
+
+  it("adds no back step when visiting the folder already shown", () => {
+    const { result } = setup();
+    act(() => result.current.enter("Movie"));
+    act(() => result.current.visit("ws1", "Movie"));
+    act(() => result.current.goBack());
+    expect(result.current.path).toBe("");
+    expect(result.current.canGoBack).toBe(false);
+  });
+
+  it("counts the user's moves, not the view's own corrections", () => {
+    const { result } = setup();
+    const start = result.current.moves();
+    act(() => result.current.enter("a"));
+    act(() => result.current.goTo("a/b"));
+    act(() => result.current.goUp());
+    act(() => result.current.goBack());
+    expect(result.current.moves()).toBe(start + 4);
+    // A folder gone (replace) or one opened from elsewhere (visit) is no move.
+    act(() => result.current.replace(""));
+    act(() => result.current.visit("ws1", "c"));
+    expect(result.current.moves()).toBe(start + 4);
+  });
 });

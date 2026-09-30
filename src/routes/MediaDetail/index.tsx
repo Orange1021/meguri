@@ -10,7 +10,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { applyTagFilter } from "@/lib/ui-events";
+import { applyTagFilter, showFolderInLibrary } from "@/lib/ui-events";
+import { folderPathOf } from "@/lib/relPath";
+import { isNormalizedFolderPath } from "@shared/folderPath";
 import { api, ALL_ID, COLLECTION_ID_PREFIX } from "@/ipc/client";
 import { useAppStatus } from "@/hooks/useAppStatus";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -107,6 +109,14 @@ export default function MediaDetail() {
       ? activeId
       : "";
   const wsId = searchParams.get("ws") ?? activeFallback;
+  // Like a tag filter, showing the file's folder closes the detail to the list.
+  const onShowFolder = useCallback(
+    (path: string) => {
+      showFolderInLibrary({ workspaceId: wsId, path });
+      void navigate("/");
+    },
+    [navigate, wsId],
+  );
 
   const thumbVersion = useThumbVersion(fileId, wsId);
 
@@ -319,6 +329,8 @@ export default function MediaDetail() {
   const slash = d.relPath.lastIndexOf("/");
   const basename = slash >= 0 ? d.relPath.slice(slash + 1) : d.relPath;
   const dir = slash >= 0 ? d.relPath.slice(0, slash) : "";
+  // A file of a collection is still in a real workspace: the one named by wsId.
+  const folderPath = folderPathOf(d.relPath);
 
   return (
     <MediaModal
@@ -452,6 +464,11 @@ export default function MediaDetail() {
             onDeleteFromIndex={() => void actions.deleteFromIndex()}
             onAddToCollection={actions.addToCollection}
             onRemoveFromCollection={actions.removeFromCollection}
+            onShowFolder={
+              wsId && isNormalizedFolderPath(folderPath)
+                ? () => onShowFolder(folderPath)
+                : undefined
+            }
             t={t}
           />
 

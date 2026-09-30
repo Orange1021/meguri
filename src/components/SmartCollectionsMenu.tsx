@@ -23,14 +23,17 @@ import {
   cleanSearchQuery,
   describeSearchQuery,
   hasSearchConditions,
+  type SmartCollection,
 } from "@/lib/smartCollections";
 
 interface Props {
   value: SearchQuery;
-  onApply: (query: SearchQuery) => void;
+  /** The real workspace shown, saved with a folder condition (see makeSmartCollection). */
+  workspaceId?: string | null;
+  onApply: (collection: SmartCollection) => void;
 }
 
-export function SmartCollectionsMenu({ value, onApply }: Props) {
+export function SmartCollectionsMenu({ value, workspaceId, onApply }: Props) {
   const { t } = useI18n();
   const { collections, addCollection, removeCollection } =
     useSmartCollections();
@@ -55,7 +58,7 @@ export function SmartCollectionsMenu({ value, onApply }: Props) {
   const onSave = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    addCollection(trimmed, value);
+    addCollection(trimmed, value, workspaceId);
     setSaveOpen(false);
   };
 
@@ -97,7 +100,7 @@ export function SmartCollectionsMenu({ value, onApply }: Props) {
             collections.map((collection) => (
               <DropdownMenuItem
                 key={collection.id}
-                onSelect={() => onApply(collection.query)}
+                onSelect={() => onApply(collection)}
                 className="items-start gap-2 pr-1"
               >
                 <Bookmark className="mt-0.5" />

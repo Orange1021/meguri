@@ -3,6 +3,15 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { FolderHeader } from "@/components/FolderHeader";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
+const foldersList = vi.hoisted(() =>
+  vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+);
+vi.mock("@/ipc/client", () => ({
+  api: {
+    foldersList: (ws: string, path: string) => foldersList(ws, path),
+  },
+}));
+
 function render(path: string) {
   const onNavigate = vi.fn();
   const onBack = vi.fn();
@@ -110,5 +119,104 @@ describe("FolderHeader", () => {
     const { nav, onCopy } = render("Movie");
     fireEvent.click(within(nav).getByRole("button", { name: "Copy path" }));
     expect(onCopy).toHaveBeenCalledTimes(1);
+  });
+
+  describe("subfolder menu", () => {
+    function renderMenu(path: string) {
+      const onNavigate = vi.fn();
+      renderWithProviders(
+        <FolderHeader
+          workspaceId="ws1"
+          rootLabel="Videos"
+          path={path}
+          onNavigate={onNavigate}
+          canGoBack={false}
+          onBack={() => {}}
+          onUp={() => {}}
+          onOpenInFileManager={() => {}}
+          onCopyPath={() => {}}
+        />,
+      );
+      return onNavigate;
+    }
+
+    it("lists the folder's child folders and opens one", async () => {
+      foldersList.mockResolvedValue({
+        path: "Movie",
+        folders: [
+          {
+            name: "2024",
+            path: "Movie/2024",
+            count: 3,
+            subfolders: 0,
+            previews: [],
+          },
+        ],
+        fileCount: 1,
+      });
+      const onNavigate = renderMenu("Movie");
+      const trigger = screen.getByRole("button", {
+        name: 'Subfolders of "Movie"',
+      });
+      // Still marked as the level shown, on the button its label names.
+      expect(trigger.getAttribute("aria-current")).toBe("page");
+      fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+
+      fireEvent.click(await screen.findByRole("menuitem", { name: /2024/ }));
+      expect(foldersList).toHaveBeenCalledWith("ws1", "Movie");
+      expect(onNavigate).toHaveBeenCalledWith("Movie/2024");
+    });
+
+    it("says so when the folder has no child folders", async () => {
+      foldersList.mockResolvedValue({ path: "", folders: [], fileCount: 2 });
+      renderMenu("");
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: 'Subfolders of "Videos"' }),
+        { button: 0, ctrlKey: false },
+      );
+      expect(
+        await screen.findByRole("menuitem", { name: "No subfolders" }),
+      ).toBeTruthy();
+    });
+
+    it("tells a failed listing apart from an empty one", async () => {
+      foldersList.mockRejectedValue(new Error("worker down"));
+      renderMenu("Movie");
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: 'Subfolders of "Movie"' }),
+        { button: 0, ctrlKey: false },
+      );
+      expect(
+        await screen.findByRole("menuitem", {
+          name: "Couldn't list the subfolders",
+        }),
+      ).toBeTruthy();
+    });
+
+    it("lists nothing for a folder that is gone", async () => {
+      // Answered with the nearest ancestor: those children are not this folder's.
+      foldersList.mockResolvedValue({
+        path: "",
+        folders: [
+          {
+            name: "Other",
+            path: "Other",
+            count: 1,
+            subfolders: 0,
+            previews: [],
+          },
+        ],
+        fileCount: 0,
+      });
+      renderMenu("Gone");
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: 'Subfolders of "Gone"' }),
+        { button: 0, ctrlKey: false },
+      );
+      expect(
+        await screen.findByRole("menuitem", { name: "No subfolders" }),
+      ).toBeTruthy();
+      expect(screen.queryByRole("menuitem", { name: /Other/ })).toBeNull();
+    });
   });
 });
