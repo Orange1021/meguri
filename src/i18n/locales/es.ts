@@ -381,6 +381,14 @@ export const es: Record<TranslationKey, string> = {
     "Prueba otras condiciones o busca desde una carpeta superior.",
   "folder.moved":
     "La carpeta que estabas viendo ya no existe; se ha subido de nivel.",
+  "folder.chip": "Carpeta",
+  "folder.showInLibrary": "Mostrar la carpeta en la biblioteca",
+  "folder.showFailed": "No se pudo mostrar la carpeta",
+  "folder.subfolderMenu": 'Subcarpetas de "{name}"',
+  "folder.loading": "Cargando…",
+  "folder.noSubfolders": "No hay subcarpetas",
+  "folder.subfoldersFailed": "No se pudieron listar las subcarpetas",
+  "folder.workspaceGone": "El espacio de trabajo ya no está disponible",
   "shortcuts.folderBack":
     "Volver a la carpeta anterior (al mostrar por carpetas)",
   "shortcuts.folderUp": "Subir un nivel (al mostrar por carpetas)",

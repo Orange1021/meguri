@@ -6,6 +6,7 @@ import {
   FolderMinus,
   FolderOpen,
   FolderPlus,
+  FolderSearch,
   ImageDown,
   Trash2,
 } from "lucide-react";
@@ -48,6 +49,7 @@ export function DetailActions({
   onDeleteFromIndex,
   onAddToCollection,
   onRemoveFromCollection,
+  onShowFolder,
   t,
 }: {
   detail: FileDetail;
@@ -64,6 +66,8 @@ export function DetailActions({
   onDeleteFromIndex: () => void;
   onAddToCollection: (c: CollectionRef) => void;
   onRemoveFromCollection: (c: CollectionRef) => void;
+  /** Browse the file's folder in the library; omitted when that cannot be done. */
+  onShowFolder?: () => void;
   t: TFunc;
 }) {
   return (
@@ -145,6 +149,18 @@ export function DetailActions({
             className="min-w-44 border border-muted/35 bg-surface p-0"
           >
             <DropdownMenuGroup>
+              {onShowFolder && (
+                <>
+                  <DropdownMenuItem
+                    className="rounded-none px-3 py-2 text-xs"
+                    onSelect={onShowFolder}
+                  >
+                    <FolderSearch />
+                    {t("folder.showInLibrary")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="mx-0 my-0 bg-muted/35" />
+                </>
+              )}
               <DropdownMenuItem
                 className="rounded-none px-3 py-2 text-xs"
                 onSelect={() => void api.openFolder(fileId, wsId)}

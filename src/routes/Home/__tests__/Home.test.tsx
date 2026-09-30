@@ -13,7 +13,8 @@ import {
   WS_ID,
 } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
-import { applyTagFilter } from "@/lib/ui-events";
+import { applyTagFilter, showFolderInLibrary } from "@/lib/ui-events";
+import { SMART_COLLECTIONS_KEY } from "@/lib/smartCollections";
 import { useMediaNav, usePlaylistNav } from "@/components/MediaNavContext";
 import { getListCounts } from "@/hooks/useListCounts";
 import { BY_FOLDER_KEY, VIEW_KEY } from "@/routes/Home/utils";
@@ -33,6 +34,7 @@ const mocks = vi.hoisted(() => ({
   folderOpenInFileManager:
     vi.fn<(ws: string, path: string) => Promise<unknown>>(),
   folderCopyPath: vi.fn<(ws: string, path: string) => Promise<unknown>>(),
+  workspaceSwitch: vi.fn<(id: string) => Promise<unknown>>(),
 }));
 
 // Toasts are asserted on the call: no Toaster is mounted in these tests.
@@ -63,6 +65,7 @@ vi.mock("@/ipc/client", () => ({
       mocks.folderOpenInFileManager(ws, path),
     folderCopyPath: (ws: string, path: string) =>
       mocks.folderCopyPath(ws, path),
+    workspaceSwitch: (id: string) => mocks.workspaceSwitch(id),
     tagsList: vi.fn().mockResolvedValue([]),
     openExternal: vi.fn().mockResolvedValue(undefined),
     openFolder: vi.fn().mockResolvedValue(undefined),
@@ -627,6 +630,329 @@ describe("Home folder view", () => {
     await run("Stop showing by folder");
     await waitFor(() => expect(screen.queryByTestId("folder-row")).toBeNull());
     expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
+  });
+
+  it("reads the folder back as a chip that leaves for the root", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    // Nothing to report at the root.
+    expect(screen.queryByText("Folder: Movie")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    const chip = await screen.findByText("Folder: Movie");
+    fireEvent.click(
+      within(chip.parentElement as HTMLElement).getByRole("button", {
+        name: "Remove this filter",
+      }),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: false }),
+    );
+    expect(screen.queryByText("Folder: Movie")).toBeNull();
+  });
+
+  it("clears the folder with every other condition", async () => {
+    renderWithProviders(<AppRoutes />);
+    await screen.findByTestId("folder-card");
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Open folder "Movie"' }),
+    );
+    await screen.findByText("Folder: Movie");
+    applyTagFilter(["tag:beach"]);
+    await waitFor(() =>
+      expect(lastSearch()).toMatchObject({
+        q: "tag:beach",
+        folder: { path: "Movie", recursive: true },
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "", recursive: false }),
+    );
+    expect(lastSearch().q).toBeUndefined();
+  });
+
+  it("shows a file's folder from the detail view, turning the option on", async () => {
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    mocks.fileGet.mockResolvedValue({
+      ...sampleFileDetail,
+      relPath: "Movie/2024/sample.mp4",
+    });
+    renderWithProviders(<AppRoutes />, { route: `/file/1?ws=${WS_ID}` });
+
+    fireEvent.pointerDown(
+      await screen.findByRole("button", { name: "More actions" }),
+      { button: 0, ctrlKey: false },
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Show folder in library" }),
+    );
+
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({
+        path: "Movie/2024",
+        recursive: false,
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("true");
+    // Already the workspace shown: nothing to switch.
+    expect(mocks.workspaceSwitch).not.toHaveBeenCalled();
+    const crumbs = screen.getByRole("navigation", { name: "Folder path" });
+    expect(within(crumbs).getByText("2024").getAttribute("aria-current")).toBe(
+      "page",
+    );
+  });
+
+  it("switches to the file's workspace to show its folder from All", async () => {
+    mocks.appStatus.mockResolvedValue({
+      ...defaultAppStatus,
+      root: "All",
+      workspaceId: "__all__",
+    });
+    mocks.workspaceSwitch.mockReset();
+    mocks.workspaceSwitch.mockImplementation(() => {
+      mocks.appStatus.mockResolvedValue(defaultAppStatus);
+      return Promise.resolve(undefined);
+    });
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+
+    showFolderInLibrary({ workspaceId: WS_ID, path: "Movie" });
+
+    await waitFor(() =>
+      expect(mocks.workspaceSwitch).toHaveBeenCalledWith(WS_ID),
+    );
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Movie", recursive: false }),
+    );
+  });
+
+  it("says so when the workspace to show cannot be switched to", async () => {
+    mocks.appStatus.mockResolvedValue({
+      ...defaultAppStatus,
+      root: "All",
+      workspaceId: "__all__",
+    });
+    mocks.workspaceSwitch.mockReset();
+    mocks.workspaceSwitch.mockRejectedValue(new Error("gone"));
+    toasts.error.mockClear();
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    showFolderInLibrary({ workspaceId: "ws-removed", path: "Movie" });
+
+    await waitFor(() =>
+      expect(toasts.error).toHaveBeenCalledWith(
+        "Couldn't show the folder",
+        expect.objectContaining({ description: "gone" }),
+      ),
+    );
+    // Nothing changed on the way: the option stays as it was.
+    expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
+  });
+
+  it("says so when the workspace to show is gone, which the switch does not refuse", async () => {
+    mocks.appStatus.mockResolvedValue({
+      ...defaultAppStatus,
+      root: "All",
+      workspaceId: "__all__",
+    });
+    mocks.workspaceSwitch.mockReset();
+    // A removed workspace's ID: the main process leaves All active and resolves.
+    mocks.workspaceSwitch.mockResolvedValue(undefined);
+    toasts.error.mockClear();
+    localStorage.setItem(BY_FOLDER_KEY, "false");
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+
+    showFolderInLibrary({ workspaceId: "ws-removed", path: "Movie" });
+
+    await waitFor(() =>
+      expect(toasts.error).toHaveBeenCalledWith(
+        "Couldn't show the folder",
+        expect.objectContaining({
+          description: "The workspace is no longer available",
+        }),
+      ),
+    );
+    expect(localStorage.getItem(BY_FOLDER_KEY)).toBe("false");
+    expect(lastSearch().folder).toBeUndefined();
+  });
+
+  it("opens a saved search whose folder is gone at its nearest ancestor", async () => {
+    // Movie/Old was removed after the search was saved; with a condition on,
+    // the view only searches, so the folder is resolved when it is opened.
+    mocks.foldersList.mockImplementation((_ws: string, path: string) =>
+      Promise.resolve({
+        path: path === "Movie/Old" ? "Movie" : path,
+        folders: path === "" ? [movie] : [],
+        fileCount: 1,
+      }),
+    );
+    toasts.info.mockClear();
+    localStorage.setItem(
+      SMART_COLLECTIONS_KEY,
+      JSON.stringify([
+        {
+          id: "1",
+          name: "Old videos",
+          query: {
+            kind: "video",
+            folder: { path: "Movie/Old", recursive: true },
+          },
+          workspaceId: WS_ID,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    try {
+      renderWithProviders(<AppRoutes />);
+      await screen.findByTestId("folder-card");
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Smart collections" }),
+        { button: 0, ctrlKey: false },
+      );
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: /Old videos/ }),
+      );
+
+      await waitFor(() =>
+        expect(lastSearch()).toMatchObject({
+          kind: "video",
+          folder: { path: "Movie", recursive: true },
+        }),
+      );
+      expect(toasts.info).toHaveBeenCalledWith(
+        "The folder you were viewing is gone, so you were moved up.",
+        expect.anything(),
+      );
+      expect(
+        mocks.filesSearch.mock.calls.some(
+          ([q]) =>
+            (q as { folder?: { path: string } }).folder?.path === "Movie/Old",
+        ),
+      ).toBe(false);
+    } finally {
+      localStorage.removeItem(SMART_COLLECTIONS_KEY);
+    }
+  });
+
+  it("lets only the latest of two folder requests land", async () => {
+    mocks.appStatus.mockResolvedValue({
+      ...defaultAppStatus,
+      root: "All",
+      workspaceId: "__all__",
+    });
+    let finishSwitch: () => void = () => {};
+    mocks.workspaceSwitch.mockReset();
+    mocks.workspaceSwitch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishSwitch = () => {
+            mocks.appStatus.mockResolvedValue(defaultAppStatus);
+            resolve(undefined);
+          };
+        }),
+    );
+    renderWithProviders(<AppRoutes />);
+    await screen.findByText("sample.mp4");
+
+    // The first waits on a slow switch; the second is asked for meanwhile.
+    showFolderInLibrary({ workspaceId: WS_ID, path: "Movie" });
+    const first = finishSwitch;
+    showFolderInLibrary({ workspaceId: WS_ID, path: "Photos" });
+    finishSwitch();
+    await waitFor(() =>
+      expect(lastSearch().folder).toEqual({ path: "Photos", recursive: false }),
+    );
+    first();
+    // The earlier request, finishing last, does not pull the view back.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(lastSearch().folder).toEqual({ path: "Photos", recursive: false });
+  });
+
+  it("opens a saved search without a folder at the root", async () => {
+    localStorage.setItem(
+      SMART_COLLECTIONS_KEY,
+      JSON.stringify([
+        {
+          id: "1",
+          name: "Videos",
+          query: { kind: "video" },
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    try {
+      renderWithProviders(<AppRoutes />);
+      await screen.findByTestId("folder-card");
+      fireEvent.click(
+        screen.getByRole("button", { name: 'Open folder "Movie"' }),
+      );
+      await screen.findByText("Folder: Movie");
+
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Smart collections" }),
+        { button: 0, ctrlKey: false },
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: /Videos/ }));
+
+      // Every condition is replaced, the folder included.
+      await waitFor(() =>
+        expect(lastSearch()).toMatchObject({
+          kind: "video",
+          folder: { path: "", recursive: true },
+        }),
+      );
+      expect(screen.queryByText("Folder: Movie")).toBeNull();
+    } finally {
+      localStorage.removeItem(SMART_COLLECTIONS_KEY);
+    }
+  });
+
+  it("opens a saved search at its folder", async () => {
+    localStorage.setItem(
+      SMART_COLLECTIONS_KEY,
+      JSON.stringify([
+        {
+          id: "1",
+          name: "Movie videos",
+          query: { kind: "video", folder: { path: "Movie", recursive: true } },
+          workspaceId: WS_ID,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    try {
+      renderWithProviders(<AppRoutes />);
+      await screen.findByTestId("folder-card");
+
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Smart collections" }),
+        { button: 0, ctrlKey: false },
+      );
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: /Movie videos/ }),
+      );
+
+      await waitFor(() =>
+        expect(lastSearch()).toMatchObject({
+          kind: "video",
+          folder: { path: "Movie", recursive: true },
+        }),
+      );
+      expect(await screen.findByText("Folder: Movie")).toBeTruthy();
+    } finally {
+      localStorage.removeItem(SMART_COLLECTIONS_KEY);
+    }
   });
 
   it("opens Discovery scoped to the folder shown", async () => {

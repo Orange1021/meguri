@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dirOf, fileNameOf } from "@/lib/relPath";
+import { dirOf, fileNameOf, folderPathOf } from "@/lib/relPath";
 
 describe("fileNameOf", () => {
   it("extracts the file name from a POSIX relative path", () => {
@@ -26,5 +26,16 @@ describe("dirOf", () => {
 
   it("returns an empty string for a file at the root", () => {
     expect(dirOf("video.mp4")).toBe("");
+  });
+});
+
+describe("folderPathOf", () => {
+  it('names the folder in the "/"-separated form', () => {
+    expect(folderPathOf("sub/dir/video.mp4")).toBe("sub/dir");
+    expect(folderPathOf("sub\\dir\\video.mp4")).toBe("sub/dir");
+  });
+
+  it("is the root for a file at the root", () => {
+    expect(folderPathOf("video.mp4")).toBe("");
   });
 });

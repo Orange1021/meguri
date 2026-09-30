@@ -275,3 +275,38 @@ describe("collapsedConditionCount", () => {
     ).toBe(2);
   });
 });
+
+describe("folder", () => {
+  const folder = { path: "Movie/2024", recursive: true };
+
+  it("comes first, as a primary chip naming the path", () => {
+    const [first] = describe_({ kind: "video", folder });
+    expect(first).toMatchObject({
+      key: "folder",
+      label: "Folder: Movie/2024",
+      group: "primary",
+      chip: true,
+    });
+  });
+
+  it("is absent at the workspace root", () => {
+    expect(keys({ folder: { path: "", recursive: true } })).toEqual([]);
+  });
+
+  it("clears only itself", () => {
+    expect(
+      find({ kind: "video", folder }, "folder").clear({
+        kind: "video",
+        folder,
+      }),
+    ).toEqual({ kind: "video" });
+  });
+
+  it("does not count toward the collapsed panel's badge", () => {
+    expect(collapsedConditionCount(describe_({ folder }))).toBe(0);
+  });
+
+  it("clears along with everything else", () => {
+    expect(clearEverything({ ...EVERYTHING, folder })).toEqual({});
+  });
+});

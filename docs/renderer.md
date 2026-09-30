@@ -100,7 +100,13 @@ Discovery through its filter. Both name the folder they draw from
 (`FolderScopeChip`, spelled from the workspace down — the workspace alone for
 its root). Both buttons are
 enabled on the same rule — something to draw from, which by folder is the
-listing's direct files plus its child folders' counts. Over `All`
+listing's direct files plus its child folders' counts. Below the root, the
+folder is also read back in the filter bar as a chip (`filterValue` adds it to
+the query the bar sees; `onFilterChange` splits it off again), so removing it
+or "Clear all" returns to the root and a saved search carries it. The folder
+shown in the header opens a menu of its child folders, and a file's detail
+view offers "Show folder in library", which turns the option on and moves
+there through `showFolderInLibrary` (switching workspace when needed). Over `All`
 or a collection the view is drawn flat (`isFolderView`) without overwriting the
 stored option.
 

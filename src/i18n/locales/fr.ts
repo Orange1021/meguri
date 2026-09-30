@@ -381,6 +381,14 @@ export const fr: Record<TranslationKey, string> = {
     "Essayez d'autres critères ou cherchez depuis un dossier parent.",
   "folder.moved":
     "Le dossier affiché n'existe plus ; vous avez été ramené au niveau supérieur.",
+  "folder.chip": "Dossier",
+  "folder.showInLibrary": "Afficher le dossier dans la bibliothèque",
+  "folder.showFailed": "Impossible d'afficher le dossier",
+  "folder.subfolderMenu": "Sous-dossiers de « {name} »",
+  "folder.loading": "Chargement…",
+  "folder.noSubfolders": "Aucun sous-dossier",
+  "folder.subfoldersFailed": "Impossible de lister les sous-dossiers",
+  "folder.workspaceGone": "L'espace de travail n'est plus disponible",
   "shortcuts.folderBack":
     "Revenir au dossier précédent (affichage par dossier)",
   "shortcuts.folderUp": "Remonter d'un niveau (affichage par dossier)",

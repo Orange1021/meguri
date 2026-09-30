@@ -54,6 +54,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WATCH_LATER_ID } from "@shared/workspaceIds";
 import { cn } from "@/lib/utils";
+import { invalidateWorkspaceScoped } from "@/lib/workspaceScope";
 import { openCommandMenu, openShortcuts } from "@/lib/ui-events";
 import { useI18n, type TFunc } from "@/i18n/I18nProvider";
 import { LOGO_SRC, useLogo } from "@/hooks/useLogo";
@@ -86,20 +87,8 @@ export function WorkspaceRail() {
     queryFn: api.workspacesList,
   });
 
-  // Invalidate only the queries that must be refetched on workspace change.
-  // Avoid invalidating all queries (invalidateQueries()), since the chained
-  // files_search refetches during a scan would stall the main process. Refresh
-  // app_status first to be safe (when workspaceId changes, the files_search key
-  // also changes and is refetched automatically), then explicitly invalidate
-  // only the workspace list and the current search.
-  const invalidateWorkspaceScoped = async () => {
-    await qc.refetchQueries({ queryKey: ["app_status"] });
-    await qc.invalidateQueries({ queryKey: ["workspaces_list"] });
-    await qc.invalidateQueries({ queryKey: ["files_search"] });
-  };
-
   const refreshAll = async () => {
-    await invalidateWorkspaceScoped();
+    await invalidateWorkspaceScoped(qc);
     if (window.location.hash !== "#/") window.location.hash = "/";
   };
 
@@ -113,7 +102,7 @@ export function WorkspaceRail() {
   useEffect(() => {
     const unlistens: Array<() => void> = [];
     void events
-      .onWorkspaceChanged(() => void invalidateWorkspaceScoped())
+      .onWorkspaceChanged(() => void invalidateWorkspaceScoped(qc))
       .then((u) => unlistens.push(u));
     void events
       .onScanDone((done) => {
@@ -125,8 +114,6 @@ export function WorkspaceRail() {
       })
       .then((u) => unlistens.push(u));
     return () => unlistens.forEach((u) => u());
-    // invalidateWorkspaceScoped is stable since it derives from qc.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qc, t]);
 
   const add = useMutation({

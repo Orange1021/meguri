@@ -16,15 +16,26 @@ import { SegmentedControl } from "./SegmentedControl";
 import { MoreFiltersPopover } from "./MoreFiltersPopover";
 import { useI18n } from "@/i18n/I18nProvider";
 import { SmartCollectionsMenu } from "./SmartCollectionsMenu";
+import type { SmartCollection } from "@/lib/smartCollections";
 
 interface Props {
   value: SearchQuery;
   onChange: (q: SearchQuery) => void;
   /** True while a collection is active, which is where manual ordering applies. */
   manualSortAvailable?: boolean;
+  /** The real workspace shown, which a saved folder condition belongs to. */
+  workspaceId?: string | null;
+  /** Opens a saved search; by default its query simply replaces `value`. */
+  onApplySaved?: (collection: SmartCollection) => void;
 }
 
-export function FilterBar({ value, onChange, manualSortAvailable }: Props) {
+export function FilterBar({
+  value,
+  onChange,
+  manualSortAvailable,
+  workspaceId,
+  onApplySaved,
+}: Props) {
   const { t } = useI18n();
   const patch = (p: Partial<SearchQuery>) => onChange({ ...value, ...p });
 
@@ -100,7 +111,11 @@ export function FilterBar({ value, onChange, manualSortAvailable }: Props) {
         {/* Pushed to the far end: saved searches are a way *into* a set of
             conditions, not one more condition to set. */}
         <div className="ml-auto">
-          <SmartCollectionsMenu value={value} onApply={onChange} />
+          <SmartCollectionsMenu
+            value={value}
+            workspaceId={workspaceId}
+            onApply={onApplySaved ?? ((c) => onChange(c.query))}
+          />
         </div>
       </div>
 

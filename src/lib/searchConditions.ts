@@ -19,7 +19,7 @@ import {
 import type { SearchQuery } from "@/ipc/types";
 import type { TFunc } from "@/i18n/I18nProvider";
 import { toggleDuplicatesPatch } from "@/lib/duplicatesFilter";
-import { describeDateRange } from "@/lib/smartCollections";
+import { describeDateRange, scopedFolderPath } from "@/lib/smartCollections";
 import { sortLabel } from "@/lib/sortLabel";
 import { tagHumanLabel } from "@/lib/tagLabel";
 
@@ -65,6 +65,17 @@ export function describeConditions(
   t: TFunc,
 ): ConditionDescriptor[] {
   const out: ConditionDescriptor[] = [];
+
+  // First: it is where the list is, and every other condition narrows within it.
+  const folder = scopedFolderPath(query);
+  if (folder != null)
+    out.push({
+      key: "folder",
+      label: `${t("folder.chip")}: ${folder}`,
+      group: "primary",
+      chip: true,
+      clear: (q) => without(q, "folder"),
+    });
 
   const freeText = splitSearchTokens(query.q ?? "").filter(
     (token) => !isTagDirective(token),

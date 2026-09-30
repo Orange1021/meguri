@@ -56,3 +56,31 @@ export function onHighlightSearchToken(listener: (token: string) => void) {
   window.addEventListener(HIGHLIGHT_SEARCH_TOKEN, handler);
   return () => window.removeEventListener(HIGHLIGHT_SEARCH_TOKEN, handler);
 }
+
+const SHOW_FOLDER = "meguri:show-folder";
+
+export interface ShowFolderRequest {
+  workspaceId: string;
+  /** "/"-separated folder path inside the workspace ("" is the root). */
+  path: string;
+}
+
+/**
+ * Ask the library to browse one folder of a workspace by folder — switching to
+ * that workspace first when another is active. Like applyTagFilter, this is how
+ * a child-route modal reaches the list's own state.
+ */
+export function showFolderInLibrary(request: ShowFolderRequest) {
+  window.dispatchEvent(
+    new CustomEvent<ShowFolderRequest>(SHOW_FOLDER, { detail: request }),
+  );
+}
+
+export function onShowFolderInLibrary(
+  listener: (request: ShowFolderRequest) => void,
+) {
+  const handler = (e: Event) =>
+    listener((e as CustomEvent<ShowFolderRequest>).detail);
+  window.addEventListener(SHOW_FOLDER, handler);
+  return () => window.removeEventListener(SHOW_FOLDER, handler);
+}

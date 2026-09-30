@@ -36,6 +36,12 @@ export interface FolderNav {
    * the main process resolved its nearest remaining ancestor.
    */
   replace: (path: string) => void;
+  /**
+   * Jump to a folder of any workspace, e.g. from a file's detail or a saved
+   * search: remembered for "back" in that workspace. The workspace itself is
+   * switched by the caller.
+   */
+  visit: (workspaceId: string, path: string) => void;
 }
 
 export function useFolderNav(
@@ -91,6 +97,22 @@ export function useFolderNav(
     [update],
   );
 
+  const visit = useCallback(
+    (workspaceId: string, path: string) =>
+      setByWorkspace((all) => {
+        const current = all[workspaceId] ?? START;
+        if (current.path === path) return all;
+        return {
+          ...all,
+          [workspaceId]: {
+            path,
+            back: [...current.back, current.path].slice(-FOLDER_BACK_LIMIT),
+          },
+        };
+      }),
+    [],
+  );
+
   // The ancestor stepped back to may be where "back" would lead anyway (a
   // folder entered from its parent, then gone): drop those steps so "back"
   // never lands on the folder already shown.
@@ -114,7 +136,8 @@ export function useFolderNav(
       goBack,
       goUp,
       replace,
+      visit,
     }),
-    [entry, move, goBack, goUp, replace],
+    [entry, move, goBack, goUp, replace, visit],
   );
 }

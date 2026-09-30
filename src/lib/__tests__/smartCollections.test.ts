@@ -108,9 +108,78 @@ describe("hasFilterConditions", () => {
     expect(hasFilterConditions({ q: "   ", tags: [] })).toBe(false);
   });
 
-  it("never carries a folder scope into a saved search", () => {
+  it("does not count the folder as narrowing: it is where the view is", () => {
     expect(
-      cleanSearchQuery({ q: "x", folder: { path: "a", recursive: true } }),
+      hasFilterConditions({ folder: { path: "a", recursive: true } }),
+    ).toBe(false);
+  });
+});
+
+describe("folder condition", () => {
+  it("round-trips a folder through cleanSearchQuery as everything under it", () => {
+    expect(
+      cleanSearchQuery({ q: "x", folder: { path: "a/b", recursive: false } }),
+    ).toEqual({ q: "x", folder: { path: "a/b", recursive: true } });
+  });
+
+  it("drops the root, which narrows nothing", () => {
+    expect(
+      cleanSearchQuery({ q: "x", folder: { path: "", recursive: true } }),
     ).toEqual({ q: "x" });
+  });
+
+  it("makes a folder alone worth saving", () => {
+    expect(
+      hasSearchConditions({ folder: { path: "a", recursive: true } }),
+    ).toBe(true);
+  });
+
+  it("saves the workspace with a folder, so the folder can be found again", () => {
+    const c = makeSmartCollection(
+      "Clips",
+      { kind: "video", folder: { path: "a/b", recursive: true } },
+      "ws1",
+    );
+    expect(c.query).toEqual({
+      kind: "video",
+      folder: { path: "a/b", recursive: true },
+    });
+    expect(c.workspaceId).toBe("ws1");
+    // And survives storage.
+    expect(parseSmartCollections(JSON.stringify([c]))[0]).toEqual(c);
+  });
+
+  it("drops a folder that has no workspace to place it in", () => {
+    const c = makeSmartCollection("Clips", {
+      kind: "video",
+      folder: { path: "a/b", recursive: true },
+    });
+    expect(c.query).toEqual({ kind: "video" });
+    expect(c.workspaceId).toBeUndefined();
+  });
+
+  it("keeps no workspace for a search without a folder", () => {
+    const c = makeSmartCollection("Videos", { kind: "video" }, "ws1");
+    expect(c.workspaceId).toBeUndefined();
+  });
+
+  it("reads saved searches from before the workspace was stored", () => {
+    const old = {
+      id: "1",
+      name: "Videos",
+      query: { kind: "video" },
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    expect(parseSmartCollections(JSON.stringify([old]))).toEqual([old]);
+  });
+
+  it("names the folder in the description", () => {
+    expect(
+      describeSearchQuery(t, {
+        folder: { path: "a/b", recursive: true },
+        kind: "video",
+      }),
+    ).toBe("Folder: a/b / Video");
   });
 });
