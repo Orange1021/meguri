@@ -150,6 +150,7 @@ export const ko: Record<TranslationKey, string> = {
   "filter.all": "전체",
   "filter.played": "시청함",
   "filter.unplayed": "미시청",
+  "filter.inProgress": "시청 중",
   "filter.sortLabel": "{label}",
   "filter.ratingFilter": "최소 평점으로 필터링",
   "filter.btime": "생성일",
@@ -264,6 +265,8 @@ export const ko: Record<TranslationKey, string> = {
     "이 형식은 재생할 수 없습니다 (MEDIA_ERR_SRC_NOT_SUPPORTED)",
   "player.errUnknown": "알 수 없는 오류",
   "player.errCode": "오류 코드 {code}",
+  "player.resumedFrom": "{time}부터 이어서 재생",
+  "player.startOver": "처음부터",
 
   // 오디오 플레이어 (하단 바)
   "player.audio.region": "오디오 플레이어",
@@ -566,6 +569,9 @@ export const ko: Record<TranslationKey, string> = {
     "동영상이나 이미지가 있는 목록을 연 뒤 재생을 시작하세요.",
   "playlist.unplayable": "재생할 수 있는 항목이 없었습니다.",
   "playlist.reorderNeedsManual": "순서를 바꾸려면 수동 순서로 전환하세요.",
+  "settings.resumePlayback": "이어서 재생",
+  "settings.resumePlaybackHint":
+    "동영상과 트랙을 마지막으로 멈춘 위치에서 엽니다. 끄면 항상 처음부터 재생합니다.",
   "settings.playlistImageSeconds": "이미지 표시 시간",
   "settings.playlistImageSecondsHint":
     "다음 항목으로 넘어가기 전까지 이미지를 표시하는 시간입니다.",

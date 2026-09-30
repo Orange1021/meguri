@@ -33,7 +33,7 @@ const MAX_LIMIT = 500;
 // is reached through a LEFT JOIN. COALESCE supplies defaults for files with no meta row.
 // Exported for queries that join files under the same `f`/`m` aliases (see history.ts).
 export const FILE_COLS =
-  "f.id, f.rel_path AS relPath, f.kind, f.ext, f.size, f.width, f.height, f.duration, COALESCE(m.rating, 0) AS rating, COALESCE(m.favorite, 0) AS favorite, f.thumb_status AS thumbStatus, (f.thumb_path IS NOT NULL) AS hasThumb, f.content_hash AS contentHash, f.captured_at AS capturedAt, f.btime, m.last_accessed_at AS lastAccessedAt";
+  "f.id, f.rel_path AS relPath, f.kind, f.ext, f.size, f.width, f.height, f.duration, COALESCE(m.rating, 0) AS rating, COALESCE(m.favorite, 0) AS favorite, f.thumb_status AS thumbStatus, (f.thumb_path IS NOT NULL) AS hasThumb, f.content_hash AS contentHash, f.captured_at AS capturedAt, f.btime, m.last_accessed_at AS lastAccessedAt, m.resume_position AS resumePosition, CASE WHEN m.resume_position IS NOT NULL AND f.duration > 0 THEN MIN(1.0, m.resume_position / f.duration) END AS progress";
 
 export const FILE_FROM =
   "FROM files f LEFT JOIN file_meta m ON m.meta_key = f.meta_key";
@@ -244,6 +244,12 @@ function appendSearchConditions(
       args.push(query.tagSource);
     }
     sql += ")";
+  }
+  if (query.inProgress) {
+    // An IN over the partial index rather than a test on the joined `m`: the
+    // latter is only checked after the join, so it scans every file row.
+    sql +=
+      " AND f.meta_key IN (SELECT meta_key FROM file_meta WHERE resume_position IS NOT NULL)";
   }
   if (query.played != null) {
     const op = query.played ? "EXISTS" : "NOT EXISTS";

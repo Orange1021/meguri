@@ -15,7 +15,7 @@ import {
 } from "./helpers.js";
 
 export function registerFileHandlers(ctx: IpcContext): void {
-  const { ws, queryClient, emit } = ctx;
+  const { ws, queryClient, positions, emit } = ctx;
 
   // List queries can be invalidated by the renderer just as the active workspace
   // disappears (e.g. removing the last workspace). Return empty instead of throwing
@@ -94,6 +94,23 @@ export function registerFileHandlers(ctx: IpcContext): void {
     // Played means no longer "to watch later" (see Workspaces.removeFromWatchLater).
     ws.removeFromWatchLater(workspaceId, id);
   });
+  // Where playback stands. Resolved at write time, not now: a held write can
+  // outlive the workspace, and coreById then throws into the writer's log.
+  handle(
+    "file_save_position",
+    ({ id, workspaceId, position, duration, ended, urgent }) => {
+      positions.queue(
+        `${workspaceId}:${id}`,
+        () =>
+          void q.savePlayPosition(coreById(ws, workspaceId).db, id, {
+            position,
+            duration,
+            ended,
+          }),
+        urgent,
+      );
+    },
+  );
   // History and duplicates follow the catalog scope rule (see scopedCores):
   // a collection is a file set, not a scope, so the timeline stays meaningful
   // while one is active.
@@ -113,6 +130,9 @@ export function registerFileHandlers(ctx: IpcContext): void {
   // Clear scope matches what history_list shows: the active workspace only, or
   // every workspace when All / a collection is active.
   handle("history_clear", () => {
+    // Positions still held would otherwise land after the clear and bring
+    // back the resume points it is meant to remove.
+    positions.flush();
     for (const { core } of scopedCores(ws)) q.clearPlayHistory(core.db);
   });
 }

@@ -4,6 +4,7 @@ import type { DB } from "../db.js";
 import { nowUnix } from "../db.js";
 import { metaKeyOf } from "../tags.js";
 import type { ExtractedMeta } from "../media.js";
+import { resumePointOf } from "../../../shared/resume.js";
 
 /**
  * Insert-or-update the file_meta row for a file, applying `mutate` to the column being set.
@@ -151,6 +152,47 @@ export function recordPlay(
   ).run(metaKey, nowUnix(), position, via);
   // Playing (or launching externally) counts as viewing the file: keep last-accessed fresh.
   recordAccess(db, fileId);
+}
+
+/** Where playback of a file stands (see {@link savePlayPosition}). */
+export interface PlayPosition {
+  /** Seconds into the file. */
+  position: number;
+  /** The player's own duration; the stored one is used when absent. */
+  duration?: number | null;
+  /** Playback ran to the end. */
+  ended?: boolean;
+}
+
+/**
+ * Record where playback stopped: the position on the file's newest in-app play
+ * event (so the history shows where it stopped rather than where it started),
+ * and the resume point the next open starts from — cleared once the file is
+ * finished (see resumePointOf). Returns the resume point stored, or undefined
+ * when the file row is gone.
+ */
+export function savePlayPosition(
+  db: DB,
+  fileId: number,
+  { position, duration, ended = false }: PlayPosition,
+): number | null | undefined {
+  const row = db
+    .prepare("SELECT meta_key AS k, duration AS d FROM files WHERE id = ?")
+    .get(fileId) as { k: string; d: number | null } | undefined;
+  if (!row) return undefined;
+  const resume = resumePointOf(position, duration ?? row.d, ended);
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE play_history SET position = ? WHERE id =
+         (SELECT id FROM play_history WHERE meta_key = ? AND via = 'browser'
+          ORDER BY played_at DESC, id DESC LIMIT 1)`,
+    ).run(position, row.k);
+    db.prepare(
+      `INSERT INTO file_meta (meta_key, resume_position, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(meta_key) DO UPDATE SET resume_position = excluded.resume_position, updated_at = excluded.updated_at`,
+    ).run(row.k, resume, nowUnix());
+  })();
+  return resume;
 }
 
 export function updateExtractedMeta(

@@ -153,6 +153,7 @@ export const en: Record<TranslationKey, string> = {
   "filter.all": "All",
   "filter.played": "Played",
   "filter.unplayed": "Unplayed",
+  "filter.inProgress": "In progress",
   "filter.sortLabel": "{label}",
   "filter.ratingFilter": "Filter by minimum rating",
   "filter.btime": "Created date",
@@ -267,6 +268,8 @@ export const en: Record<TranslationKey, string> = {
     "This format cannot be played (MEDIA_ERR_SRC_NOT_SUPPORTED)",
   "player.errUnknown": "Unknown error",
   "player.errCode": "Error code {code}",
+  "player.resumedFrom": "Resumed from {time}",
+  "player.startOver": "Start over",
 
   // Audio player (bottom bar)
   "player.audio.region": "Audio player",
@@ -567,6 +570,9 @@ export const en: Record<TranslationKey, string> = {
     "Open a list that contains videos or images, then start playback.",
   "playlist.unplayable": "None of these items could be played.",
   "playlist.reorderNeedsManual": "Switch to manual order to rearrange items.",
+  "settings.resumePlayback": "Resume where you left off",
+  "settings.resumePlaybackHint":
+    "Open videos and tracks at the position they were stopped. When off, playback always starts from the beginning.",
   "settings.playlistImageSeconds": "Image duration",
   "settings.playlistImageSecondsHint":
     "How long each image stays on screen before the player advances.",

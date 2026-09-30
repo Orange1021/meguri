@@ -32,6 +32,7 @@ import {
   updateDownloadUrl,
 } from "./core/updater.js";
 import { Workspaces } from "./core/workspaces.js";
+import { PositionWriter } from "./core/positionWriter.js";
 import { registerIpc } from "./ipc/index.js";
 import { ScanManager } from "./scanManager.js";
 import type { LogoId } from "../shared/ipc/schema.js";
@@ -46,6 +47,11 @@ const ws = new Workspaces();
 // can't stall the main event loop (UI, IPC, media serving). Writes stay here.
 const queryClient = new QueryWorkerClient(
   path.join(__dirname, "queryWorker.js"),
+);
+// Playback positions reported by the renderer, held briefly so bursts collapse
+// into one write per file (see positionWriter.ts).
+const positions = new PositionWriter((e) =>
+  log.warn("saving a playback position failed:", e),
 );
 let mediaPort = 0;
 const mediaToken = randomBytes(32).toString("base64url");
@@ -552,6 +558,7 @@ void app.whenReady().then(async () => {
   registerIpc({
     ws,
     queryClient,
+    positions,
     mainWindow: () => mainWindow,
     mediaBase: () => (mediaPort ? `http://127.0.0.1:${mediaPort}` : null),
     isDevMode,
@@ -614,6 +621,13 @@ function finalizeQuit(): void {
   quitPhase = "done";
   // Guarded so that a throw here can never leave quitPhase stuck (which
   // would make the app impossible to quit).
+  // Positions still held go in before the writers close: quitting mid-video
+  // is exactly when the resume point matters.
+  try {
+    positions.flush();
+  } catch (e) {
+    log.error("flushing playback positions on quit failed:", e);
+  }
   try {
     ws.closeAll();
   } catch (e) {

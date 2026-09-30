@@ -112,6 +112,17 @@ export function invalidatePlayedSearches(qc: QueryClient): void {
 }
 
 /**
+ * Invalidate only the searches filtered on "In progress": saving where a file
+ * was left can add it to them or (played to the end) take it out.
+ */
+export function invalidateInProgressSearches(qc: QueryClient): void {
+  void qc.invalidateQueries({
+    queryKey: ["files_search"],
+    predicate: (q) => searchFilterOf(q.queryKey)?.inProgress === true,
+  });
+}
+
+/**
  * Invalidate only the searches whose membership depends on tags: an explicit
  * tag filter, or a text query (FTS matches tag text). Row-level tag display is
  * kept in sync separately via patchFileRowInCaches.

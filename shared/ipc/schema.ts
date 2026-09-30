@@ -70,6 +70,11 @@ export const FileRowSchema = z.object({
   btime: z.number().nullable(),
   /** Last time the file's detail was opened (Unix seconds). Null if never opened. */
   lastAccessedAt: z.number().nullable(),
+  /** Where playback was last stopped (seconds), or null when there is nothing to
+   *  resume: never played, played to the end, or barely begun (see shared/resume.ts). */
+  resumePosition: z.number().nullable(),
+  /** resumePosition as a fraction of the duration (0..1). Null when either is unknown. */
+  progress: z.number().nullable(),
   /** Tags attached to search results (for grid display). For detail fetches, use FileDetail.tags. */
   tags: z.array(TagInfoSchema).optional(),
 });
@@ -139,6 +144,8 @@ export const SearchQuerySchema = z.object({
   /** Restrict to files that have duplicates (same content_hash + size, cross-workspace in the All view). */
   duplicates: z.boolean().optional(),
   played: z.boolean().optional(),
+  /** Only files left part-way through (a resume point is stored). */
+  inProgress: z.boolean().optional(),
   playedVia: z.string().optional(),
   capturedFrom: z.number().optional(),
   capturedTo: z.number().optional(),

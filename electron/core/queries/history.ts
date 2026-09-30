@@ -113,7 +113,16 @@ export function listPlayHistory(db: DB, query: HistoryQuery): HistoryPage {
   return { items, nextCursor };
 }
 
-/** Delete every play event in this workspace. */
+/**
+ * Delete every play event in this workspace, and the resume points with them:
+ * a progress bar or the "In progress" filter would otherwise still say what was
+ * watched after the user asked for that record to go.
+ */
 export function clearPlayHistory(db: DB): void {
-  db.prepare("DELETE FROM play_history").run();
+  db.transaction(() => {
+    db.prepare("DELETE FROM play_history").run();
+    db.prepare(
+      "UPDATE file_meta SET resume_position = NULL WHERE resume_position IS NOT NULL",
+    ).run();
+  })();
 }

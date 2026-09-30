@@ -46,6 +46,12 @@ import {
   MEDIA_ERR_ABORTED,
   MEDIA_ERR_NETWORK,
 } from "@/lib/mediaError";
+import { usePlaybackPosition } from "@/hooks/usePlaybackPosition";
+import {
+  endedSample,
+  POSITION_SEEK_INTERVAL_MS,
+  type PositionSample,
+} from "@/lib/positionReporter";
 import { fmtTime } from "./utils";
 
 // readyState at which metadata is in (HTMLMediaElement.HAVE_METADATA), as a
@@ -277,6 +283,23 @@ export const VideoPlayer = forwardRef<
   const retryTimerRef = useRef<number | null>(null);
   // Fire onPlayed only on the first play of each loaded file (not on every pause/resume).
   const playedRef = useRef(false);
+  // Where playback stands, for the resume point (see usePlaybackPosition).
+  const playbackPosition = usePlaybackPosition(wsId, id);
+  /**
+   * The element's position in the file, or null while it has none to give
+   * (nothing loaded, or a stream being re-served from a new second). Read off
+   * the element, not the `offset` state: an event can arrive before the render
+   * that follows a re-serve, and the `?t=` in the element's own src is the
+   * truth at that moment.
+   */
+  const sampleOf = (v: HTMLVideoElement): PositionSample | null => {
+    if (v.readyState < HAVE_METADATA) return null;
+    const dur = totalRef.current;
+    return {
+      position: streamOffsetOf(v.getAttribute("src")) + v.currentTime,
+      duration: dur != null && dur > 0 ? dur : null,
+    };
+  };
 
   // Quantize frame times (round to at most ~200 distinct values across the bar for cache efficiency).
   const step = total ? Math.max(1, Math.round(total / 200)) : 1;
@@ -449,6 +472,11 @@ export const VideoPlayer = forwardRef<
       return;
     }
     setPlaying(!v.paused);
+    if (!v.paused) {
+      // Playing on from the previous host: where it stops is this host's to
+      // report now (the previous one reported where it handed over).
+      playbackPosition.markPlayed();
+    }
     if (!v.paused && firstTime) {
       // The `play` that started it went to the previous host, which recorded
       // the play; this host still owes its own callers the start.
@@ -509,6 +537,9 @@ export const VideoPlayer = forwardRef<
       deferredSeekRef.current = t;
       return;
     }
+    // Playback has been placed; a start position arriving late (see the
+    // effect below `seekRef`) must not move it again.
+    appliedStartRef.current = true;
     let inSeekable = false;
     for (let i = 0; i < v.seekable.length; i++) {
       if (t >= v.seekable.start(i) && t <= v.seekable.end(i)) {
@@ -535,6 +566,18 @@ export const VideoPlayer = forwardRef<
   useEffect(() => {
     seekRef.current = seek;
   });
+
+  // A start position that arrives after the metadata did. The playlist mounts
+  // the player straight from the queue and learns an item's resume point only
+  // once its details come back, which can be after the element has loaded;
+  // the start is still owed, once, unless something already placed playback
+  // (an adopted element, or the initial seek itself).
+  useEffect(() => {
+    if (startAt > 0 && haveMetadataRef.current && !appliedStartRef.current) {
+      appliedStartRef.current = true;
+      seekRef.current(startAt);
+    }
+  }, [startAt]);
   // Stable, so the imperative handle below can just close over it.
   const togglePlay = useCallback(() => {
     const v = ref.current;
@@ -911,14 +954,23 @@ export const VideoPlayer = forwardRef<
           setPlaying(true);
           onPlaybackStart?.();
           void api.fileRecordPlay(id, wsId, "browser", position);
+          playbackPosition.markPlayed();
           if (!playedRef.current) {
             playedRef.current = true;
             onPlayed();
           }
         }}
-        onPause={() => setPlaying(false)}
+        onPause={() => {
+          setPlaying(false);
+          const v = ref.current;
+          const sample = v && sampleOf(v);
+          if (sample) playbackPosition.flush(sample);
+        }}
         onEnded={() => {
           setPlaying(false);
+          const v = ref.current;
+          const sample = v && sampleOf(v);
+          if (sample) playbackPosition.flush(endedSample(sample));
           onEnded?.();
         }}
         onVolumeChange={() => {
@@ -956,10 +1008,17 @@ export const VideoPlayer = forwardRef<
         }}
         onTimeUpdate={() => {
           const v = ref.current;
-          if (v) setPosition(offset + v.currentTime);
+          if (!v) return;
+          setPosition(offset + v.currentTime);
+          const sample = v.paused ? null : sampleOf(v);
+          if (sample) playbackPosition.tick(sample);
         }}
         onSeeked={() => {
           const v = ref.current;
+          // A seek is a new place to come back to, playing or paused (a
+          // paused seek has no `timeupdate` stream to carry it otherwise).
+          const sample = v && sampleOf(v);
+          if (sample) playbackPosition.tick(sample, POSITION_SEEK_INTERVAL_MS);
           const target = seekTargetRef.current;
           if (!v || target == null) return;
           // The run moved on while this seek was in flight; go where it points

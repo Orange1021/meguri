@@ -31,6 +31,7 @@ export function cleanSearchQuery(query: SearchQuery): SearchQuery {
   if (query.favorite) next.favorite = true;
   if (query.duplicates) next.duplicates = true;
   if (query.played != null) next.played = query.played;
+  if (query.inProgress) next.inProgress = true;
   if (query.playedVia) next.playedVia = query.playedVia;
   if (query.capturedFrom != null) next.capturedFrom = query.capturedFrom;
   if (query.capturedTo != null) next.capturedTo = query.capturedTo;
@@ -126,6 +127,7 @@ export function describeSearchQuery(t: TFunc, query: SearchQuery): string {
     const label = query.played ? t("filter.played") : t("filter.unplayed");
     parts.push(query.playedVia ? `${label} (${query.playedVia})` : label);
   }
+  if (query.inProgress) parts.push(t("filter.inProgress"));
   if (query.capturedFrom != null || query.capturedTo != null) {
     parts.push(
       `${t("sort.captured")}: ${describeDateRange(t, query.capturedFrom, query.capturedTo)}`,

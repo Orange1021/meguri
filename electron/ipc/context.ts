@@ -4,6 +4,7 @@
 // the groups can be registered — and read — one domain at a time. Helpers
 // shared by the groups live in helpers.ts.
 import type { BrowserWindow } from "electron";
+import type { PositionWriter } from "../core/positionWriter.js";
 import type { QueryWorkerClient } from "../core/queryWorkerClient.js";
 import type { Workspaces } from "../core/workspaces.js";
 import type { ScanManager } from "../scanManager.js";
@@ -12,6 +13,8 @@ import type { LogoId } from "../../shared/ipc/schema.js";
 export interface IpcContext {
   ws: Workspaces;
   queryClient: QueryWorkerClient;
+  /** Coalesces playback-position writes; flushed on quit by main.ts. */
+  positions: PositionWriter;
   // Function-typed properties rather than methods: the groups destructure
   // these freely, and none of them relies on `this`.
   /** Live values, read on each call: they change after registration. */

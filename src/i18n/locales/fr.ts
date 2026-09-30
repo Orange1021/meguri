@@ -157,6 +157,7 @@ export const fr: Record<TranslationKey, string> = {
   "filter.all": "Tout",
   "filter.played": "Lu",
   "filter.unplayed": "Non lu",
+  "filter.inProgress": "En cours",
   "filter.sortLabel": "{label}",
   "filter.ratingFilter": "Filtrer par note minimale",
   "filter.btime": "Date de création",
@@ -272,6 +273,8 @@ export const fr: Record<TranslationKey, string> = {
     "Ce format ne peut pas être lu (MEDIA_ERR_SRC_NOT_SUPPORTED)",
   "player.errUnknown": "Erreur inconnue",
   "player.errCode": "Code d'erreur {code}",
+  "player.resumedFrom": "Reprise à {time}",
+  "player.startOver": "Recommencer",
 
   // Lecteur audio (barre inférieure)
   "player.audio.region": "Lecteur audio",
@@ -584,6 +587,9 @@ export const fr: Record<TranslationKey, string> = {
   "playlist.unplayable": "Aucun de ces éléments n’a pu être lu.",
   "playlist.reorderNeedsManual":
     "Passez à l’ordre manuel pour réorganiser les éléments.",
+  "settings.resumePlayback": "Reprendre là où vous en étiez",
+  "settings.resumePlaybackHint":
+    "Ouvre les vidéos et les pistes à l'endroit où elles ont été arrêtées. Désactivé, la lecture commence toujours au début.",
   "settings.playlistImageSeconds": "Durée des images",
   "settings.playlistImageSecondsHint":
     "Durée d’affichage de chaque image avant le passage au suivant.",

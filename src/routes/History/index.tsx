@@ -21,6 +21,7 @@ import { useAppStatus } from "@/hooks/useAppStatus";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import type { ModalSize } from "@/routes/MediaDetail/MediaModal";
 import { fileHref } from "@/lib/fileHref";
+import { invalidateFileCaches } from "@/lib/queryCache";
 import { formatDuration } from "@/lib/format";
 import { fileNameOf } from "@/lib/relPath";
 import type { HistoryEntryRow } from "@/ipc/types";
@@ -126,6 +127,9 @@ export default function History() {
     mutationFn: () => api.historyClear(),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["history_list"] });
+      // Resume points go with the history (see clearPlayHistory); the lists'
+      // progress bars and the detail's start position are read from these.
+      invalidateFileCaches(qc);
     },
   });
   const onClear = useCallback(async () => {

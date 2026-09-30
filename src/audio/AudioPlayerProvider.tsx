@@ -27,6 +27,14 @@ import {
   useVolume,
 } from "@/hooks/useVolume";
 import { useAppStatus } from "@/hooks/useAppStatus";
+import { usePlaybackPosition } from "@/hooks/usePlaybackPosition";
+import {
+  endedSample,
+  POSITION_SEEK_INTERVAL_MS,
+  type PositionSample,
+} from "@/lib/positionReporter";
+import { resolveStartAt } from "@shared/resume";
+import { useOptionalPreferences } from "@/settings/PreferencesProvider";
 import { attachAnalyser } from "./analyser";
 import {
   AudioActionsContext,
@@ -37,6 +45,11 @@ import {
   type AudioTrack,
   type PlayOpts,
 } from "./context";
+
+/** The media URL of a track (see play()). */
+function srcOf(mediaBase: string, { file, workspaceId }: AudioTrack): string {
+  return `${mediaBase}/ws/${workspaceId}/media/${file.id}`;
+}
 
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -55,6 +68,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const status = useAppStatus();
   const mediaBase = status.data?.mediaBase ?? "";
   const qc = useQueryClient();
+  // Optional: this provider sits above the router and is rendered on its own
+  // in tests. Without preferences, resuming stays on (the default).
+  const resumePlayback = useOptionalPreferences()?.resumePlayback ?? true;
+  // Where the loaded track stands, for its resume point.
+  const playbackPosition = usePlaybackPosition(
+    current?.workspaceId,
+    current?.file.id,
+  );
 
   // Live copies for the actions below, which must keep one identity for the
   // provider's lifetime (see AudioActionsContext) and so cannot close over the
@@ -62,6 +83,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const currentRef = useRef<AudioTrack | null>(null);
   const durationRef = useRef<number | null>(null);
   const mediaBaseRef = useRef("");
+  const resumePlaybackRef = useRef(resumePlayback);
   // Synced before paint, so a click handled in the same frame sees the state
   // that produced what is on screen (the rules-of-hooks lint forbids writing
   // a ref during render itself).
@@ -69,7 +91,31 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     currentRef.current = current;
     durationRef.current = duration;
     mediaBaseRef.current = mediaBase;
-  }, [current, duration, mediaBase]);
+    resumePlaybackRef.current = resumePlayback;
+  }, [current, duration, mediaBase, resumePlayback]);
+
+  /**
+   * Where the element stands in the loaded track, or null when that cannot be
+   * said: nothing loaded, or the element already switched to another source
+   * (play() swaps it before the render that makes the new track current, and
+   * an event in between belongs to neither).
+   */
+  const sampleOf = useCallback(
+    (el: HTMLAudioElement): PositionSample | null => {
+      const track = currentRef.current;
+      if (!track || el.readyState < 1) return null;
+      if (el.getAttribute("src") !== srcOf(mediaBaseRef.current, track))
+        return null;
+      const duration =
+        Number.isFinite(el.duration) && el.duration > 0 ? el.duration : null;
+      // An element sitting at its end reports that: the flush on leaving a
+      // finished track (play() of the next, close()) must say "ended" too, or
+      // a track of unknown length would store its end as the resume point.
+      if (el.ended) return endedSample({ position: el.currentTime, duration });
+      return { position: el.currentTime, duration };
+    },
+    [],
+  );
 
   // Whether the element is sitting on a failed resource. Tracked apart from the
   // displayed `error` because dismissing the message must not also discard the
@@ -157,7 +203,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         Number.isFinite(el.duration) && el.duration > 0 ? el.duration : null,
       );
     };
-    const onTime = () => setPosition(el.currentTime);
+    const onTime = () => {
+      setPosition(el.currentTime);
+      const sample = el.paused ? null : sampleOf(el);
+      if (sample) playbackPosition.tick(sample);
+    };
     const onPlay = () => {
       setIsPlaying(true);
       setEnded(false);
@@ -167,15 +217,24 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       peers.current.forEach((pauseOther) => pauseOther());
     };
     const onPlaying = () => {
+      // Every start, not only the recorded one: a track whose first start was
+      // not recorded yet is picked up by the same event below.
+      if (sampleOf(el)) playbackPosition.markPlayed();
       const track = pendingRecord.current;
       if (!track) return;
       pendingRecord.current = null;
       recordPlay(track);
     };
-    const onPause = () => setIsPlaying(false);
+    const onPause = () => {
+      setIsPlaying(false);
+      const sample = sampleOf(el);
+      if (sample) playbackPosition.flush(sample);
+    };
     const onEnded = () => {
       setIsPlaying(false);
       setEnded(true);
+      const sample = sampleOf(el);
+      if (sample) playbackPosition.flush(endedSample(sample));
       // Stop at the end rather than snapping to 0, so the bar shows the track at
       // its final position and stays replayable.
       setPosition(Number.isFinite(el.duration) ? el.duration : el.currentTime);
@@ -205,7 +264,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       el.removeEventListener("ended", onEnded);
       el.removeEventListener("error", onError);
     };
-  }, [ensureEl, recordPlay]);
+  }, [ensureEl, recordPlay, sampleOf, playbackPosition]);
 
   // Stop playback when the provider itself goes away (app teardown), so no
   // detached element keeps decoding.
@@ -228,15 +287,20 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const play = useCallback(
     (file: FileRow, workspaceId: string, opts: PlayOpts = {}) => {
       const el = ensureEl();
-      const startAt =
-        opts.startAt != null &&
-        Number.isFinite(opts.startAt) &&
-        opts.startAt > 0
-          ? opts.startAt
-          : 0;
+      // No start given (a play button in a list): where the track was left
+      // last time, unless resuming is turned off. Callers that decide the start
+      // themselves (the detail view, the playlist) always pass one.
+      const { startAt } = resolveStartAt({
+        explicit: opts.startAt,
+        resume: opts.startAt == null ? file.resumePosition : null,
+        enabled: resumePlaybackRef.current,
+      });
+      // The outgoing track's last position, read before its source is gone.
+      const outgoing = sampleOf(el);
+      if (outgoing) playbackPosition.flush(outgoing);
       // The track resolves by workspaceId + fileId, never via the *active*
       // workspace, so playback survives a workspace switch (including to All).
-      const src = `${mediaBaseRef.current}/ws/${workspaceId}/media/${file.id}`;
+      const src = srcOf(mediaBaseRef.current, { file, workspaceId });
       needsReload.current = false;
       setError(null);
       setDuration(null);
@@ -253,7 +317,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       pendingRecord.current = { file, workspaceId };
       startPlayback(el);
     },
-    [ensureEl, startPlayback],
+    [ensureEl, startPlayback, sampleOf, playbackPosition],
   );
 
   const toggle = useCallback(() => {
@@ -300,15 +364,24 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     if (el) pauseEl(el);
   }, [pauseEl]);
 
-  const seek = useCallback((sec: number) => {
-    const el = audioRef.current;
-    if (!el || !Number.isFinite(sec)) return;
-    const max = durationRef.current ?? 0;
-    const clamped = Math.min(max, Math.max(0, sec));
-    el.currentTime = clamped;
-    setEnded(false);
-    setPosition(clamped);
-  }, []);
+  const seek = useCallback(
+    (sec: number) => {
+      const el = audioRef.current;
+      if (!el || !Number.isFinite(sec)) return;
+      const max = durationRef.current ?? 0;
+      const clamped = Math.min(max, Math.max(0, sec));
+      el.currentTime = clamped;
+      setEnded(false);
+      setPosition(clamped);
+      const sample = sampleOf(el);
+      if (sample)
+        playbackPosition.tick(
+          { ...sample, position: clamped },
+          POSITION_SEEK_INTERVAL_MS,
+        );
+    },
+    [sampleOf, playbackPosition],
+  );
 
   // Dragging the slider is an explicit request to hear something, so the store
   // also unmutes — matching what the video player does on the same interaction.
@@ -323,6 +396,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     pendingRecord.current = null;
     const el = audioRef.current;
     if (el) {
+      const sample = sampleOf(el);
+      if (sample) playbackPosition.flush(sample);
       el.pause();
       // Dropping src alone leaves the previously buffered data attached; load()
       // is what actually releases it.
@@ -335,7 +410,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setDuration(null);
     setPosition(0);
     setError(null);
-  }, []);
+  }, [sampleOf, playbackPosition]);
 
   const dismissError = useCallback(() => setError(null), []);
 

@@ -42,6 +42,7 @@ import {
 } from "../tags.js";
 import { MAX_WORKSPACE_ID } from "../workspaceIds.js";
 import { MAX_FOLDER_FILES_PATHS } from "../folderPath.js";
+import { MAX_MEDIA_SEC } from "../resume.js";
 
 export { EVENT_CHANNELS, INVOKE_CHANNELS };
 export type { EventChannel, InvokeChannel };
@@ -213,6 +214,23 @@ export const ChannelInputs = {
     via: z.enum(["browser", "external"]),
     position: z.number().optional(),
   }),
+  // Where playback of a file stands. `duration` is the player's own (the DB
+  // value can be missing); `urgent` asks for the write to land now rather than
+  // be coalesced with the next few (pause, seek, close — see PositionWriter).
+  file_save_position: FileTarget.extend({
+    // Bounded at a week: no media is longer, and an absurd value would
+    // otherwise be stored and handed to the stream server as `?t=`.
+    position: z.number().finite().min(0).max(MAX_MEDIA_SEC),
+    duration: z
+      .number()
+      .finite()
+      .positive()
+      .max(MAX_MEDIA_SEC)
+      .nullable()
+      .optional(),
+    ended: z.boolean().optional(),
+    urgent: z.boolean().optional(),
+  }),
   history_list: z.object({ query: HistoryQuerySchema.optional() }).default({}),
   duplicates_list: z.void(),
   history_clear: z.void(),
@@ -370,6 +388,7 @@ export interface ChannelOutputs {
   file_set_favorite: void;
   file_delete_from_index: { id: number; relPath: string };
   file_record_play: void;
+  file_save_position: void;
   history_list: HistoryPage;
   duplicates_list: DuplicatesResult;
   history_clear: void;
