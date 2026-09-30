@@ -53,9 +53,9 @@ the jsdom worker does not start under Electron's experimental loader.
 ## Packaging
 
 `npm run dist` runs `electron-vite build` then `electron-builder`. The builder's
-`asarUnpack` includes better-sqlite3, ffmpeg-static, and ffprobe-static; code
-that uses ffmpeg paths must apply the `app.asar` → `app.asar.unpacked`
-substitution (see
+`asarUnpack` includes better-sqlite3, ffmpeg-static, and
+@derhuerst/ffprobe-static; code that uses ffmpeg paths must apply the
+`app.asar` → `app.asar.unpacked` substitution (see
 [ffmpeg/ffprobe path resolution](media-pipeline.md#ffmpegffprobe-path-resolution)).
 
 Distribution targets are Linux (AppImage / deb), Windows (nsis / portable), and
@@ -79,13 +79,12 @@ automatically.
 GitHub Actions workflows live in `.github/workflows/`:
 
 - `test.yml` runs `npm run typecheck` and `npm test`.
-- `build.yml` triggers on `v*` tag pushes and builds a four-way matrix (linux
-  x64, win x64, mac arm64, mac x64), then creates a release.
+- `build.yml` triggers on `v*` tag pushes and builds a three-way matrix (linux
+  x64, win x64, mac arm64), then creates a draft release.
 
-ffmpeg-static fetches a single-architecture binary at install time, so CI pins
-`npm_config_arch` to the target arch to keep the bundled binary consistent.
-ffprobe-static ships all platforms and is resolved at runtime, so it needs no
-pinning.
+ffmpeg-static and @derhuerst/ffprobe-static each fetch a single-architecture
+binary at install time (`npm_config_arch || os.arch()`), so CI pins
+`npm_config_arch` to the target arch to keep the bundled binaries consistent.
 
 ## Docker development
 
