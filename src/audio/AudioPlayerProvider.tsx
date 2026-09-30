@@ -84,11 +84,17 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const durationRef = useRef<number | null>(null);
   const mediaBaseRef = useRef("");
   const resumePlaybackRef = useRef(resumePlayback);
+  // The source play() last assigned, and the one belonging to the track the
+  // render has caught up with. Position samples are taken only while the
+  // element still holds the latter (see sampleOf).
+  const assignedSrcRef = useRef<string | null>(null);
+  const committedSrcRef = useRef<string | null>(null);
   // Synced before paint, so a click handled in the same frame sees the state
   // that produced what is on screen (the rules-of-hooks lint forbids writing
   // a ref during render itself).
   useLayoutEffect(() => {
     currentRef.current = current;
+    committedSrcRef.current = current ? assignedSrcRef.current : null;
     durationRef.current = duration;
     mediaBaseRef.current = mediaBase;
     resumePlaybackRef.current = resumePlayback;
@@ -102,10 +108,12 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
    */
   const sampleOf = useCallback(
     (el: HTMLAudioElement): PositionSample | null => {
-      const track = currentRef.current;
-      if (!track || el.readyState < 1) return null;
-      if (el.getAttribute("src") !== srcOf(mediaBaseRef.current, track))
-        return null;
+      // Compared with the source the committed track was actually given, not
+      // one rebuilt from the media origin now: that origin may have resolved
+      // after the track started.
+      const src = committedSrcRef.current;
+      if (!src || el.readyState < 1) return null;
+      if (el.getAttribute("src") !== src) return null;
       const duration =
         Number.isFinite(el.duration) && el.duration > 0 ? el.duration : null;
       // An element sitting at its end reports that: the flush on leaving a
@@ -301,6 +309,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       // The track resolves by workspaceId + fileId, never via the *active*
       // workspace, so playback survives a workspace switch (including to All).
       const src = srcOf(mediaBaseRef.current, { file, workspaceId });
+      assignedSrcRef.current = src;
       needsReload.current = false;
       setError(null);
       setDuration(null);

@@ -52,6 +52,17 @@ export function usePlaybackPosition(
       const { urgent, ...sample } = report;
       void api
         .fileSavePosition(id, ws, report)
+        .then(() => {
+          if (!urgent) return;
+          // An urgent report is written by the time this resolves. It moved
+          // the newest play's position, which the history timeline shows.
+          void qc.invalidateQueries({ queryKey: ["history_list"] });
+          // A file played to its end leaves "In progress". Done now rather
+          // than on leaving: the audio bar keeps a finished track loaded
+          // until another replaces it. A pause stays out of it, so the list
+          // under a paused player does not reshuffle.
+          if (sample.ended) invalidateInProgressSearches(qc);
+        })
         .catch((e: unknown) => log.warn("save playback position failed:", e));
       // Only the reports that settle something are mirrored into the caches:
       // a progress bar need not creep along every few seconds, and a pause or

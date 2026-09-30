@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useHoverFramePreview } from "@/hooks/useHoverFramePreview";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/I18nProvider";
 
 interface Props {
   file: FileRow;
@@ -33,15 +34,19 @@ interface Props {
  * Only for files in progress: finished and unplayed files carry no resume point.
  */
 function ResumeProgress({ progress }: { progress: number }) {
+  const { t } = useI18n();
+  const percent = Math.round(progress * 100);
   return (
     <div
       data-slot="resume-progress"
+      role="progressbar"
+      aria-label={t("filter.inProgress")}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
       className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-bg/50"
     >
-      <div
-        className="h-full bg-primary"
-        style={{ width: `${Math.round(progress * 100)}%` }}
-      />
+      <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
     </div>
   );
 }
