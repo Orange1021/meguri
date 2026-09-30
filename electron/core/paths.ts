@@ -4,6 +4,7 @@ import { app } from "electron";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { promisify } from "node:util";
 
 /** The app's base data directory. Uses Electron's userData. */
 export function baseDataDir(): string {
@@ -106,13 +107,24 @@ export function folderDirInsideRoot(
  * still an input from outside main: a dropped regular file, a folder deleted
  * since the drop, or an empty string (what the preload gets for a File that did
  * not come from the filesystem) must not be registered as a workspace. stat
- * follows symlinks, so a link to a directory counts as one.
+ * follows symlinks, so a link to a directory counts as one, and the link is
+ * resolved to the directory it points at.
  */
+// The JS realpath, not fs.promises.realpath (which has fs.realpath.native's
+// semantics): registration normalizes with fs.realpathSync, and the two must
+// agree. Native resolution expands mapped drives to UNC paths and 8.3 names on
+// Windows, which would register the same folder under a second id.
+const realpathJs = promisify(fs.realpath);
+
 export async function droppedDirectory(p: string): Promise<string | null> {
   if (!p || !path.isAbsolute(p)) return null;
-  // Async: a folder on an unresponsive network mount must not stall main.
+  // Async, and the canonical path is what is returned: a folder on an
+  // unresponsive network mount must not stall main here, and registering an
+  // already-resolved path keeps the synchronous realpath that registration
+  // does (normalizeDir) from being the first to touch the mount.
   try {
-    return (await fs.promises.stat(p)).isDirectory() ? p : null;
+    if (!(await fs.promises.stat(p)).isDirectory()) return null;
+    return await realpathJs(p);
   } catch {
     return null;
   }

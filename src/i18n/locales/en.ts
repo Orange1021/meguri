@@ -497,7 +497,9 @@ export const en: Record<TranslationKey, string> = {
   "drop.notDirectory": '"{name}" is not a folder, so it was not added',
   "drop.addFailed": 'Could not add "{name}"',
   "drop.addedToCollection": 'Added {count} files to "{name}"',
+  "drop.addedOneToCollection": 'Added 1 file to "{name}"',
   "drop.alreadyInCollection": 'Already in "{name}"',
+  "drop.alreadyOneInCollection": 'Already in "{name}"',
   "drop.addToCollectionFailed": "Could not add to the collection",
   "drag.fileCount": "{count} files",
   "drag.selectionPending":

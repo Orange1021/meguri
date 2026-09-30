@@ -107,7 +107,7 @@ test.describe("Collections", () => {
       ready.getByRole("button", { name: "Drop Target" }),
     );
     await expect(
-      ready.getByText('Added 1 files to "Drop Target"'),
+      ready.getByText('Added 1 file to "Drop Target"'),
     ).toBeVisible();
     // An in-app drag is not a folder from the OS: no drop zone, no confirm.
     await expect(ready.getByTestId("folder-drop-overlay")).toHaveCount(0);
@@ -122,7 +122,7 @@ test.describe("Collections", () => {
       ready.getByRole("button", { name: "Watch Later", exact: true }),
     );
     await expect(
-      ready.getByText('Added 1 files to "Watch Later"'),
+      ready.getByText('Added 1 file to "Watch Later"'),
     ).toBeVisible();
   });
 });

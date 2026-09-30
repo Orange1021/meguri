@@ -46,6 +46,22 @@ function hasOsFiles(e: DragEvent, internal: boolean): boolean {
   return !internal && !isFileDrag(types) && types.includes("Files");
 }
 
+/**
+ * Text dropped into an editable field is left to the browser, which inserts
+ * it; cancelling every drop would break that. Files are never let through, so a
+ * file dropped on an input still cannot navigate the window.
+ */
+function acceptsText(e: DragEvent): boolean {
+  const target = e.target;
+  if (!(target instanceof HTMLElement)) return false;
+  if (e.dataTransfer?.types.includes("Files")) return false;
+  return (
+    target.isContentEditable ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLInputElement && !target.readOnly)
+  );
+}
+
 export function useOsFolderDrop(onDrop: (items: DroppedItems) => void): {
   active: boolean;
 } {
@@ -72,6 +88,13 @@ export function useOsFolderDrop(onDrop: (items: DroppedItems) => void): {
     const onInternalEnd = () => {
       internal = false;
     };
+    // The same goes for the drop zone: an OS drag cancelled outside the window
+    // can leave the enter/leave count off by one, and the first pointer move
+    // after it is proof no drag is over the window any more.
+    const onPointerMove = () => {
+      onInternalEnd();
+      if (depth > 0) reset();
+    };
     const onEnter = (e: DragEvent) => {
       if (!hasOsFiles(e, internal)) return;
       e.preventDefault();
@@ -83,6 +106,7 @@ export function useOsFolderDrop(onDrop: (items: DroppedItems) => void): {
     // window navigates to the dropped file. A drop target further down (a
     // collection in the rail) has already cancelled it and set its own effect.
     const onOver = (e: DragEvent) => {
+      if (acceptsText(e)) return;
       const handled = e.defaultPrevented;
       e.preventDefault();
       if (handled || !e.dataTransfer) return;
@@ -94,6 +118,10 @@ export function useOsFolderDrop(onDrop: (items: DroppedItems) => void): {
       if (depth === 0) setActive(false);
     };
     const onDropEvent = (e: DragEvent) => {
+      if (acceptsText(e)) {
+        internal = false;
+        return;
+      }
       e.preventDefault();
       const fromOs = hasOsFiles(e, internal);
       // Any drop ends whatever drag was in progress, in-app or not.
@@ -107,7 +135,7 @@ export function useOsFolderDrop(onDrop: (items: DroppedItems) => void): {
     };
     document.addEventListener("dragstart", onDragStart);
     document.addEventListener("dragend", onInternalEnd);
-    window.addEventListener("mousemove", onInternalEnd);
+    window.addEventListener("mousemove", onPointerMove);
     window.addEventListener("dragenter", onEnter);
     window.addEventListener("dragover", onOver);
     window.addEventListener("dragleave", onLeave);
@@ -115,7 +143,7 @@ export function useOsFolderDrop(onDrop: (items: DroppedItems) => void): {
     return () => {
       document.removeEventListener("dragstart", onDragStart);
       document.removeEventListener("dragend", onInternalEnd);
-      window.removeEventListener("mousemove", onInternalEnd);
+      window.removeEventListener("mousemove", onPointerMove);
       window.removeEventListener("dragenter", onEnter);
       window.removeEventListener("dragover", onOver);
       window.removeEventListener("dragleave", onLeave);

@@ -348,6 +348,11 @@ export type ChannelInput<C extends ChannelName> = z.infer<
  * refused because it is not a directory (or no longer exists).
  */
 export interface WorkspaceAddResult {
+  /**
+   * A folder was registered or, when `existing`, switched to: either way the
+   * active workspace changed and a scan may have started. False when nothing
+   * happened (the picker was cancelled, or a dropped path was refused).
+   */
   added: boolean;
   id?: string;
   scanJobId?: string;

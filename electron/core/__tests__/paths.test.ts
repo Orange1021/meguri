@@ -174,7 +174,7 @@ describe("droppedDirectory", () => {
   it("accepts an existing directory", async () => {
     const dir = tmp();
     try {
-      expect(await droppedDirectory(dir)).toBe(dir);
+      expect(await droppedDirectory(dir)).toBe(fs.realpathSync(dir));
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -204,7 +204,7 @@ describe("droppedDirectory", () => {
   });
 
   it.skipIf(process.platform === "win32")(
-    "follows a symlink to a directory",
+    "resolves a symlink to the directory it points at",
     async () => {
       const dir = tmp();
       try {
@@ -212,7 +212,7 @@ describe("droppedDirectory", () => {
         const link = path.join(dir, "link");
         fs.mkdirSync(target);
         fs.symlinkSync(target, link);
-        expect(await droppedDirectory(link)).toBe(link);
+        expect(await droppedDirectory(link)).toBe(fs.realpathSync(target));
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
       }

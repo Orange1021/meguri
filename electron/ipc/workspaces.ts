@@ -22,11 +22,11 @@ export function registerWorkspaceHandlers(ctx: IpcContext): void {
   // Register a folder, make it active and start its scan. Shared by the picker
   // and by a folder dropped from the OS, so the two cannot drift apart.
   const register = (dir: string): WorkspaceAddResult => {
-    // Compared by count rather than by id: add() matches an existing root
-    // case-insensitively on Windows, which an id (a hash) would not.
-    const before = ws.list().length;
-    const np = ws.add(dir);
-    const existing = ws.list().length === before;
+    // addRoot() reports whether the folder was new itself: it matches an
+    // existing root case-insensitively on Windows, which comparing ids (a hash)
+    // would not.
+    const { path: np, added } = ws.addRoot(dir);
+    const existing = !added;
     ws.setActive(np);
     const scanJobId = ctx.scans.start();
     emit("workspace:changed", { activeId: ws.activeId });

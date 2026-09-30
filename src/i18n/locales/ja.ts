@@ -501,7 +501,9 @@ export const ja = {
   "drop.notDirectory": "「{name}」はフォルダではないため追加しませんでした",
   "drop.addFailed": "「{name}」を追加できませんでした",
   "drop.addedToCollection": "{count}件を「{name}」に追加しました",
+  "drop.addedOneToCollection": "1件を「{name}」に追加しました",
   "drop.alreadyInCollection": "すべて「{name}」に追加済みです",
+  "drop.alreadyOneInCollection": "すでに「{name}」に追加済みです",
   "drop.addToCollectionFailed": "コレクションに追加できませんでした",
   "drag.fileCount": "{count}件",
   "drag.selectionPending":

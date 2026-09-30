@@ -27,13 +27,19 @@ export function useAddFilesToCollection(): (
     // decodeFileDrag already capped the drop at what one write may carry.
     mutationFn: ({ collectionId, files }: Drop) =>
       api.collectionSetMembership(collectionId, groupBulkTargets(files), "add"),
-    onSuccess: ({ changed }, { name }) => {
+    onSuccess: ({ changed }, { name, files }) => {
       void qc.invalidateQueries({ queryKey: ["workspaces_list"] });
       invalidateCollectionSearches(qc);
-      if (changed > 0) {
+      if (changed === 1) {
+        toast.success(t("drop.addedOneToCollection", { name }));
+      } else if (changed > 1) {
         toast.success(t("drop.addedToCollection", { count: changed, name }));
       } else {
-        toast.info(t("drop.alreadyInCollection", { name }));
+        toast.info(
+          files.length === 1
+            ? t("drop.alreadyOneInCollection", { name })
+            : t("drop.alreadyInCollection", { name }),
+        );
       }
     },
     onError: (e) =>

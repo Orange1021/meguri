@@ -260,6 +260,36 @@ describe("WorkspaceRail", () => {
       );
     });
 
+    it("words a single added file in the singular", async () => {
+      mocks.collectionSetMembership.mockResolvedValue({ changed: 1 });
+      renderWithProviders(<WorkspaceRail />);
+      const target = await screen.findByRole("button", { name: "Favourites" });
+
+      fireEvent.drop(target, { dataTransfer: fileDrag() });
+
+      await waitFor(() =>
+        expect(toasts.success).toHaveBeenCalledWith(
+          'Added 1 file to "Favourites"',
+        ),
+      );
+    });
+
+    it("words a single file already in the collection in the singular", async () => {
+      mocks.collectionSetMembership.mockResolvedValue({ changed: 0 });
+      renderWithProviders(<WorkspaceRail />);
+      const target = await screen.findByRole("button", { name: "Favourites" });
+      const single = {
+        ...fileDrag(),
+        getData: () => JSON.stringify([{ workspaceId: "ws-a", fileId: 1 }]),
+      };
+
+      fireEvent.drop(target, { dataTransfer: single });
+
+      await waitFor(() =>
+        expect(toasts.info).toHaveBeenCalledWith('Already in "Favourites"'),
+      );
+    });
+
     it("adds dropped files to Watch Later", async () => {
       renderWithProviders(<WorkspaceRail />);
       const target = await screen.findByRole("button", {
@@ -412,6 +442,36 @@ describe("WorkspaceRail", () => {
       fireEvent.dragStart(document.body);
       fireEvent.dragEnter(window, { dataTransfer: { types: ["Files"] } });
       expect(screen.queryByTestId("folder-drop-overlay")).toBeNull();
+    });
+
+    it("clears a stuck drop zone on the next pointer move", async () => {
+      renderWithProviders(<WorkspaceRail />);
+      await screen.findByRole("button", { name: "Media" });
+
+      // An OS drag cancelled outside the window can end without a dragleave.
+      fireEvent.dragEnter(window, { dataTransfer: { types: ["Files"] } });
+      expect(await screen.findByTestId("folder-drop-overlay")).toBeTruthy();
+      fireEvent.mouseMove(window);
+      await waitFor(() =>
+        expect(screen.queryByTestId("folder-drop-overlay")).toBeNull(),
+      );
+    });
+
+    it("leaves text dropped into an input to the browser", async () => {
+      const { container } = renderWithProviders(
+        <>
+          <WorkspaceRail />
+          <input aria-label="field" />
+        </>,
+      );
+      await screen.findByRole("button", { name: "Media" });
+      const input = container.querySelector("input")!;
+
+      const handled = fireEvent.drop(input, {
+        dataTransfer: { types: ["text/plain"], items: [] },
+      });
+      // Not cancelled: the browser inserts the text.
+      expect(handled).toBe(true);
     });
 
     it("cancels a drop it does not handle, so the window never navigates", async () => {

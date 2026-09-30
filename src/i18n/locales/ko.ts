@@ -496,7 +496,9 @@ export const ko: Record<TranslationKey, string> = {
   "drop.notDirectory": "「{name}」은(는) 폴더가 아니므로 추가하지 않았습니다",
   "drop.addFailed": "「{name}」을(를) 추가하지 못했습니다",
   "drop.addedToCollection": "{count}개 파일을 「{name}」에 추가했습니다",
+  "drop.addedOneToCollection": "1개 파일을 「{name}」에 추가했습니다",
   "drop.alreadyInCollection": "모두 이미 「{name}」에 있습니다",
+  "drop.alreadyOneInCollection": "이미 「{name}」에 있습니다",
   "drop.addToCollectionFailed": "컬렉션에 추가하지 못했습니다",
   "drag.fileCount": "{count}개 파일",
   "drag.selectionPending":

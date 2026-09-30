@@ -59,31 +59,36 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [checked, setChecked] = useState(false);
   const okRef = useRef<HTMLButtonElement>(null);
 
-  const confirm = useCallback((opts: ConfirmOptions) => {
-    setChecked(opts.checkbox?.defaultChecked ?? false);
-    return new Promise<boolean | ConfirmResult>((resolve) =>
-      setState((prev) => {
-        // Only one prompt shows at a time. One still open when another is
-        // requested is answered as cancelled, so its caller is never left
-        // awaiting a promise nothing will settle.
-        if (prev) {
-          prev.resolve(
-            prev.checkbox ? { confirmed: false, checked: false } : false,
-          );
-        }
-        return { ...opts, resolve };
+  // One prompt shows at a time. A confirm requested while another is open
+  // waits its turn rather than replacing it, so neither the prompt the user is
+  // reading nor its caller's promise is thrown away.
+  const queue = useRef<State[]>([]);
+  const current = useRef<State | null>(null);
+
+  const showNext = useCallback(() => {
+    const next = queue.current.shift() ?? null;
+    current.current = next;
+    setChecked(next?.checkbox?.defaultChecked ?? false);
+    setState(next);
+  }, []);
+
+  const confirm = useCallback(
+    (opts: ConfirmOptions) =>
+      new Promise<boolean | ConfirmResult>((resolve) => {
+        queue.current.push({ ...opts, resolve });
+        if (!current.current) showNext();
       }),
-    );
-  }, []) as ConfirmFn;
+    [showNext],
+  ) as ConfirmFn;
 
   const close = useCallback(
     (confirmed: boolean) => {
-      setState((s) => {
-        if (s) s.resolve(s.checkbox ? { confirmed, checked } : confirmed);
-        return null;
-      });
+      const s = current.current;
+      if (!s) return;
+      s.resolve(s.checkbox ? { confirmed, checked } : confirmed);
+      showNext();
     },
-    [checked],
+    [checked, showNext],
   );
 
   // Esc cancels / Enter confirms. Focus the confirm button when opened.
