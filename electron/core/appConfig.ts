@@ -55,7 +55,7 @@ export function configureConfigStorage(layout?: PortableLayout): void {
   configuredLayout = layout;
 }
 
-export const DEFAULT_LOGO: LogoId = "dark";
+export const DEFAULT_LOGO: LogoId = "orange";
 
 function parseLogo(value: unknown): LogoId {
   return LogoIdSchema.catch(DEFAULT_LOGO).parse(value);
@@ -107,11 +107,15 @@ function configPath(layout?: PortableLayout): string {
 export function loadConfig(layout?: PortableLayout): AppConfig {
   const storage = layout ?? configuredLayout;
   try {
-    const c = JSON.parse(fs.readFileSync(configPath(storage), "utf8")) as Record<
+    const raw = JSON.parse(fs.readFileSync(configPath(storage), "utf8")) as Record<
       string,
       unknown
     >;
-    return parseConfig(c, storage);
+    const parsed = parseConfig(raw, storage);
+    // Config files written by older builds may contain a retired Logo ID. Save
+    // the normalized value once so later config writes cannot resurrect it.
+    if (raw.logo !== parsed.logo) saveConfig(parsed, storage);
+    return parsed;
   } catch {
     return {
       formatVersion: 2,

@@ -208,7 +208,7 @@ describe("portable recovery", () => {
           ignoredVersion: null,
           lastCheckAt: null,
         },
-        logo: "dark",
+        logo: "enso",
       }),
     );
     configureConfigStorage(layout);
@@ -217,6 +217,7 @@ describe("portable recovery", () => {
     const core = workspaces.byId(workspaceId);
 
     expect(core?.dataDir).toBe(path.join(layout.dataDir, "roots", workspaceId));
+    expect(loadConfig(layout).logo).toBe("orange");
     workspaces.closeAll();
   });
 });
