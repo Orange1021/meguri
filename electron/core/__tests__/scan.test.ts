@@ -292,9 +292,11 @@ describe("syncFiles lifecycle", () => {
     await fsp.rename(path.join(root, "a.mp4"), path.join(root, "c.mp4"));
     const third = await rescan();
     expect(third.stats.moved).toBe(1);
-    expect(third.identityTargets).toContainEqual(
-      expect.objectContaining({ reason: "moved", fileId: expect.any(Number) }),
+    const movedTarget = third.identityTargets.find(
+      (target) => target.reason === "moved",
     );
+    expect(movedTarget).toBeDefined();
+    expect(typeof movedTarget?.fileId).toBe("number");
     expect(third.stats.inserted).toBe(0);
     expect(third.stats.deleted).toBe(0);
     expect(aliveCount()).toBe(2);

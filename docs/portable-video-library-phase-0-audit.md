@@ -14,41 +14,41 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 
 ## 当前架构与能力
 
-| 领域 | 当前实现 | 对本项目的判断 |
-| --- | --- | --- |
-| Renderer/Main 边界 | `electron/preload.ts` 仅暴露白名单 IPC；`shared/ipc/*` 提供 Zod 输入和类型；Renderer 不直接访问 Node | 可复用，作为安全边界保留 |
-| Main/Core | `electron/core/*` 负责 DB、工作区、扫描、媒体、查询、日志和本地 HTTP server | 可复用，后续按领域增加服务/适配器 |
-| 工作区 | `electron/core/workspaces.ts` 用规范化绝对根路径和 `pathHash` 作为工作区 ID；每个根有独立 Core/SQLite | 需要增加便携 locator、稳定 workspace 记录和相对路径 |
-| 配置/数据位置 | `electron/core/appConfig.ts` 将 `config.json` 写入 `app.getPath("userData")`；`electron/core/paths.ts` 将 DB/缩略图写入 `<userData>/roots/<pathHash>` | P0 缺口：必须迁移到可解析的 `Data` |
-| 数据库 | `electron/core/db.ts` 使用 SQLite WAL、`foreign_keys=ON`、FTS5；表包括 `scan_roots`、`files`、`file_meta`、`meta_tags`、`play_history`、`scene_bookmarks`、`settings` | SQL/查询可以复用；迁移机制需要版本、checksum、备份和恢复状态 |
-| 迁移 | 当前为 `CREATE IF NOT EXISTS`、`ALTER TABLE` 探测和表重建，没有 `schema_migrations`、`user_version` 或迁移前快照 | P0 缺口 |
-| 扫描 | `electron/core/scan.ts` 枚举媒体，比较相对路径/size/mtime，新增/变化项做首尾各 1 MiB 采样 SHA-256；`jobs.ts` 负责 ffprobe、FFmpeg、缩略图和自动标签 | 扫描编排和并发模型可复用；需要改为 quick-v1、scan_run/issue、冲突和恢复队列 |
-| 现有身份 | `files.id` 是 SQLite 整数；用户元数据绑定 `meta_key=content_hash` 或根内相对路径回退值 | 不满足稳定 UUID `video_id`；阶段 2 需要双轨迁移 |
-| 移动/改名 | `syncFiles()` 用 `(content_hash,size)` 找候选并取第一个未见旧路径；同路径变化会更新原 `files` 行 | 不满足多候选冲突、不自动继承替换内容身份的要求 |
-| 缺失/删除 | 扫描将未见文件标记 `deleted_at`；UI 另有从索引删除操作 | 需要 missing 状态、30 天保留、确认清理和问题记录 |
-| 派生资产 | 每个 `files.id` 下保存单个 WebP 缩略图；支持手动帧偏移、内嵌封面和自动缩略图 | 不满足 Cover/4×4 Sheet/manual asset source 与版本化队列 |
-| 标签 | `tags` 有 namespace，`meta_tags.source` 区分 manual/auto-meta；自动标签可按规则集回填 | 可复用字典和 FTS 同步；需要视频级标签、来源、批量和 AND/OR AST 设计 |
-| 播放列表 | 用户集合写入 `userData/config.json`，智能集合保存在 Renderer `localStorage` 的 `meguri.smartCollections.v1`；内置播放和系统外部打开已存在 | 不满足持久化 static/smart playlist、M3U8、PotPlayer 配置 |
-| 外部进程 | `electron/ipc/shell.ts` 使用 Electron `shell.openPath` 或平台默认打开，不拼接 shell 命令 | 安全边界可复用；PotPlayer 需新增参数数组适配器 |
-| 打包 | `package.json` 已配置 `nsis`、`portable`、`appx`，并将 better-sqlite3/FFmpeg/ffprobe `asarUnpack` | 构建基础可复用；运行时仍依赖 `userData`，便携数据尚未实现 |
+| 领域               | 当前实现                                                                                                                                                              | 对本项目的判断                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Renderer/Main 边界 | `electron/preload.ts` 仅暴露白名单 IPC；`shared/ipc/*` 提供 Zod 输入和类型；Renderer 不直接访问 Node                                                                  | 可复用，作为安全边界保留                                                    |
+| Main/Core          | `electron/core/*` 负责 DB、工作区、扫描、媒体、查询、日志和本地 HTTP server                                                                                           | 可复用，后续按领域增加服务/适配器                                           |
+| 工作区             | `electron/core/workspaces.ts` 用规范化绝对根路径和 `pathHash` 作为工作区 ID；每个根有独立 Core/SQLite                                                                 | 需要增加便携 locator、稳定 workspace 记录和相对路径                         |
+| 配置/数据位置      | `electron/core/appConfig.ts` 将 `config.json` 写入 `app.getPath("userData")`；`electron/core/paths.ts` 将 DB/缩略图写入 `<userData>/roots/<pathHash>`                 | P0 缺口：必须迁移到可解析的 `Data`                                          |
+| 数据库             | `electron/core/db.ts` 使用 SQLite WAL、`foreign_keys=ON`、FTS5；表包括 `scan_roots`、`files`、`file_meta`、`meta_tags`、`play_history`、`scene_bookmarks`、`settings` | SQL/查询可以复用；迁移机制需要版本、checksum、备份和恢复状态                |
+| 迁移               | 当前为 `CREATE IF NOT EXISTS`、`ALTER TABLE` 探测和表重建，没有 `schema_migrations`、`user_version` 或迁移前快照                                                      | P0 缺口                                                                     |
+| 扫描               | `electron/core/scan.ts` 枚举媒体，比较相对路径/size/mtime，新增/变化项做首尾各 1 MiB 采样 SHA-256；`jobs.ts` 负责 ffprobe、FFmpeg、缩略图和自动标签                   | 扫描编排和并发模型可复用；需要改为 quick-v1、scan_run/issue、冲突和恢复队列 |
+| 现有身份           | `files.id` 是 SQLite 整数；用户元数据绑定 `meta_key=content_hash` 或根内相对路径回退值                                                                                | 不满足稳定 UUID `video_id`；阶段 2 需要双轨迁移                             |
+| 移动/改名          | `syncFiles()` 用 `(content_hash,size)` 找候选并取第一个未见旧路径；同路径变化会更新原 `files` 行                                                                      | 不满足多候选冲突、不自动继承替换内容身份的要求                              |
+| 缺失/删除          | 扫描将未见文件标记 `deleted_at`；UI 另有从索引删除操作                                                                                                                | 需要 missing 状态、30 天保留、确认清理和问题记录                            |
+| 派生资产           | 每个 `files.id` 下保存单个 WebP 缩略图；支持手动帧偏移、内嵌封面和自动缩略图                                                                                          | 不满足 Cover/4×4 Sheet/manual asset source 与版本化队列                     |
+| 标签               | `tags` 有 namespace，`meta_tags.source` 区分 manual/auto-meta；自动标签可按规则集回填                                                                                 | 可复用字典和 FTS 同步；需要视频级标签、来源、批量和 AND/OR AST 设计         |
+| 播放列表           | 用户集合写入 `userData/config.json`，智能集合保存在 Renderer `localStorage` 的 `meguri.smartCollections.v1`；内置播放和系统外部打开已存在                             | 不满足持久化 static/smart playlist、M3U8、PotPlayer 配置                    |
+| 外部进程           | `electron/ipc/shell.ts` 使用 Electron `shell.openPath` 或平台默认打开，不拼接 shell 命令                                                                              | 安全边界可复用；PotPlayer 需新增参数数组适配器                              |
+| 打包               | `package.json` 已配置 `nsis`、`portable`、`appx`，并将 better-sqlite3/FFmpeg/ffprobe `asarUnpack`                                                                     | 构建基础可复用；运行时仍依赖 `userData`，便携数据尚未实现                   |
 
 ## 差距矩阵
 
-| 方案要求 | 上游现状 | 差距 | 阶段 |
-| --- | --- | --- | --- |
-| `App` 与 `Data` 分离 | 程序可生成 portable exe，但 DB/config 仍写 Electron `userData` | 便携包可能出现第二份系统数据，换盘符也无法按包内 Data 恢复 | 1 |
-| 同盘媒体相对路径 | `scan_roots.path`、`files.abs_path` 保存绝对路径，root ID 由绝对路径 hash 得到 | 盘符变化会改变工作区身份和路径解析 | 1 |
-| 版本化 schema migration | 版本无编号，启动时按当前 DDL/列探测自修复 | 无法可靠判断版本、checksum、失败位置和回滚边界 | 1 |
-| 迁移前备份/恢复 | 没有一致性备份服务和恢复入口 | 升级或移动硬盘中断可能只留下部分写入 | 1 |
-| 稳定 `workspace_id` | 由规范化绝对路径 hash 派生 | 路径变化导致逻辑身份变化 | 1/2 |
-| UUID `video_id` 与物理文件分离 | 已增加 `files.video_id`、`videos` 和事务化身份服务；旧行迁移时一对一生成 UUID | 阶段 2.1 已覆盖复制、替换、缺失、重复候选和冲突记录；跨工作区统一身份仍留待后续规范化 | 2.1 已实现 |
-| `quick-v1` fingerprint | 已实现固定 4 MiB 采样、8 MiB 以下全哈希、媒体流签名和版本化 key | 作为当前身份候选证据；更强的内容验证和算法升级留待后续阶段 | 2.1 已实现 |
-| 冲突队列 | 移动候选取第一个；没有 `scan_issues` | 多候选/弱证据可能误关联 | 2 |
-| 持久化扫描状态 | `scan_runs` 保存阶段、完成/取消/失败状态和错误；`scan_issues` 保存单文件问题与冲突 | 断点恢复和缺失保留策略仍待后续阶段 | 2.1 已实现 |
-| Cover/Sheet/manual 资产 | 单缩略图 `thumb_path`，无 source/generation version | 自动重建无法按来源保护人工资产，也没有 4×4 Sheet | 3 |
-| 纯标签 AND/OR/NOT | 当前是 tags 数组和可保存 SearchQuery；智能集合在 localStorage | 没有版本化 rule AST、SQLite 播放列表和跨重启统一数据 | 4 |
-| M3U8/PotPlayer | 只有内置/系统默认外部打开 | 无当前盘符路径重新生成、播放器发现和顺序验证 | 5 |
-| 升级/回退演练 | portable artifact 可构建，没有 App.new/App.previous 和 schema 兼容流程 | 发布无法保证 Data 不变、失败可回退 | 6 |
+| 方案要求                       | 上游现状                                                                           | 差距                                                                                  | 阶段       |
+| ------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------- |
+| `App` 与 `Data` 分离           | 程序可生成 portable exe，但 DB/config 仍写 Electron `userData`                     | 便携包可能出现第二份系统数据，换盘符也无法按包内 Data 恢复                            | 1          |
+| 同盘媒体相对路径               | `scan_roots.path`、`files.abs_path` 保存绝对路径，root ID 由绝对路径 hash 得到     | 盘符变化会改变工作区身份和路径解析                                                    | 1          |
+| 版本化 schema migration        | 版本无编号，启动时按当前 DDL/列探测自修复                                          | 无法可靠判断版本、checksum、失败位置和回滚边界                                        | 1          |
+| 迁移前备份/恢复                | 没有一致性备份服务和恢复入口                                                       | 升级或移动硬盘中断可能只留下部分写入                                                  | 1          |
+| 稳定 `workspace_id`            | 由规范化绝对路径 hash 派生                                                         | 路径变化导致逻辑身份变化                                                              | 1/2        |
+| UUID `video_id` 与物理文件分离 | 已增加 `files.video_id`、`videos` 和事务化身份服务；旧行迁移时一对一生成 UUID      | 阶段 2.1 已覆盖复制、替换、缺失、重复候选和冲突记录；跨工作区统一身份仍留待后续规范化 | 2.1 已实现 |
+| `quick-v1` fingerprint         | 已实现固定 4 MiB 采样、8 MiB 以下全哈希、媒体流签名和版本化 key                    | 作为当前身份候选证据；更强的内容验证和算法升级留待后续阶段                            | 2.1 已实现 |
+| 冲突队列                       | `scan_issues` 持久化多候选、弱证据、指纹失败和移动冲突；禁止静默取第一候选         | 人工处理界面和问题关闭策略留待后续阶段                                                | 2.1 已实现 |
+| 持久化扫描状态                 | `scan_runs` 保存阶段、完成/取消/失败状态和错误；`scan_issues` 保存单文件问题与冲突 | 断点恢复和缺失保留策略仍待后续阶段                                                    | 2.1 已实现 |
+| Cover/Sheet/manual 资产        | 单缩略图 `thumb_path`，无 source/generation version                                | 自动重建无法按来源保护人工资产，也没有 4×4 Sheet                                      | 3          |
+| 纯标签 AND/OR/NOT              | 当前是 tags 数组和可保存 SearchQuery；智能集合在 localStorage                      | 没有版本化 rule AST、SQLite 播放列表和跨重启统一数据                                  | 4          |
+| M3U8/PotPlayer                 | 只有内置/系统默认外部打开                                                          | 无当前盘符路径重新生成、播放器发现和顺序验证                                          | 5          |
+| 升级/回退演练                  | portable artifact 可构建，没有 App.new/App.previous 和 schema 兼容流程             | 发布无法保证 Data 不变、失败可回退                                                    | 6          |
 
 ## 需要修改和新增的模块
 
@@ -93,15 +93,15 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 
 环境：Windows，Node `v24.15.0`，npm `11.5.2`，Electron `42.11.0`，依赖通过 `npm ci` 安装；`npm ci` 成功并报告 0 个漏洞。
 
-| 命令 | 结果 | 真实输出摘要 |
-| --- | --- | --- |
-| `npm run typecheck` | 通过，exit 0 | `tsc --noEmit` 对 renderer、electron、e2e 三个 tsconfig 均通过 |
-| `npm test` | 失败，exit 1 | `test:core` 在 Windows shell 中把 `ELECTRON_RUN_AS_NODE=1` 当成命令，尚未进入测试 |
-| 等价 Windows core 命令 | 失败，exit 1 | 30 个文件：26 通过；539 个测试：495 通过、26 跳过、18 失败。失败集中在 Windows 路径分隔符、symlink `EPERM`、HEIF fixture 和 server 清理异常 |
-| `npm run test:renderer` | 通过，exit 0 | 92 个文件、1447 个测试全部通过；jsdom 输出大量 HTMLMediaElement/Canvas 未实现警告 |
-| `npm run test:e2e` | 失败，exit 1 | 76 个用例：75 通过、1 失败。`e2e/workspace.spec.ts:16` 等待 `e2e/fixtures/media` 文本 30 秒超时；生产构建部分成功 |
-| `npm run dist -- --win portable` | 通过，exit 0 | 生成 `release/Meguri-0.8.0-win32-x64.exe`，141,312,024 bytes；已核验 better-sqlite3、FFmpeg、ffprobe 均在 unpacked 资源中 |
-| `npm run lint` | 失败，exit 1 | 83 个问题：81 errors、2 warnings；主要来自既有测试 mock 的 unsafe any、React hooks lint 规则、未 await Promise 和 demo 工具 |
+| 命令                             | 结果         | 真实输出摘要                                                                                                                                |
+| -------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`              | 通过，exit 0 | `tsc --noEmit` 对 renderer、electron、e2e 三个 tsconfig 均通过                                                                              |
+| `npm test`                       | 失败，exit 1 | `test:core` 在 Windows shell 中把 `ELECTRON_RUN_AS_NODE=1` 当成命令，尚未进入测试                                                           |
+| 等价 Windows core 命令           | 失败，exit 1 | 30 个文件：26 通过；539 个测试：495 通过、26 跳过、18 失败。失败集中在 Windows 路径分隔符、symlink `EPERM`、HEIF fixture 和 server 清理异常 |
+| `npm run test:renderer`          | 通过，exit 0 | 92 个文件、1447 个测试全部通过；jsdom 输出大量 HTMLMediaElement/Canvas 未实现警告                                                           |
+| `npm run test:e2e`               | 失败，exit 1 | 76 个用例：75 通过、1 失败。`e2e/workspace.spec.ts:16` 等待 `e2e/fixtures/media` 文本 30 秒超时；生产构建部分成功                           |
+| `npm run dist -- --win portable` | 通过，exit 0 | 生成 `release/Meguri-0.8.0-win32-x64.exe`，141,312,024 bytes；已核验 better-sqlite3、FFmpeg、ffprobe 均在 unpacked 资源中                   |
+| `npm run lint`                   | 失败，exit 1 | 83 个问题：81 errors、2 warnings；主要来自既有测试 mock 的 unsafe any、React hooks lint 规则、未 await Promise 和 demo 工具                 |
 
 E2E 失败的 trace 已由 Playwright 保存在被忽略的 `test-results/workspace-Workspace-shows-workspace-path-in-header/trace.zip`，没有修改生产源码；构建和测试产物目录均被 `.gitignore` 忽略。本次新增的阶段 0 文档是审计交付物。
 

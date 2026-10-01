@@ -127,9 +127,9 @@ export const DEFAULT_MIGRATION_REGISTRY: MigrationRegistry = {
 };
 
 function ensureVideoIdColumn(db: DB): void {
-  const columns = db
-    .prepare("PRAGMA table_info(files)")
-    .all() as Array<{ name: string }>;
+  const columns = db.prepare("PRAGMA table_info(files)").all() as Array<{
+    name: string;
+  }>;
   if (!columns.some((column) => column.name === "video_id")) {
     db.exec("ALTER TABLE files ADD COLUMN video_id TEXT");
   }
@@ -174,10 +174,7 @@ function backfillLegacyVideoIdentities(db: DB, now: number): void {
 
 export function migrationChecksum(step: MigrationStep): string {
   return createHash("sha256")
-    .update(
-      String(step.version) + "\n" + step.name + "\n" + step.sql,
-      "utf8",
-    )
+    .update(String(step.version) + "\n" + step.name + "\n" + step.sql, "utf8")
     .digest("hex");
 }
 
@@ -203,9 +200,7 @@ export function applyMigrations(
   );
 
   let rows = readMigrationRows(db);
-  const baseline = rows.find(
-    (row) => row.version === registry.baselineVersion,
-  );
+  const baseline = rows.find((row) => row.version === registry.baselineVersion);
   if (!baseline) {
     validateLegacySchema(db);
     db.prepare(
@@ -237,10 +232,7 @@ export function applyMigrations(
         "migration " + row.version + " is not present in the registry",
       );
     }
-    if (
-      row.name !== step.name ||
-      row.checksum !== migrationChecksum(step)
-    ) {
+    if (row.name !== step.name || row.checksum !== migrationChecksum(step)) {
       throw new MigrationError(
         "migration-checksum-mismatch",
         "migration checksum mismatch for version " + row.version,
@@ -256,15 +248,12 @@ export function applyMigrations(
     if (
       rows.some(
         (row) =>
-          row.version > registry.baselineVersion &&
-          row.version > step.version,
+          row.version > registry.baselineVersion && row.version > step.version,
       )
     ) {
       throw new MigrationError(
         "migration-missing",
-        "migration " +
-          step.version +
-          " is missing before a later migration",
+        "migration " + step.version + " is missing before a later migration",
       );
     }
 
@@ -274,12 +263,7 @@ export function applyMigrations(
         db.prepare(
           "INSERT INTO schema_migrations " +
             "(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)",
-        ).run(
-          step.version,
-          step.name,
-          migrationChecksum(step),
-          context.now(),
-        );
+        ).run(step.version, step.name, migrationChecksum(step), context.now());
       })();
     } catch (error) {
       if (error instanceof MigrationError) throw error;
@@ -340,8 +324,7 @@ function validateLegacySchema(db: DB): void {
   if (required.size > 0) {
     throw new MigrationError(
       "legacy-schema-unrecognized",
-      "legacy schema is missing required tables: " +
-        [...required].join(", "),
+      "legacy schema is missing required tables: " + [...required].join(", "),
     );
   }
 }

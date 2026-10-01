@@ -52,11 +52,7 @@ export function createScanRun(
   ).run(runId, rootId, now);
 }
 
-export function updateScanRunPhase(
-  db: DB,
-  runId: string,
-  phase: string,
-): void {
+export function updateScanRunPhase(db: DB, runId: string, phase: string): void {
   const result = db
     .prepare(
       "UPDATE scan_runs SET phase = ? WHERE run_id = ? AND status = 'running'",
@@ -141,7 +137,13 @@ export function updateVideoStatus(
       "UPDATE videos SET status = ?, updated_at = ?, last_seen_at = ?, missing_at = ? " +
         "WHERE video_id = ?",
     )
-    .run(status, now, status === "active" ? now : null, status === "missing" ? now : null, videoId);
+    .run(
+      status,
+      now,
+      status === "active" ? now : null,
+      status === "missing" ? now : null,
+      videoId,
+    );
   if (result.changes !== 1) throw new Error("video not found");
 }
 
@@ -197,7 +199,8 @@ export function findFingerprintCandidates(
   }>;
   return rows.map((row) => ({
     videoId: row.videoId,
-    strong: row.fullHash != null || streamSignatureHasCodec(row.streamSignature),
+    strong:
+      row.fullHash != null || streamSignatureHasCodec(row.streamSignature),
   }));
 }
 

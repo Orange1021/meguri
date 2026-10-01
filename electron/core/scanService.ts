@@ -90,9 +90,9 @@ export function reconcileFileIdentity(
       !input.probeFailed && hasStrongFingerprintEvidence(input.fingerprint),
   });
   const filePath = (
-    db.prepare("SELECT rel_path AS relPath FROM files WHERE id = ?").get(input.fileId) as
-      | { relPath: string }
-      | undefined
+    db
+      .prepare("SELECT rel_path AS relPath FROM files WHERE id = ?")
+      .get(input.fileId) as { relPath: string } | undefined
   )?.relPath;
 
   let result!: ReconcileFileResult;
@@ -122,10 +122,7 @@ export function reconcileFileIdentity(
     }
     updateVideoStatus(db, finalVideoId, "active", input.now);
 
-    if (
-      input.previousVideoId &&
-      input.previousVideoId !== finalVideoId
-    ) {
+    if (input.previousVideoId && input.previousVideoId !== finalVideoId) {
       markMissingWhenUnreferenced(db, input.previousVideoId, input.now);
     }
 

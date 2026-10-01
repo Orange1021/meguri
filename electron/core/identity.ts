@@ -19,9 +19,7 @@ export type IdentityDecision =
       candidateVideoIds: string[];
     };
 
-export function decideIdentity(
-  input: IdentityDecisionInput,
-): IdentityDecision {
+export function decideIdentity(input: IdentityDecisionInput): IdentityDecision {
   const byVideoId = new Map<string, boolean>();
   for (const candidate of input.candidates) {
     byVideoId.set(

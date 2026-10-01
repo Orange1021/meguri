@@ -365,7 +365,9 @@ export async function syncFiles(
       "(video_id, kind, status, created_at, updated_at, last_seen_at) " +
       "VALUES (?, ?, 'active', ?, ?, ?)",
   );
-  const bindVideoStmt = db.prepare("UPDATE files SET video_id = ? WHERE id = ?");
+  const bindVideoStmt = db.prepare(
+    "UPDATE files SET video_id = ? WHERE id = ?",
+  );
   const moveCandidates = db.prepare(
     "SELECT id, rel_path, kind, ext, video_id FROM files " +
       "WHERE root_id = ? AND content_hash = ? AND size = ? AND excluded_at IS NULL",

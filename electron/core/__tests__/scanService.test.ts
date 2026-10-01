@@ -167,12 +167,7 @@ describe("scan identity service", () => {
 
     const result = reconcileFileIdentity(
       db,
-      runInput(
-        fileId,
-        "v-provisional",
-        "v-old",
-        fingerprint("key-new", true),
-      ),
+      runInput(fileId, "v-provisional", "v-old", fingerprint("key-new", true)),
     );
 
     expect(result.decision).toBe("create");
@@ -198,7 +193,10 @@ describe("scan identity service", () => {
     expect(result.issueType).toBe("ambiguous_identity");
     expect(videoIdOf(db, incoming)).toBe("v-provisional");
     expect(
-      db.prepare("SELECT issue_type FROM scan_issues ORDER BY id").pluck().all(),
+      db
+        .prepare("SELECT issue_type FROM scan_issues ORDER BY id")
+        .pluck()
+        .all(),
     ).toEqual(["ambiguous_identity"]);
   });
 
