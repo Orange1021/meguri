@@ -5,8 +5,32 @@ import fs from "node:fs";
 import path from "node:path";
 import { LogoIdSchema, type LogoId } from "../../shared/ipc/schema.js";
 import log from "./logger.js";
+import { resolveWorkspaceLocator } from "./portablePaths.js";
+import type { PortableLayout, WorkspaceLocator } from "./portablePaths.js";
+import { pathHash } from "./paths.js";
+
+export interface WorkspaceConfig {
+  workspaceId: string;
+  name: string;
+  locator: WorkspaceLocator;
+  legacyPathHash: string;
+  createdAt: number;
+}
+
+export interface AppConfigV2 {
+  formatVersion: 2;
+  workspaces: WorkspaceConfig[];
+  activeWorkspaceId: string | null;
+  collections: UserCollectionConfig[];
+  workspaceEmojis: Record<string, string>;
+  logo: LogoId;
+  update: UpdateConfig;
+}
 
 export interface AppConfig {
+  formatVersion: 1 | 2;
+  workspaces: WorkspaceConfig[];
+  activeWorkspaceId: string | null;
   /** Registered roots (absolute paths, normalized). */
   roots: string[];
   /** Currently active root. null if none is selected. */
@@ -23,6 +47,12 @@ export interface AppConfig {
    * before any renderer exists, so main must be able to read it on its own.
    */
   logo: LogoId;
+}
+
+let configuredLayout: PortableLayout | undefined;
+
+export function configureConfigStorage(layout?: PortableLayout): void {
+  configuredLayout = layout;
 }
 
 export const DEFAULT_LOGO: LogoId = "dark";
@@ -69,28 +99,24 @@ export interface UserCollectionConfig {
   locked?: boolean;
 }
 
-function configPath(): string {
-  return path.join(app.getPath("userData"), "config.json");
+function configPath(layout?: PortableLayout): string {
+  const storage = layout ?? configuredLayout;
+  return storage?.configPath ?? path.join(app.getPath("userData"), "config.json");
 }
 
-export function loadConfig(): AppConfig {
+export function loadConfig(layout?: PortableLayout): AppConfig {
+  const storage = layout ?? configuredLayout;
   try {
-    const c = JSON.parse(fs.readFileSync(configPath(), "utf8")) as Record<
+    const c = JSON.parse(fs.readFileSync(configPath(storage), "utf8")) as Record<
       string,
       unknown
     >;
-    return {
-      roots: Array.isArray(c.roots)
-        ? c.roots.filter((x: unknown) => typeof x === "string")
-        : [],
-      activePath: typeof c.activePath === "string" ? c.activePath : null,
-      collections: parseCollections(c.collections),
-      workspaceEmojis: parseEmojiMap(c.workspaceEmojis),
-      update: parseUpdateConfig(c.update),
-      logo: parseLogo(c.logo),
-    };
+    return parseConfig(c, storage);
   } catch {
     return {
+      formatVersion: 2,
+      workspaces: [],
+      activeWorkspaceId: null,
       roots: [],
       activePath: null,
       collections: [],
@@ -99,6 +125,221 @@ export function loadConfig(): AppConfig {
       logo: DEFAULT_LOGO,
     };
   }
+}
+
+function parseConfig(
+  raw: Record<string, unknown>,
+  layout: PortableLayout | undefined,
+): AppConfig {
+  const legacyRoots = Array.isArray(raw.roots)
+    ? raw.roots.filter((value): value is string => typeof value === "string")
+    : [];
+  const records = parseWorkspaceConfigs(raw.workspaces);
+  const resolvedRoots =
+    layout || records.every((record) => record.locator.kind === "absolute")
+      ? records
+          .map((record) => {
+            try {
+              return resolveWorkspaceLocator(
+                layout ?? fallbackLayout(),
+                record.locator,
+              );
+            } catch {
+              return null;
+            }
+          })
+          .filter((value): value is string => value !== null)
+      : [];
+  const roots =
+    records.length > 0 && resolvedRoots.length === records.length
+      ? resolvedRoots
+      : legacyRoots;
+  const workspaces =
+    records.length > 0
+      ? records
+      : roots.map((root) => workspaceRecordForRoot(root, layout, 0));
+  const activeWorkspaceId =
+    typeof raw.activeWorkspaceId === "string"
+      ? raw.activeWorkspaceId
+      : typeof raw.activePath === "string"
+        ? workspaces.find((record) => {
+            try {
+              return (
+                (layout
+                  ? resolveWorkspaceLocator(layout, record.locator)
+                  : record.locator.kind === "absolute"
+                    ? path.resolve(record.locator.value)
+                    : null) === path.resolve(raw.activePath as string)
+              );
+            } catch {
+              return false;
+            }
+          })?.workspaceId ?? null
+        : null;
+  const activePath =
+    typeof raw.activePath === "string"
+      ? raw.activePath
+      : activeWorkspaceId
+        ? roots[workspaces.findIndex((record) => record.workspaceId === activeWorkspaceId)] ??
+          null
+        : null;
+
+  return {
+    formatVersion: raw.formatVersion === 2 ? 2 : 2,
+    workspaces,
+    activeWorkspaceId,
+    roots,
+    activePath,
+    collections: parseCollections(raw.collections),
+    workspaceEmojis: parseEmojiMap(raw.workspaceEmojis),
+    update: parseUpdateConfig(raw.update),
+    logo: parseLogo(raw.logo),
+  };
+}
+
+function parseWorkspaceConfigs(value: unknown): WorkspaceConfig[] {
+  if (!Array.isArray(value)) return [];
+  const out: WorkspaceConfig[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const locatorValue = record.locator;
+    if (!locatorValue || typeof locatorValue !== "object") continue;
+    const locator = locatorValue as Record<string, unknown>;
+    if (
+      typeof record.workspaceId !== "string" ||
+      typeof record.name !== "string" ||
+      (locator.kind !== "portable-relative" && locator.kind !== "absolute") ||
+      typeof locator.value !== "string"
+    ) {
+      continue;
+    }
+    out.push({
+      workspaceId: record.workspaceId,
+      name: record.name,
+      locator: {
+        kind: locator.kind,
+        value: locator.value,
+      } as WorkspaceLocator,
+      legacyPathHash:
+        typeof record.legacyPathHash === "string"
+          ? record.legacyPathHash
+          : record.workspaceId,
+      createdAt:
+        typeof record.createdAt === "number" ? record.createdAt : 0,
+    });
+  }
+  return out;
+}
+
+function fallbackLayout(): PortableLayout {
+  const rootDir = path.resolve(app.getPath("userData"));
+  const dataDir = path.join(rootDir, "Data");
+  return {
+    rootDir,
+    appDir: rootDir,
+    dataDir,
+    mediaDir: path.join(rootDir, "Media"),
+    configPath: path.join(dataDir, "config.json"),
+    databasePath: path.join(dataDir, "library.sqlite"),
+    assetsDir: path.join(dataDir, "assets"),
+    playlistsDir: path.join(dataDir, "playlists"),
+    backupsDir: path.join(dataDir, "backups"),
+    logsDir: path.join(dataDir, "logs"),
+    tempDir: path.join(dataDir, "temp"),
+  };
+}
+
+function serializeLegacy(c: AppConfig) {
+  return {
+    roots: c.roots,
+    activePath: c.activePath,
+    collections: c.collections,
+    workspaceEmojis: c.workspaceEmojis,
+    update: c.update,
+    logo: c.logo,
+  };
+}
+
+function serializeV2(c: AppConfig, layout: PortableLayout): AppConfigV2 & {
+  roots: string[];
+  activePath: string | null;
+} {
+  const workspaces = c.roots.map((root) => {
+    const normalized = normalizeDir(root);
+    const legacyPathHash = pathHash(normalized);
+    const locator = locatorForResolvedRoot(layout, normalized);
+    const previous = c.workspaces.find(
+      (record) =>
+        record.workspaceId === legacyPathHash ||
+        record.legacyPathHash === legacyPathHash ||
+        (record.locator.kind === locator.kind &&
+          record.locator.value === locator.value),
+    );
+    const generated = workspaceRecordForRoot(root, layout, 0);
+    return {
+      ...generated,
+      workspaceId: previous?.workspaceId ?? generated.workspaceId,
+      locator,
+      name: previous?.name ?? generated.name,
+      legacyPathHash: previous?.legacyPathHash ?? generated.legacyPathHash,
+      createdAt:
+        previous?.createdAt && previous.createdAt > 0
+          ? previous.createdAt
+          : Math.floor(Date.now() / 1000),
+    };
+  });
+  const activeIndex = c.activePath
+    ? c.roots.findIndex((root) => root === c.activePath)
+    : -1;
+  return {
+    formatVersion: 2,
+    workspaces,
+    activeWorkspaceId:
+      activeIndex >= 0 ? workspaces[activeIndex]?.workspaceId ?? null : null,
+    collections: c.collections,
+    workspaceEmojis: c.workspaceEmojis,
+    logo: c.logo,
+    update: c.update,
+    roots: c.roots,
+    activePath: c.activePath,
+  };
+}
+
+function workspaceRecordForRoot(
+  root: string,
+  layout: PortableLayout | undefined,
+  createdAt: number,
+): WorkspaceConfig {
+  const normalized = normalizeDir(root);
+  return {
+    workspaceId: pathHash(normalized),
+    name: path.basename(normalized) || normalized,
+    locator: layout
+      ? locatorForResolvedRoot(layout, normalized)
+      : { kind: "absolute", value: normalized },
+    legacyPathHash: pathHash(normalized),
+    createdAt,
+  };
+}
+
+export function locatorForResolvedRoot(
+  layout: PortableLayout,
+  root: string,
+): WorkspaceLocator {
+  const media = normalizeDir(layout.mediaDir);
+  const resolved = normalizeDir(root);
+  const relative = path.relative(media, resolved);
+  const escaped =
+    relative === ".." ||
+    relative.startsWith(".." + path.sep) ||
+    path.isAbsolute(relative);
+  return escaped
+    ? { kind: "absolute", value: resolved }
+    : {
+        kind: "portable-relative",
+        value: relative.split(path.sep).join("/"),
+      };
 }
 
 function parseUpdateConfig(value: unknown): UpdateConfig {
@@ -120,10 +361,11 @@ function parseUpdateConfig(value: unknown): UpdateConfig {
  * crashed between writeFileSync and renameSync. Safe to call at startup; the
  * single-instance lock means no other process is mid-write.
  */
-export function cleanupStaleTemp(): void {
+export function cleanupStaleTemp(layout?: PortableLayout): void {
   try {
-    const dir = path.dirname(configPath());
-    const base = path.basename(configPath());
+    const dest = configPath(layout);
+    const dir = path.dirname(dest);
+    const base = path.basename(dest);
     for (const name of fs.readdirSync(dir)) {
       if (name.startsWith(`${base}.`) && name.endsWith(".tmp")) {
         fs.rmSync(path.join(dir, name), { force: true });
@@ -134,9 +376,11 @@ export function cleanupStaleTemp(): void {
   }
 }
 
-export function saveConfig(c: AppConfig): void {
+export function saveConfig(c: AppConfig, layout?: PortableLayout): void {
   try {
-    const dest = configPath();
+    const storage = layout ?? configuredLayout;
+    const dest = configPath(storage);
+    const output = storage ? serializeV2(c, storage) : serializeLegacy(c);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     // Write to a sibling temp file then rename so a crash mid-write can't leave a
     // truncated config.json (which would drop all workspaces and collections).
@@ -146,7 +390,7 @@ export function saveConfig(c: AppConfig): void {
     const tmp = `${dest}.${process.pid}.tmp`;
     const fd = fs.openSync(tmp, "w");
     try {
-      fs.writeFileSync(fd, JSON.stringify(c, null, 2));
+      fs.writeFileSync(fd, JSON.stringify(output, null, 2));
       fs.fsyncSync(fd);
     } finally {
       fs.closeSync(fd);
@@ -165,8 +409,12 @@ export function saveConfig(c: AppConfig): void {
  * Pass an `update`-only mutation here rather than spreading an old `loadConfig()`
  * result into `saveConfig`.
  */
-export function updateConfig(mutator: (c: AppConfig) => AppConfig): void {
-  saveConfig(mutator(loadConfig()));
+export function updateConfig(
+  mutator: (c: AppConfig) => AppConfig,
+  layout?: PortableLayout,
+): void {
+  const storage = layout ?? configuredLayout;
+  saveConfig(mutator(loadConfig(storage)), storage);
 }
 
 /** Normalize a path (realpath, falling back to resolve on failure). */

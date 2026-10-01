@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import Database from "better-sqlite3";
 import type { DB } from "./db.js";
 
 export interface BackupManifest {
@@ -37,6 +38,22 @@ export interface CreateBackupOptions {
   backupsDir: string;
   appVersion: string;
   now?: () => number;
+}
+
+export async function copyDatabaseSnapshot(
+  sourcePath: string,
+  targetPath: string,
+): Promise<void> {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  const source = new Database(sourcePath, {
+    readonly: true,
+    fileMustExist: true,
+  });
+  try {
+    await source.backup(targetPath);
+  } finally {
+    source.close();
+  }
 }
 
 export async function createBackup(

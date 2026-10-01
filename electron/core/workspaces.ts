@@ -15,6 +15,7 @@ import {
   type UserCollectionItemConfig,
 } from "./appConfig.js";
 import { dataDirForRoot, pathHash } from "./paths.js";
+import type { PortableLayout } from "./portablePaths.js";
 import log from "./logger.js";
 import { nowUnix } from "./db.js";
 
@@ -51,11 +52,13 @@ export class Workspaces {
   private config: AppConfig;
   private cores = new Map<string, Core>();
   private errors = new Map<string, WorkspaceInitError>();
+  private readonly layout?: PortableLayout;
   /** Set by closeAll(): no Core may be (re)opened afterwards. */
   private closed = false;
 
-  constructor() {
-    this.config = loadConfig();
+  constructor(options: { layout?: PortableLayout; recovery?: unknown } = {}) {
+    this.layout = options.layout;
+    this.config = loadConfig(this.layout);
     this.seedWatchLater();
   }
 
@@ -67,8 +70,8 @@ export class Workspaces {
    * through here rather than calling saveConfig directly.
    */
   private persist(): void {
-    this.config.update = loadConfig().update;
-    saveConfig(this.config);
+    this.config.update = loadConfig(this.layout).update;
+    saveConfig(this.config, this.layout);
   }
 
   /**
@@ -313,7 +316,7 @@ export class Workspaces {
     this.persist();
 
     // Close the DB handle first so the files can be removed (Windows locks open files).
-    const dir = core?.dataDir ?? dataDirForRoot(p);
+    const dir = core?.dataDir ?? dataDirForRoot(p, this.layout);
     core?.close();
     try {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -670,7 +673,7 @@ export class Workspaces {
 
   /** At startup: take in the CLI/env-var root, settle the active workspace, and pre-open it. */
   bootstrap(cliRoot: string | null): void {
-    cleanupStaleTemp();
+    cleanupStaleTemp(this.layout);
     if (cliRoot) {
       const np = this.add(cliRoot);
       this.config.activePath = np;
@@ -704,7 +707,7 @@ export class Workspaces {
     if (cached) return cached;
     if (this.closed) return null;
     try {
-      const core = Core.init(p);
+      const core = Core.init(p, { layout: this.layout });
       this.cores.set(id, core);
       this.errors.delete(id);
       return core;
