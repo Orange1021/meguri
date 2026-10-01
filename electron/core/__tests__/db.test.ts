@@ -63,6 +63,24 @@ describe("openDb / backfillColumns", () => {
       b.close();
     }).not.toThrow();
   });
+
+  it("creates the phase 2 identity tables and files.video_id", () => {
+    const db = openDb(":memory:");
+    expect(tableColumns(db, "files")).toContain("video_id");
+    for (const table of ["videos", "fingerprints", "scan_runs", "scan_issues"]) {
+      expect(
+        db
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+          )
+          .get(table),
+      ).toEqual({ name: table });
+    }
+    expect(
+      db.prepare("SELECT version FROM schema_migrations ORDER BY version").all(),
+    ).toEqual([{ version: 0 }, { version: 1 }, { version: 2 }]);
+    db.close();
+  });
 });
 
 describe("migrateKindCheck", () => {

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS files (
   rel_path TEXT NOT NULL, abs_path TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('video','image','audio')),
   ext TEXT, size INTEGER, mtime INTEGER, btime INTEGER, inode INTEGER, content_hash TEXT,
+  video_id TEXT,
   width INTEGER, height INTEGER, duration REAL, codec TEXT, fps REAL, captured_at INTEGER,
   thumb_path TEXT, thumb_status TEXT NOT NULL DEFAULT 'pending'
     CHECK (thumb_status IN ('pending','done','error')),
@@ -206,6 +207,13 @@ function backfillColumns(db: DB): void {
   if (!hasColumn(db, "files", "btime")) {
     db.exec("ALTER TABLE files ADD COLUMN btime INTEGER");
   }
+  // Stable logical identity introduced by the phase 2 migration. The column is
+  // deliberately nullable at the SQLite layer so legacy table rebuilds and
+  // interrupted scans can be recovered by the identity service.
+  if (!hasColumn(db, "files", "video_id")) {
+    db.exec("ALTER TABLE files ADD COLUMN video_id TEXT");
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS idx_files_video_id ON files(video_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_files_btime ON files(btime)");
   // Mirrors idx_files_alive_captured: drives sort=btime in its default DESC
   // direction (the leading expression matches the NULLs-last ORDER BY term).

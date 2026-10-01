@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { DB } from "./db.js";
 
 export interface MigrationContext {
@@ -45,6 +45,63 @@ const PORTABLE_METADATA_SQL = [
   "VALUES (1, 1);",
 ].join("\n");
 
+const VIDEO_IDENTITY_SQL = [
+  "CREATE TABLE IF NOT EXISTS videos (",
+  "  video_id TEXT PRIMARY KEY,",
+  "  kind TEXT NOT NULL CHECK (kind IN ('video','image','audio')),",
+  "  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','missing')),",
+  "  created_at INTEGER NOT NULL,",
+  "  updated_at INTEGER NOT NULL,",
+  "  last_seen_at INTEGER,",
+  "  missing_at INTEGER",
+  ");",
+  "CREATE TABLE IF NOT EXISTS fingerprints (",
+  "  id INTEGER PRIMARY KEY,",
+  "  file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,",
+  "  algorithm TEXT NOT NULL,",
+  "  version TEXT NOT NULL,",
+  "  fingerprint_key TEXT NOT NULL,",
+  "  size INTEGER NOT NULL,",
+  "  duration_ms INTEGER,",
+  "  first_hash TEXT,",
+  "  last_hash TEXT,",
+  "  full_hash TEXT,",
+  "  stream_signature TEXT NOT NULL,",
+  "  computed_at INTEGER NOT NULL,",
+  "  UNIQUE (file_id, algorithm, version)",
+  ");",
+  "CREATE INDEX IF NOT EXISTS idx_fingerprints_key",
+  "  ON fingerprints(algorithm, version, fingerprint_key);",
+  "CREATE TABLE IF NOT EXISTS scan_runs (",
+  "  run_id TEXT PRIMARY KEY,",
+  "  root_id INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,",
+  "  status TEXT NOT NULL CHECK (status IN ('running','completed','aborted','failed')),",
+  "  phase TEXT,",
+  "  started_at INTEGER NOT NULL,",
+  "  finished_at INTEGER,",
+  "  stats_json TEXT,",
+  "  error_code TEXT,",
+  "  error_detail TEXT",
+  ");",
+  "CREATE TABLE IF NOT EXISTS scan_issues (",
+  "  id INTEGER PRIMARY KEY,",
+  "  run_id TEXT NOT NULL REFERENCES scan_runs(run_id) ON DELETE CASCADE,",
+  "  file_id INTEGER REFERENCES files(id) ON DELETE SET NULL,",
+  "  issue_type TEXT NOT NULL,",
+  "  severity TEXT NOT NULL CHECK (severity IN ('warning','error')),",
+  "  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved','ignored')),",
+  "  candidate_video_ids_json TEXT,",
+  "  details_json TEXT,",
+  "  created_at INTEGER NOT NULL,",
+  "  resolved_at INTEGER",
+  ");",
+  "CREATE INDEX IF NOT EXISTS idx_scan_issues_run_status",
+  "  ON scan_issues(run_id, status);",
+  "CREATE INDEX IF NOT EXISTS idx_scan_issues_file_status",
+  "  ON scan_issues(file_id, status);",
+  "CREATE INDEX IF NOT EXISTS idx_files_video_id ON files(video_id);",
+].join("\n");
+
 export const DEFAULT_MIGRATION_REGISTRY: MigrationRegistry = {
   baselineVersion: 0,
   steps: [
@@ -56,8 +113,64 @@ export const DEFAULT_MIGRATION_REGISTRY: MigrationRegistry = {
         db.exec(PORTABLE_METADATA_SQL);
       },
     },
+    {
+      version: 2,
+      name: "video-identity-v1",
+      sql: VIDEO_IDENTITY_SQL,
+      apply: (db, context) => {
+        ensureVideoIdColumn(db);
+        db.exec(VIDEO_IDENTITY_SQL);
+        backfillLegacyVideoIdentities(db, context.now());
+      },
+    },
   ],
 };
+
+function ensureVideoIdColumn(db: DB): void {
+  const columns = db
+    .prepare("PRAGMA table_info(files)")
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "video_id")) {
+    db.exec("ALTER TABLE files ADD COLUMN video_id TEXT");
+  }
+}
+
+function backfillLegacyVideoIdentities(db: DB, now: number): void {
+  const rows = db
+    .prepare(
+      "SELECT id, kind, deleted_at AS deletedAt, created_at AS createdAt " +
+        "FROM files WHERE video_id IS NULL ORDER BY id",
+    )
+    .all() as Array<{
+    id: number;
+    kind: "video" | "image" | "audio";
+    deletedAt: number | null;
+    createdAt: number | null;
+  }>;
+  if (rows.length === 0) return;
+
+  const insert = db.prepare(
+    "INSERT INTO videos " +
+      "(video_id, kind, status, created_at, updated_at, last_seen_at, missing_at) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?)",
+  );
+  const bind = db.prepare("UPDATE files SET video_id = ? WHERE id = ?");
+  for (const row of rows) {
+    const createdAt = row.createdAt ?? now;
+    const missing = row.deletedAt != null;
+    const videoId = randomUUID();
+    insert.run(
+      videoId,
+      row.kind,
+      missing ? "missing" : "active",
+      createdAt,
+      now,
+      missing ? null : now,
+      missing ? row.deletedAt : null,
+    );
+    bind.run(videoId, row.id);
+  }
+}
 
 export function migrationChecksum(step: MigrationStep): string {
   return createHash("sha256")

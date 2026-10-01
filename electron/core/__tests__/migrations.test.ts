@@ -26,7 +26,10 @@ function openLegacyFixtureDb(): Database.Database {
   const db = new Database(path.join(directory, "library.sqlite"));
   db.exec(
     "CREATE TABLE scan_roots (id INTEGER PRIMARY KEY); " +
-      "CREATE TABLE files (id INTEGER PRIMARY KEY, root_id INTEGER);",
+      "CREATE TABLE files (" +
+      "id INTEGER PRIMARY KEY, root_id INTEGER, " +
+      "kind TEXT NOT NULL DEFAULT 'video', deleted_at INTEGER, " +
+      "created_at INTEGER NOT NULL DEFAULT 0, video_id TEXT);",
   );
   fixtures.push({ db, directory });
   return db;
@@ -50,7 +53,7 @@ describe("applyMigrations", () => {
       db
         .prepare("SELECT version FROM schema_migrations ORDER BY version")
         .all(),
-    ).toEqual([{ version: 0 }, { version: 1 }]);
+    ).toEqual([{ version: 0 }, { version: 1 }, { version: 2 }]);
   });
 
   it("records a legacy baseline and applies a new migration once", () => {
@@ -61,12 +64,12 @@ describe("applyMigrations", () => {
       db
         .prepare("SELECT version FROM schema_migrations ORDER BY version")
         .all(),
-    ).toEqual([{ version: 0 }, { version: 1 }]);
+    ).toEqual([{ version: 0 }, { version: 1 }, { version: 2 }]);
 
     applyMigrations(db, { context: { now: () => 1_700_000_001 } });
     expect(
       db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get(),
-    ).toEqual({ count: 2 });
+    ).toEqual({ count: 3 });
   });
 
   it("rejects a changed checksum instead of silently accepting a migration", () => {
@@ -120,5 +123,64 @@ describe("applyMigrations", () => {
         )
         .get(),
     ).toBeUndefined();
+  });
+
+  it("gives legacy file rows one stable identity without merging them", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "meguri-v2-"));
+    const file = path.join(directory, "legacy.sqlite");
+    const seed = openDb(file);
+    seed.exec(
+      "DROP TABLE scan_issues; DROP TABLE scan_runs; " +
+        "DROP TABLE fingerprints; DROP TABLE videos; " +
+        "DELETE FROM schema_migrations WHERE version = 2; " +
+        "DROP TABLE files",
+    );
+    seed.exec(`
+      CREATE TABLE files (
+        id INTEGER PRIMARY KEY,
+        root_id INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
+        rel_path TEXT NOT NULL,
+        abs_path TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('video','image')),
+        ext TEXT, size INTEGER, mtime INTEGER, inode INTEGER, content_hash TEXT,
+        width INTEGER, height INTEGER, duration REAL, codec TEXT, fps REAL, captured_at INTEGER,
+        thumb_path TEXT, thumb_status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (thumb_status IN ('pending','done','error')),
+        deleted_at INTEGER, excluded_at INTEGER, created_at INTEGER NOT NULL, meta TEXT,
+        meta_key TEXT GENERATED ALWAYS AS
+          (COALESCE(content_hash, 'p:' || root_id || ':' || rel_path)) VIRTUAL,
+        UNIQUE (root_id, rel_path)
+      );
+      INSERT INTO scan_roots (id, path, path_hash, created_at)
+        VALUES (1, '/r', 'h', 100);
+      INSERT INTO files (id, root_id, rel_path, abs_path, kind, created_at)
+        VALUES (7, 1, 'a.mp4', '/r/a.mp4', 'video', 101),
+               (9, 1, 'gone.mp4', '/r/gone.mp4', 'video', 102);
+      UPDATE files SET deleted_at = 200 WHERE id = 9;
+    `);
+    seed.close();
+
+    const reopened = openDb(file);
+    const rows = reopened
+      .prepare(
+        "SELECT f.id, f.video_id, v.status FROM files f JOIN videos v ON v.video_id = f.video_id ORDER BY f.id",
+      )
+      .all() as Array<{ id: number; video_id: string; status: string }>;
+    expect(rows).toHaveLength(2);
+    expect(rows[0].video_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(new Set(rows.map((row) => row.video_id)).size).toBe(2);
+    expect(rows.map((row) => row.status)).toEqual(["active", "missing"]);
+    reopened.close();
+
+    const secondOpen = openDb(file);
+    expect(
+      secondOpen.prepare("SELECT id, video_id FROM files ORDER BY id").all(),
+    ).toEqual(
+      rows.map((row) => ({ id: row.id, video_id: row.video_id })),
+    );
+    secondOpen.close();
+    fs.rmSync(directory, { recursive: true, force: true });
   });
 });
