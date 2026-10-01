@@ -45,7 +45,6 @@ import { PositionWriter } from "./core/positionWriter.js";
 import { registerIpc } from "./ipc/index.js";
 import { registerRecoveryIpc } from "./ipc/recovery.js";
 import { ScanManager } from "./scanManager.js";
-import type { LogoId } from "../shared/ipc/schema.js";
 
 // Set up logging before anything else so early failures land in the log file.
 setupLogger();
@@ -370,7 +369,7 @@ function windowImage(): Electron.NativeImage {
 /**
  * Re-apply the canonical logo to the live tray and window/dock icons.
  */
-function applyLogo(_logo: LogoId): void {
+function applyLogo(): void {
   tray?.setImage(trayImage());
   if (process.platform === "darwin") {
     // BrowserWindow icons are ignored on macOS; the dock icon is the app icon.

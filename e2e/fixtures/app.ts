@@ -72,16 +72,16 @@ export const test = base.extend<MeguriFixtures>({
     }
   },
   window: async ({ app }, use) => {
-    const window = await app.firstWindow();
+    const page = await app.firstWindow();
     // E2E behavior assertions use the stable English catalog. The product
     // default remains Simplified Chinese when no language is persisted.
-    await window.waitForLoadState("domcontentloaded");
-    await window.evaluate(() => {
-      window.localStorage.setItem("meguri.lang", "en");
+    await page.waitForLoadState("domcontentloaded");
+    await page.evaluate(() => {
+      localStorage.setItem("meguri.lang", "en");
     });
-    await window.reload();
-    await window.waitForLoadState("domcontentloaded");
-    await use(window);
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    await use(page);
   },
   ready: async ({ window }, use) => {
     await waitForIndexedMedia(window);
