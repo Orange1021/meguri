@@ -50,10 +50,12 @@ export type JobEvent =
   | { type: "done"; jobId: string; stats: ScanStats; aborted?: boolean };
 
 /**
- * Drop the file index (files + FTS rows for this root) and its thumbnails, so the next
- * scan rebuilds them from scratch. Durable metadata (file_meta / meta_tags / play_history)
- * is keyed by meta_key, not files.id, so it is intentionally left untouched and re-links
- * to the freshly-scanned rows automatically.
+ * Invalidate the derived file index (FTS rows and extracted media state) for this root,
+ * so the next scan rebuilds it from the filesystem. Keep the physical rows soft-deleted
+ * during this operation: their quick-v1 fingerprints remain attached as historical
+ * evidence, allowing the new scan to recover the same logical `video_id` after a rebuild.
+ * Durable metadata (file_meta / meta_tags / play_history) is keyed by meta_key and remains
+ * available for the revalidated rows.
  *
  * Note: the removed-from-index exclusions (files.excluded_at) live on the files rows and are
  * therefore wiped too — a rebuild deliberately resets that list, so files previously removed
@@ -61,14 +63,20 @@ export type JobEvent =
  */
 async function clearIndex(core: Core): Promise<void> {
   const { db } = core;
+  const now = nowUnix();
   db.transaction(() => {
     db.prepare(
       "DELETE FROM files_fts WHERE rowid IN (SELECT id FROM files WHERE root_id = ?)",
     ).run(core.rootId);
-    db.prepare("DELETE FROM files WHERE root_id = ?").run(core.rootId);
+    db.prepare(
+      "UPDATE files SET deleted_at = COALESCE(deleted_at, ?), excluded_at = NULL, " +
+        "width = NULL, height = NULL, duration = NULL, codec = NULL, fps = NULL, " +
+        "captured_at = NULL, meta = NULL, thumb_path = NULL, thumb_status = 'pending' " +
+        "WHERE root_id = ?",
+    ).run(now, core.rootId);
   })();
-  // Thumbnails are named by the (now invalidated) file id, so wipe them to avoid
-  // orphans. Async with a small concurrent pool — a synchronous unlink loop over
+  // Thumbnails are invalidated by the reset above, so wipe them to avoid stale
+  // previews. Async with a small concurrent pool — a synchronous unlink loop over
   // tens of thousands of thumbnails would block the main thread.
   const thumbs = core.thumbsDir();
   let names: string[] = [];
@@ -248,7 +256,15 @@ export async function runScan(
       signal,
     );
     stats = synced.stats;
-    const { ftsTargets, identityTargets, moveConflicts } = synced;
+    const { identityTargets, moveConflicts } = synced;
+    const ftsTargets = opts.rebuild
+      ? (db
+          .prepare(
+            "SELECT id FROM files WHERE root_id = ? AND deleted_at IS NULL",
+          )
+          .pluck()
+          .all(core.rootId) as number[])
+      : synced.ftsTargets;
 
     if (signal?.aborted) return finishAborted();
 

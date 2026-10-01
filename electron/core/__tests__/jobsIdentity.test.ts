@@ -104,4 +104,18 @@ describe("runScan identity integration", () => {
         .get(),
     ).toEqual({ status: "failed", errorCode: "scan_failed" });
   });
+
+  it("reuses the logical identity after a physical index rebuild", async () => {
+    await runScan(core, "job-before-rebuild", () => {});
+    const before = db
+      .prepare("SELECT video_id AS videoId FROM files WHERE deleted_at IS NULL")
+      .get() as { videoId: string };
+
+    await runScan(core, "job-rebuild", () => {}, { rebuild: true });
+
+    const after = db
+      .prepare("SELECT video_id AS videoId FROM files WHERE deleted_at IS NULL")
+      .get() as { videoId: string };
+    expect(after.videoId).toBe(before.videoId);
+  });
 });

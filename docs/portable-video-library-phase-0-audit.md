@@ -2,7 +2,7 @@
 
 **日期：** 2026-10-01
 **仓库：** `D:\Projects\PortableVideoLibrary`
-**分支：** `feat/portable-video-library-v1`
+**分支：** `feat/portable-video-library-v2`
 **基线提交：** `854a482`
 **基线远端：** `origin=https://github.com/Orange1021/meguri.git`，`upstream=https://github.com/zabuton-app/meguri.git`
 
@@ -41,10 +41,10 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 | 版本化 schema migration | 版本无编号，启动时按当前 DDL/列探测自修复 | 无法可靠判断版本、checksum、失败位置和回滚边界 | 1 |
 | 迁移前备份/恢复 | 没有一致性备份服务和恢复入口 | 升级或移动硬盘中断可能只留下部分写入 | 1 |
 | 稳定 `workspace_id` | 由规范化绝对路径 hash 派生 | 路径变化导致逻辑身份变化 | 1/2 |
-| UUID `video_id` 与物理文件分离 | `files.id` 为整数，`meta_key` 用内容 hash/路径回退 | 复制、替换、缺失、重复和跨工作区语义不够清晰 | 2 |
-| `quick-v1` fingerprint | 首尾各 1 MiB + size，无 duration/stream signature/version 字段 | 指纹证据不足，算法升级无法共存 | 2 |
+| UUID `video_id` 与物理文件分离 | 已增加 `files.video_id`、`videos` 和事务化身份服务；旧行迁移时一对一生成 UUID | 阶段 2.1 已覆盖复制、替换、缺失、重复候选和冲突记录；跨工作区统一身份仍留待后续规范化 | 2.1 已实现 |
+| `quick-v1` fingerprint | 已实现固定 4 MiB 采样、8 MiB 以下全哈希、媒体流签名和版本化 key | 作为当前身份候选证据；更强的内容验证和算法升级留待后续阶段 | 2.1 已实现 |
 | 冲突队列 | 移动候选取第一个；没有 `scan_issues` | 多候选/弱证据可能误关联 | 2 |
-| 持久化扫描状态 | `ScanManager` 和 AbortSignal 只在内存中存在 | 进程中断后没有 scan_run/断点恢复记录 | 2 |
+| 持久化扫描状态 | `scan_runs` 保存阶段、完成/取消/失败状态和错误；`scan_issues` 保存单文件问题与冲突 | 断点恢复和缺失保留策略仍待后续阶段 | 2.1 已实现 |
 | Cover/Sheet/manual 资产 | 单缩略图 `thumb_path`，无 source/generation version | 自动重建无法按来源保护人工资产，也没有 4×4 Sheet | 3 |
 | 纯标签 AND/OR/NOT | 当前是 tags 数组和可保存 SearchQuery；智能集合在 localStorage | 没有版本化 rule AST、SQLite 播放列表和跨重启统一数据 | 4 |
 | M3U8/PotPlayer | 只有内置/系统默认外部打开 | 无当前盘符路径重新生成、播放器发现和顺序验证 | 5 |
@@ -71,11 +71,11 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 - `electron/core/__tests__/portablePaths.test.ts`、`backups.test.ts`、`migrations.test.ts`：阶段 1 单元/集成测试。
 - `e2e/portable-data.spec.ts`：便携目录、Data 保留、重启和迁移失败 UI 流程。
 
-### 阶段 2 预留
+### 阶段 2.1 已实现与后续预留
 
-- `electron/core/identity.ts`、`fingerprint.ts`、`scanService.ts`、`scanIssues.ts`。
-- `videos`、`video_files`、`fingerprints`、`media_metadata`、`scan_runs`、`scan_issues` 等迁移。
-- 不在阶段 1 通过临时字段伪造 `video_id`，避免以后再次迁移核心用户数据。
+- 已实现：`electron/core/identity.ts`、`fingerprint.ts`、`scanService.ts`、`queries/identity.ts`，以及 `videos`、`fingerprints`、`scan_runs`、`scan_issues` 和 `files.video_id` 的 checksummed migration。
+- 已实现：扫描运行阶段记录、`quick-v1` 指纹、唯一强证据复用、多候选冲突队列、内容替换隔离、旧行首次收敛和重建后的逻辑身份恢复。
+- 阶段 3–5 仍预留：Cover/Sheet/manual 资产、表达式播放列表和 M3U8/PotPlayer 外部播放适配；本阶段不提前引入 `video_files` 大迁移。
 
 ## 迁移与兼容风险
 

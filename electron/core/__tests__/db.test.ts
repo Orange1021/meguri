@@ -67,7 +67,12 @@ describe("openDb / backfillColumns", () => {
   it("creates the phase 2 identity tables and files.video_id", () => {
     const db = openDb(":memory:");
     expect(tableColumns(db, "files")).toContain("video_id");
-    for (const table of ["videos", "fingerprints", "scan_runs", "scan_issues"]) {
+    for (const table of [
+      "videos",
+      "fingerprints",
+      "scan_runs",
+      "scan_issues",
+    ]) {
       expect(
         db
           .prepare(
@@ -77,7 +82,9 @@ describe("openDb / backfillColumns", () => {
       ).toEqual({ name: table });
     }
     expect(
-      db.prepare("SELECT version FROM schema_migrations ORDER BY version").all(),
+      db
+        .prepare("SELECT version FROM schema_migrations ORDER BY version")
+        .all(),
     ).toEqual([{ version: 0 }, { version: 1 }, { version: 2 }]);
     db.close();
   });
@@ -123,7 +130,7 @@ describe("migrateKindCheck", () => {
         root_id INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
         rel_path TEXT NOT NULL, abs_path TEXT NOT NULL,
         kind TEXT NOT NULL CHECK (kind IN ('video','image')),
-        ext TEXT, size INTEGER, inode INTEGER, content_hash TEXT,
+        ext TEXT, size INTEGER, inode INTEGER, content_hash TEXT, video_id TEXT,
         width INTEGER, height INTEGER, duration REAL, codec TEXT, fps REAL, captured_at INTEGER,
         thumb_path TEXT, thumb_status TEXT NOT NULL DEFAULT 'pending'
           CHECK (thumb_status IN ('pending','done','error')),
@@ -133,11 +140,15 @@ describe("migrateKindCheck", () => {
         UNIQUE (root_id, rel_path)
       );
       INSERT INTO scan_roots (id, path, path_hash, created_at) VALUES (1, '/r', 'h', 0);
+      INSERT INTO videos (video_id, kind, status, created_at, updated_at, last_seen_at)
+        VALUES ('video-a', 'video', 'active', 101, 101, 101),
+               ('video-gone', 'video', 'missing', 102, 102, NULL);
       -- id 7 is deliberately not 1: the rebuild must carry ids across verbatim
       -- because files_fts is external-content keyed on rowid.
       INSERT INTO files (id, root_id, rel_path, abs_path, kind, content_hash, created_at)
         VALUES (7, 1, 'a.mp4', '/r/a.mp4', 'video', 'hash-a', 0),
                (9, 1, 'b.jpg', '/r/b.jpg', 'image', NULL, 0);
+      UPDATE files SET video_id = CASE id WHEN 7 THEN 'video-a' ELSE 'video-gone' END;
       -- meta_key-keyed user data: the Principle IV guarantee under a table rebuild.
       INSERT INTO file_meta (meta_key, rating, favorite, updated_at)
         VALUES ('hash-a', 4, 1, 0);
@@ -175,6 +186,14 @@ describe("migrateKindCheck", () => {
     expect(rows).toEqual([
       { id: 7, rel_path: "a.mp4", kind: "video", meta_key: "hash-a" },
       { id: 9, rel_path: "b.jpg", kind: "image", meta_key: "p:1:b.jpg" },
+    ]);
+    expect(
+      db
+        .prepare("SELECT video_id, kind, status FROM videos ORDER BY video_id")
+        .all(),
+    ).toEqual([
+      { video_id: "video-a", kind: "video", status: "active" },
+      { video_id: "video-gone", kind: "video", status: "missing" },
     ]);
     db.close();
   });
