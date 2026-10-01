@@ -542,7 +542,7 @@ export const ko: Record<TranslationKey, string> = {
   "workspace.alreadyAddedToast": "이미 워크스페이스로 등록된 폴더입니다",
   "drop.overlayTitle": "폴더를 드롭하여 워크스페이스로 추가",
   "drop.foldersOnly":
-    "巡는 개별 파일이 아닌 폴더를 색인합니다. 폴더를 드롭해 주세요.",
+    "Meguri는 개별 파일이 아닌 폴더를 색인합니다. 폴더를 드롭해 주세요.",
   "drop.addTitle": "워크스페이스 추가",
   "drop.addConfirm": "「{name}」을(를) 워크스페이스로 추가하고 스캔할까요?",
   "drop.addAction": "추가",

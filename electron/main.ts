@@ -17,7 +17,6 @@ import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { DEFAULT_LOGO, loadConfig } from "./core/appConfig.js";
 import { configureConfigStorage } from "./core/appConfig.js";
 import {
   preparePortableData,
@@ -28,7 +27,7 @@ import {
   resolvePortableLayout,
   type PortableLayout,
 } from "./core/portablePaths.js";
-import { TRAY_ICON_BASE64, WINDOW_ICON_BASE64 } from "./core/logoAssets.js";
+import { ORANGE_LOGO_DATA_URL } from "./core/logoAssets.js";
 import log, { configureLogDirectory, setupLogger } from "./core/logger.js";
 import { withTimeout } from "./core/concurrency.js";
 import {
@@ -360,34 +359,24 @@ function emit(channel: string, payload: unknown): void {
 // Scans are orchestrated by ScanManager (electron/scanManager.ts); main only
 // starts the initial one and aborts them all on quit.
 
-function trayImage(logo: LogoId): Electron.NativeImage {
-  return nativeImage.createFromDataURL(
-    `data:image/png;base64,${TRAY_ICON_BASE64[logo]}`,
-  );
+function trayImage(): Electron.NativeImage {
+  return nativeImage.createFromDataURL(ORANGE_LOGO_DATA_URL);
 }
 
-function windowImage(logo: LogoId): Electron.NativeImage {
-  return nativeImage.createFromDataURL(
-    `data:image/png;base64,${WINDOW_ICON_BASE64[logo]}`,
-  );
+function windowImage(): Electron.NativeImage {
+  return nativeImage.createFromDataURL(ORANGE_LOGO_DATA_URL);
 }
 
 /**
- * Re-apply the logo variant to the live tray and window/dock icons.
- *
- * Live switches always use the embedded 256px bitmap, including a switch back
- * to the default: there is no Electron API to restore the packaged icon on a
- * live window/dock. The full-resolution packaged icon (.ico/.icns/.desktop)
- * comes back on the next launch, where startup skips the override for the
- * default logo.
+ * Re-apply the canonical logo to the live tray and window/dock icons.
  */
-function applyLogo(logo: LogoId): void {
-  tray?.setImage(trayImage(logo));
+function applyLogo(_logo: LogoId): void {
+  tray?.setImage(trayImage());
   if (process.platform === "darwin") {
     // BrowserWindow icons are ignored on macOS; the dock icon is the app icon.
-    app.dock?.setIcon(windowImage(logo));
+    app.dock?.setIcon(windowImage());
   } else if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.setIcon(windowImage(logo));
+    mainWindow.setIcon(windowImage());
   }
 }
 
@@ -409,7 +398,6 @@ function scheduleStartupUpdateCheck(): void {
 }
 
 function createWindow(): void {
-  const { logo } = loadConfig();
   rendererReloadTimes = []; // a fresh window gets a fresh crash budget
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -418,10 +406,7 @@ function createWindow(): void {
     minHeight: 480,
     title: "Meguri",
     // Window/taskbar icon (Linux/Windows; macOS uses the dock icon instead).
-    // Only overridden for non-default logos: the packaged multi-size icon
-    // (exe-embedded .ico / .desktop entry) stays in charge for the default,
-    // and it carries more sizes than the embedded bitmap.
-    ...(logo !== DEFAULT_LOGO ? { icon: windowImage(logo) } : {}),
+    icon: windowImage(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
@@ -473,7 +458,7 @@ function showWindow(): void {
 
 function createTray(): void {
   if (!isTrayEnabled()) return;
-  tray = new Tray(trayImage(loadConfig().logo));
+  tray = new Tray(trayImage());
   tray.setToolTip("Meguri");
   const menu = Menu.buildFromTemplate([
     { label: "Show Meguri", click: () => showWindow() },
@@ -639,11 +624,7 @@ void app.whenReady().then(async () => {
   });
   createTray();
   // Dock icon override on macOS (BrowserWindow icons are ignored there).
-  // Skipped for the default logo so the packaged .icns keeps its full
-  // resolution set.
-  if (process.platform === "darwin" && loadConfig().logo !== DEFAULT_LOGO) {
-    applyLogo(loadConfig().logo);
-  }
+  if (process.platform === "darwin") app.dock?.setIcon(windowImage());
   await installReactDevTools();
   createWindow();
   if (isDevMode()) {

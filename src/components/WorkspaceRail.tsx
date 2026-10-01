@@ -88,7 +88,7 @@ export function WorkspaceRail() {
   const qc = useQueryClient();
   const confirm = useConfirm();
   const { t } = useI18n();
-  // In-app logo mark follows the selected variant (Settings > App logo).
+  // In-app logo mark uses the canonical orange asset.
   const { logo } = useLogo();
   const addedWorkspaceScanJobs = useRef(new Set<string>());
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);

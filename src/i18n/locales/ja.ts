@@ -548,7 +548,7 @@ export const ja = {
     "このフォルダはすでにワークスペースに登録されています",
   "drop.overlayTitle": "フォルダをドロップしてワークスペースに追加",
   "drop.foldersOnly":
-    "巡はファイル単体ではなくフォルダを取り込みます。フォルダをドロップしてください。",
+    "Meguriはファイル単体ではなくフォルダを取り込みます。フォルダをドロップしてください。",
   "drop.addTitle": "ワークスペースを追加",
   "drop.addConfirm": "「{name}」をワークスペースに追加してスキャンしますか？",
   "drop.addAction": "追加",
@@ -678,7 +678,7 @@ export const ja = {
     "アイテムが切り替わるとき、横方向にスライドさせます。フェードと同時に使えます。",
   "settings.playlistShuffle": "ランダム",
   "settings.playlistShuffleHint":
-    "再生順をランダムに入れ替えます。一巡のあいだ同じアイテムは繰り返されません。",
+    "再生順をランダムに入れ替えます。同じ再生サイクル中はアイテムを繰り返しません。",
   "settings.audioSpectrum": "オーディオスペクトラム",
   "settings.audioSpectrumHint":
     "オーディオの再生中、周波数ごとの音量を表示します。OS で動きを減らす設定が有効な場合は常に停止します。",

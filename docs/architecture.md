@@ -130,15 +130,14 @@ lifecycle behavior:
   delay, bounded per minute; past that (or on a launch / integrity failure) the
   user is asked to reload or quit instead of being left with a blank window.
 - A single-instance lock prevents a second copy from launching.
-- The tray and window icons are base64-embedded images
-  (`electron/core/logoAssets.ts`), to avoid bundle path-resolution issues.
-  Three logo variants exist (`dark` = vermilion kanji, `light` = inverted,
-  `enso` = pictorial brush circle with a media card, raster-sourced — no SVG
-  master); the choice is persisted as `logo` in
-  main's `Data/config.json` and switched from Settings via the `logo_get` /
-  `logo_set` IPC channels. The renderer mirrors the same choice through
-  `useLogo()` (react-query cache), which drives the Settings picker and the
-  in-app logo in the workspace rail.
+- The tray, window, renderer, and documentation icons use one canonical orange
+  fruit mark. Its reviewable SVG mirror lives at `logo/orange-logo.svg`; the
+  shared `shared/branding/orangeLogo.ts` module exposes the same SVG as a data
+  URL for both the renderer and Electron main process, avoiding bundle-relative
+  path assumptions. Generated PNG/ICO/ICNS assets are kept under `logo/`,
+  `build/`, and `docs/assets/` for packaging and static pages. Legacy `logo`
+  values in `Data/config.json` are normalized to `orange` on first load so
+  existing portable libraries upgrade without a manual edit.
 
 ## Workspace model
 

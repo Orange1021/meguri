@@ -524,7 +524,7 @@ export const zhCN: Record<TranslationKey, string> = {
   "workspace.removedToastDetail": "已删除“{label}”。",
   "workspace.alreadyAddedToast": "该文件夹已是工作区",
   "drop.overlayTitle": "拖放文件夹以添加为工作区",
-  "drop.foldersOnly": "巡按文件夹建立索引，而不是单个文件。请拖放文件夹。",
+  "drop.foldersOnly": "Meguri 按文件夹建立索引，而不是单个文件。请拖放文件夹。",
   "drop.addTitle": "添加工作区",
   "drop.addConfirm": "将“{name}”添加为工作区并开始扫描？",
   "drop.addAction": "添加",
