@@ -1,0 +1,107 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import fsp from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import type { Core } from "../index.js";
+import type { DB } from "../db.js";
+import { runScan, type JobEvent } from "../jobs.js";
+import type { Kind } from "../types.js";
+
+vi.mock("../media.js", () => ({
+  extractMeta: vi.fn(() => ({
+    width: 1920,
+    height: 1080,
+    duration: 10,
+    codec: "h264",
+    fps: 30,
+    capturedAt: null,
+    raw: {
+      streams: [
+        {
+          codec_type: "video",
+          codec_name: "h264",
+          width: 1920,
+          height: 1080,
+        },
+      ],
+    },
+  })),
+  coverArtStreamIndex: vi.fn(() => null),
+  generateThumb: vi.fn(async (_src: string, _kind: Kind, dest: string) => {
+    await fsp.writeFile(dest, "thumbnail");
+    return true;
+  }),
+}));
+
+describe("runScan identity integration", () => {
+  let core: Core;
+  let db: DB;
+  let root: string;
+  let dataDir: string;
+
+  beforeEach(async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), "meguri-jobs-"));
+    dataDir = await fsp.mkdtemp(path.join(os.tmpdir(), "meguri-data-"));
+    core = (await import("../index.js")).Core.init(root, { dataDir });
+    db = core.db;
+    await fsp.writeFile(path.join(root, "clip.mp4"), "media bytes");
+  });
+
+  afterEach(async () => {
+    core.close();
+    await fsp.rm(root, { recursive: true, force: true });
+    await fsp.rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("persists a completed run, fingerprint, and video identity", async () => {
+    const events: JobEvent[] = [];
+    const stats = await runScan(core, "job-1", (event) => events.push(event));
+    const file = db
+      .prepare("SELECT video_id FROM files WHERE deleted_at IS NULL")
+      .get() as { video_id: string };
+
+    expect(stats.inserted).toBe(1);
+    expect(db.prepare("SELECT status FROM scan_runs").get()).toEqual({
+      status: "completed",
+    });
+    expect(file.video_id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(db.prepare("SELECT count(*) AS n FROM fingerprints").get()).toEqual({
+      n: 1,
+    });
+    expect(events.at(-1)).toMatchObject({ type: "done", jobId: "job-1" });
+  });
+
+  it("marks an aborted run and does not soft-delete unseen files", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await runScan(core, "job-aborted", () => {}, {
+      signal: controller.signal,
+    });
+
+    expect(
+      db
+        .prepare(
+          "SELECT status FROM scan_runs ORDER BY started_at DESC LIMIT 1",
+        )
+        .get(),
+    ).toEqual({ status: "aborted" });
+  });
+
+  it("records a failed run before rethrowing a scan error", async () => {
+    const media = await import("../media.js");
+    vi.mocked(media.generateThumb).mockResolvedValueOnce(false);
+
+    await expect(runScan(core, "job-failed", () => {})).rejects.toThrow(
+      "thumbnail extraction failed for all",
+    );
+
+    expect(
+      db
+        .prepare(
+          "SELECT status, error_code AS errorCode FROM scan_runs ORDER BY started_at DESC LIMIT 1",
+        )
+        .get(),
+    ).toEqual({ status: "failed", errorCode: "scan_failed" });
+  });
+});
