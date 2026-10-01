@@ -76,12 +76,11 @@ test.describe("Text selection", () => {
   test("the About section stays selectable", async ({ ready }) => {
     // About lives on the App tab, and only the selected tab's panel is mounted.
     const dialog = await openSettingsTab(ready, "App");
-    // about.version renders as "<app name> version <x.y.z>", and the app name is
-    // the brand glyph in every locale (app.name), not the romanized "Meguri".
-    const version = dialog.getByText(/^巡 version /);
+    // about.version renders as "<app name> version <x.y.z>".
+    const version = dialog.getByText(/^Meguri version /);
     await expect(version).toHaveCSS("user-select", "text");
     await version.click({ clickCount: 3 });
-    expect(await selectedText(ready)).toContain("巡 version");
+    expect(await selectedText(ready)).toContain("Meguri version");
   });
 
   test("error toasts stay selectable", async ({ ready }) => {

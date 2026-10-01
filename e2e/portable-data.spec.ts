@@ -137,6 +137,11 @@ test.describe("Portable data recovery", () => {
     try {
       const page = await app.firstWindow();
       await page.waitForLoadState("domcontentloaded");
+      await page.evaluate(() => {
+        window.localStorage.setItem("meguri.lang", "en");
+      });
+      await page.reload();
+      await page.waitForLoadState("domcontentloaded");
       await expect(
         page.getByRole("heading", { name: "Portable data recovery" }),
       ).toBeVisible();

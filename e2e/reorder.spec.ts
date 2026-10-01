@@ -48,6 +48,11 @@ test("dragging in manual order reorders without opening the detail view", async 
   try {
     const page: Page = await app.firstWindow();
     await page.waitForLoadState("domcontentloaded");
+    await page.evaluate(() => {
+      window.localStorage.setItem("meguri.lang", "en");
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
     for (const name of ["aaa.png", "bbb.png"]) {
       await expect(page.getByText(name).first()).toBeVisible({
         timeout: 60_000,
