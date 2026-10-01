@@ -292,6 +292,9 @@ describe("syncFiles lifecycle", () => {
     await fsp.rename(path.join(root, "a.mp4"), path.join(root, "c.mp4"));
     const third = await rescan();
     expect(third.stats.moved).toBe(1);
+    expect(third.identityTargets).toContainEqual(
+      expect.objectContaining({ reason: "moved", fileId: expect.any(Number) }),
+    );
     expect(third.stats.inserted).toBe(0);
     expect(third.stats.deleted).toBe(0);
     expect(aliveCount()).toBe(2);
@@ -323,6 +326,25 @@ describe("syncFiles lifecycle", () => {
       db.prepare("SELECT COUNT(*) c FROM files").get() as { c: number }
     ).c;
     expect(totalRows).toBe(2); // soft delete keeps the row
+  });
+
+  it("does not choose the first old row when one new path matches multiple candidates", async () => {
+    await fsp.writeFile(path.join(root, "old-a.mp4"), "same bytes");
+    await fsp.writeFile(path.join(root, "old-b.mp4"), "same bytes");
+    await rescan();
+    await fsp.rm(path.join(root, "old-a.mp4"));
+    await fsp.rm(path.join(root, "old-b.mp4"));
+    await rescan();
+
+    await fsp.writeFile(path.join(root, "new.mp4"), "same bytes");
+    const result = await rescan();
+    expect(result.stats.moved).toBe(0);
+    expect(result.stats.inserted).toBe(1);
+    expect(result.moveConflicts).toHaveLength(1);
+    expect(result.moveConflicts[0].candidateIds).toHaveLength(2);
+    expect(result.identityTargets).toContainEqual(
+      expect.objectContaining({ reason: "inserted" }),
+    );
   });
 
   it("drops a .ts row indexed by an older scan once its content is found not to be MPEG-TS", async () => {

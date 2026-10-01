@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { DB } from "./db.js";
 import { nowUnix } from "./db.js";
 import { migrateMetaKey } from "./queries.js";
@@ -263,6 +263,22 @@ export interface ScanStats {
   unchanged: number;
 }
 
+export type IdentityTargetReason = "inserted" | "updated" | "moved" | "legacy";
+
+export interface IdentityTarget {
+  fileId: number;
+  reason: IdentityTargetReason;
+  previousVideoId: string | null;
+}
+
+export interface MoveConflict {
+  relPath: string;
+  size: number;
+  legacyHash: string;
+  candidateIds: number[];
+  candidatePaths: string[];
+}
+
 /** Stats for a scan that did nothing (aborted before starting, or failed). */
 export function emptyScanStats(): ScanStats {
   return { inserted: 0, updated: 0, moved: 0, deleted: 0, unchanged: 0 };
@@ -285,7 +301,13 @@ export async function syncFiles(
   discovered: Discovered[],
   onHashProgress?: (done: number, total: number) => void,
   signal?: AbortSignal,
-): Promise<{ stats: ScanStats; needsThumb: number[]; ftsTargets: number[] }> {
+): Promise<{
+  stats: ScanStats;
+  needsThumb: number[];
+  ftsTargets: number[];
+  identityTargets: IdentityTarget[];
+  moveConflicts: MoveConflict[];
+}> {
   const stats: ScanStats = {
     inserted: 0,
     updated: 0,
@@ -295,6 +317,8 @@ export async function syncFiles(
   };
   const needsThumb: number[] = [];
   const ftsTargets: number[] = [];
+  const identityTargets: IdentityTarget[] = [];
+  const moveConflicts: MoveConflict[] = [];
   const excluded = new Set(
     (
       db
@@ -307,6 +331,17 @@ export async function syncFiles(
   const scannable = discovered.filter((d) => !excluded.has(d.relPath));
   const seen = new Set(scannable.map((d) => d.relPath));
   const now = nowUnix();
+  const identitylessFileIds = new Set(
+    (
+      db
+        .prepare(
+          "SELECT f.id FROM files f LEFT JOIN fingerprints fp " +
+            "ON fp.file_id = f.id AND fp.algorithm = 'quick' AND fp.version = 'v1' " +
+            "WHERE f.root_id = ? AND (f.video_id IS NULL OR fp.file_id IS NULL)",
+        )
+        .all(rootId) as Array<{ id: number }>
+    ).map((row) => row.id),
+  );
 
   // btime is refreshed here too so rows scanned before the column existed get
   // backfilled on the next scan without a content change.
@@ -316,17 +351,24 @@ export async function syncFiles(
   // Recompute content_hash for changed files so meta_key stays anchored to the hash
   // (rather than dropping to the rel_path fallback) and metadata keeps linking.
   const updateChanged = db.prepare(
-    "UPDATE files SET size = ?, mtime = ?, btime = ?, abs_path = ?, inode = ?, content_hash = ?, thumb_status = 'pending', deleted_at = NULL WHERE id = ?",
+    "UPDATE files SET size = ?, mtime = ?, btime = ?, abs_path = ?, inode = ?, content_hash = ?, video_id = ?, thumb_status = 'pending', deleted_at = NULL WHERE id = ?",
   );
   const moveStmt = db.prepare(
     "UPDATE files SET rel_path = ?, abs_path = ?, inode = ?, mtime = ?, btime = ?, size = ?, deleted_at = NULL WHERE id = ?",
   );
   const insertStmt = db.prepare(
-    `INSERT INTO files (root_id, rel_path, abs_path, kind, ext, size, mtime, btime, inode, content_hash, thumb_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    `INSERT INTO files (root_id, rel_path, abs_path, kind, ext, size, mtime, btime, inode, content_hash, video_id, thumb_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
   );
+  const insertVideoStmt = db.prepare(
+    "INSERT INTO videos " +
+      "(video_id, kind, status, created_at, updated_at, last_seen_at) " +
+      "VALUES (?, ?, 'active', ?, ?, ?)",
+  );
+  const bindVideoStmt = db.prepare("UPDATE files SET video_id = ? WHERE id = ?");
   const moveCandidates = db.prepare(
-    "SELECT id, rel_path, kind, ext FROM files WHERE root_id = ? AND content_hash = ? AND size = ? AND excluded_at IS NULL",
+    "SELECT id, rel_path, kind, ext, video_id FROM files " +
+      "WHERE root_id = ? AND content_hash = ? AND size = ? AND excluded_at IS NULL",
   );
   // A move can change the extension, and with it the kind (the same MPEG-4 bytes
   // are video as .mp4 and audio as .m4a). The row would otherwise keep the old
@@ -334,9 +376,20 @@ export async function syncFiles(
   const reclassifyMoved = db.prepare(
     "UPDATE files SET kind = ?, ext = ?, thumb_path = NULL, thumb_status = 'pending' WHERE id = ?",
   );
+  const createProvisionalVideo = (kind: Kind): string => {
+    const videoId = randomUUID();
+    insertVideoStmt.run(videoId, kind, now, now, now);
+    return videoId;
+  };
 
   type Existing =
-    | { id: number; size: number; mtime: number; content_hash: string | null }
+    | {
+        id: number;
+        size: number;
+        mtime: number;
+        content_hash: string | null;
+        video_id: string | null;
+      }
     | undefined;
 
   // --- 1. Classify (look up existing rows, keeping indices aligned with discovered) ---
@@ -347,7 +400,7 @@ export async function syncFiles(
     (
       db
         .prepare(
-          "SELECT id, rel_path, size, mtime, content_hash FROM files WHERE root_id = ?",
+          "SELECT id, rel_path, size, mtime, content_hash, video_id FROM files WHERE root_id = ?",
         )
         .all(rootId) as {
         id: number;
@@ -355,10 +408,17 @@ export async function syncFiles(
         size: number;
         mtime: number;
         content_hash: string | null;
+        video_id: string | null;
       }[]
     ).map((r) => [
       r.rel_path,
-      { id: r.id, size: r.size, mtime: r.mtime, content_hash: r.content_hash },
+      {
+        id: r.id,
+        size: r.size,
+        mtime: r.mtime,
+        content_hash: r.content_hash,
+        video_id: r.video_id,
+      },
     ]),
   );
   // hashIdx holds new files (move detection) plus changed files (content_hash refresh).
@@ -397,7 +457,14 @@ export async function syncFiles(
     signal,
   );
 
-  if (signal?.aborted) return { stats, needsThumb, ftsTargets };
+  if (signal?.aborted)
+    return {
+      stats,
+      needsThumb,
+      ftsTargets,
+      identityTargets,
+      moveConflicts,
+    };
 
   // --- 3. DB apply (chunked tx + yield between chunks) ---
   const applyChunk = db.transaction((idxs: number[]) => {
@@ -407,6 +474,21 @@ export async function syncFiles(
       if (existing) {
         if (existing.size === d.size && existing.mtime === d.mtime) {
           touchUnchanged.run(d.absPath, d.inode, d.btime, existing.id);
+          if (!existing.video_id) {
+            const videoId = createProvisionalVideo(d.kind);
+            bindVideoStmt.run(videoId, existing.id);
+            identityTargets.push({
+              fileId: existing.id,
+              reason: "legacy",
+              previousVideoId: null,
+            });
+          } else if (identitylessFileIds.has(existing.id)) {
+            identityTargets.push({
+              fileId: existing.id,
+              reason: "legacy",
+              previousVideoId: existing.video_id,
+            });
+          }
           stats.unchanged++;
         } else {
           const newHash = hashOf.get(i) ?? null;
@@ -415,6 +497,7 @@ export async function syncFiles(
           if (newHash && existing.content_hash == null) {
             migrateMetaKey(db, `p:${rootId}:${d.relPath}`, newHash);
           }
+          const provisionalVideoId = createProvisionalVideo(d.kind);
           updateChanged.run(
             d.size,
             d.mtime,
@@ -422,8 +505,14 @@ export async function syncFiles(
             d.absPath,
             d.inode,
             newHash,
+            provisionalVideoId,
             existing.id,
           );
+          identityTargets.push({
+            fileId: existing.id,
+            reason: "updated",
+            previousVideoId: existing.video_id,
+          });
           needsThumb.push(existing.id);
           ftsTargets.push(existing.id);
           stats.updated++;
@@ -444,10 +533,12 @@ export async function syncFiles(
               rel_path: string;
               kind: string;
               ext: string | null;
+              video_id: string | null;
             }[])
           : [];
-      const moved = cands.find((c) => !seen.has(c.rel_path));
-      if (moved) {
+      const unseen = cands.filter((candidate) => !seen.has(candidate.rel_path));
+      if (unseen.length === 1) {
+        const moved = unseen[0];
         moveStmt.run(
           d.relPath,
           d.absPath,
@@ -463,9 +554,21 @@ export async function syncFiles(
           reclassifyMoved.run(d.kind, d.ext, moved.id);
           if (d.kind !== "audio") needsThumb.push(moved.id);
         }
+        if (!moved.video_id || identitylessFileIds.has(moved.id)) {
+          if (!moved.video_id) {
+            const provisionalVideoId = createProvisionalVideo(d.kind);
+            bindVideoStmt.run(provisionalVideoId, moved.id);
+          }
+          identityTargets.push({
+            fileId: moved.id,
+            reason: "moved",
+            previousVideoId: moved.video_id,
+          });
+        }
         ftsTargets.push(moved.id);
         stats.moved++;
       } else {
+        const provisionalVideoId = createProvisionalVideo(d.kind);
         const info = insertStmt.run(
           rootId,
           d.relPath,
@@ -477,9 +580,24 @@ export async function syncFiles(
           d.btime,
           d.inode,
           hash,
+          provisionalVideoId,
           now,
         );
         const id = Number(info.lastInsertRowid);
+        identityTargets.push({
+          fileId: id,
+          reason: "inserted",
+          previousVideoId: null,
+        });
+        if (unseen.length > 1 && hash != null) {
+          moveConflicts.push({
+            relPath: d.relPath,
+            size: d.size,
+            legacyHash: hash,
+            candidateIds: unseen.map((candidate) => candidate.id),
+            candidatePaths: unseen.map((candidate) => candidate.rel_path),
+          });
+        }
         needsThumb.push(id);
         ftsTargets.push(id);
         stats.inserted++;
@@ -496,7 +614,14 @@ export async function syncFiles(
     await yieldToLoop();
   }
 
-  if (signal?.aborted) return { stats, needsThumb, ftsTargets };
+  if (signal?.aborted)
+    return {
+      stats,
+      needsThumb,
+      ftsTargets,
+      identityTargets,
+      moveConflicts,
+    };
 
   // Soft-delete existing rows not seen this time (in a single transaction at the end).
   const softDelete = db.transaction(() => {
@@ -515,5 +640,11 @@ export async function syncFiles(
   });
   softDelete();
 
-  return { stats, needsThumb, ftsTargets };
+  return {
+    stats,
+    needsThumb,
+    ftsTargets,
+    identityTargets,
+    moveConflicts,
+  };
 }
