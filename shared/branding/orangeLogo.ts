@@ -28,5 +28,4 @@ export const ORANGE_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
   <ellipse cx="91" cy="88" rx="25" ry="13" fill="#fff7ed" opacity="0.36" transform="rotate(-28 91 88)" />
 </svg>`;
 
-export const ORANGE_LOGO_DATA_URL =
-  `data:image/svg+xml;charset=utf-8,${encodeURIComponent(ORANGE_LOGO_SVG)}`;
+export const ORANGE_LOGO_DATA_URL = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(ORANGE_LOGO_SVG)}`;

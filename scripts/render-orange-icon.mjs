@@ -60,7 +60,9 @@ try {
     node.setAttribute("width", "150");
     node.setAttribute("height", "150");
   });
-  await page.locator("#wide").screenshot({ path: widePath, omitBackground: true });
+  await page
+    .locator("#wide")
+    .screenshot({ path: widePath, omitBackground: true });
 } finally {
   await browser.close();
 }

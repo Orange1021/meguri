@@ -7,7 +7,7 @@ describe("main-process logo asset", () => {
       /^data:image\/svg\+xml;charset=utf-8,/,
     );
     expect(decodeURIComponent(ORANGE_LOGO_DATA_URL.split(",", 2)[1])).toContain(
-      '<svg',
+      "<svg",
     );
     expect(ORANGE_LOGO_DATA_URL).not.toContain("iVBOR");
   });
