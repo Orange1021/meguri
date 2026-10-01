@@ -5,13 +5,22 @@ import type { ReactNode } from "react";
 import { I18nProvider, useI18n } from "@/i18n/I18nProvider";
 import { en } from "@/i18n/locales/en";
 import { ja } from "@/i18n/locales/ja";
+import { zhCN } from "@/i18n/locales/zh-CN";
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <I18nProvider>{children}</I18nProvider>
 );
 
 describe("I18nProvider", () => {
-  it("defaults to English when nothing is persisted", () => {
+  it("defaults to Simplified Chinese when nothing is persisted", () => {
+    localStorage.clear();
+    const { result } = renderHook(() => useI18n(), { wrapper });
+    expect(result.current.lang).toBe("zh-CN");
+    expect(result.current.t("common.ok")).toBe(zhCN["common.ok"]);
+  });
+
+  it("honors a persisted supported language", () => {
+    localStorage.setItem("meguri.lang", "en");
     const { result } = renderHook(() => useI18n(), { wrapper });
     expect(result.current.lang).toBe("en");
     expect(result.current.t("common.ok")).toBe(en["common.ok"]);
@@ -19,7 +28,7 @@ describe("I18nProvider", () => {
 
   it("interpolates {param} placeholders", () => {
     const { result } = renderHook(() => useI18n(), { wrapper });
-    const expected = en["home.initError"].replace("{msg}", "boom");
+    const expected = zhCN["home.initError"].replace("{msg}", "boom");
     expect(result.current.t("home.initError", { msg: "boom" })).toBe(expected);
   });
 

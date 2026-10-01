@@ -2,8 +2,8 @@
 import type { TranslationKey } from "./ja";
 
 export const en: Record<TranslationKey, string> = {
-  // App name: the single-kanji display name (guideline 00), identical in every locale.
-  "app.name": "巡",
+  // Application name, identical in every locale.
+  "app.name": "Meguri",
 
   // common
   "common.close": "Close",
@@ -86,10 +86,8 @@ export const en: Record<TranslationKey, string> = {
   "settings.emojiStyleNoto": "Noto Emoji",
   "settings.emojiStyleOpenmoji": "OpenMoji",
   "settings.logo": "App logo",
-  "settings.logoDesc": "Applies to the window, tray, and in-app icons.",
-  "logo.dark": "Dark",
-  "logo.light": "Light",
-  "logo.enso": "Ensō",
+  "settings.logoDesc": "Applies the orange icon to the window, tray, and app.",
+  "logo.orange": "Orange",
   "settings.keybinding": "Keybinds",
   "settings.keybindingDesc":
     "Key bindings for moving focus in the list, file paging, scrolling, and focusing search.",

@@ -20,9 +20,9 @@ const LS_KEY = "meguri.lang";
 export type Lang = "ja" | "en" | "zh-CN" | "ko" | "es" | "fr";
 
 export const LANGUAGES: { id: Lang; label: string }[] = [
+  { id: "zh-CN", label: "简体中文" },
   { id: "en", label: "English" },
   { id: "ja", label: "日本語" },
-  { id: "zh-CN", label: "简体中文" },
   { id: "ko", label: "한국어" },
   { id: "es", label: "Español" },
   { id: "fr", label: "Français" },
@@ -48,7 +48,7 @@ interface I18nCtx {
 
 const Ctx = createContext<I18nCtx | null>(null);
 
-/** Determine the default language from saved preference, otherwise use English. */
+/** Determine the default language from saved preference, otherwise use Simplified Chinese. */
 function detectLang(): Lang {
   try {
     const stored = localStorage.getItem(LS_KEY);
@@ -56,7 +56,7 @@ function detectLang(): Lang {
   } catch {
     // ignore
   }
-  return "en";
+  return "zh-CN";
 }
 
 /** Replace {name} with values from params. */

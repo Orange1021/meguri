@@ -2,8 +2,8 @@
 import type { TranslationKey } from "./ja";
 
 export const ko: Record<TranslationKey, string> = {
-  // App name: the single-kanji display name (guideline 00), identical in every locale.
-  "app.name": "巡",
+  // 애플리케이션 이름은 모든 언어에서 동일합니다.
+  "app.name": "Meguri",
 
   // common
   "common.close": "닫기",
@@ -84,10 +84,8 @@ export const ko: Record<TranslationKey, string> = {
   "settings.emojiStyleNoto": "Noto Emoji",
   "settings.emojiStyleOpenmoji": "OpenMoji",
   "settings.logo": "앱 로고",
-  "settings.logoDesc": "창, 트레이, 앱 내 아이콘에 적용됩니다.",
-  "logo.dark": "진한 색",
-  "logo.light": "밝은 색",
-  "logo.enso": "원상",
+  "settings.logoDesc": "창, 트레이, 앱 내 아이콘에 주황색 로고를 통일해 적용합니다.",
+  "logo.orange": "오렌지",
   "settings.keybinding": "키 바인딩",
   "settings.keybindingDesc":
     "목록 포커스 이동·파일 이동·스크롤·검색 포커스의 키 할당입니다.",

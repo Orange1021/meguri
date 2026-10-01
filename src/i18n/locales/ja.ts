@@ -1,8 +1,8 @@
 // 日本語カタログ（原典）。キーはドット区切りのフラット構造。
 // 補間は {name} 形式。en.ts はこのキー集合と同型でなければならない（型で強制）。
 export const ja = {
-  // アプリ名（表示名の漢字1文字。ガイドライン00）
-  "app.name": "巡",
+  // アプリ名
+  "app.name": "Meguri",
 
   // 共通
   "common.close": "閉じる",
@@ -85,10 +85,8 @@ export const ja = {
   "settings.emojiStyleNoto": "Noto Emoji",
   "settings.emojiStyleOpenmoji": "OpenMoji",
   "settings.logo": "アプリのロゴ",
-  "settings.logoDesc": "ウィンドウ・トレイ・画面内のアイコンに反映されます。",
-  "logo.dark": "濃色",
-  "logo.light": "淡色",
-  "logo.enso": "円相",
+  "settings.logoDesc": "ウィンドウ・トレイ・画面内のアイコンに統一して適用されます。",
+  "logo.orange": "オレンジ",
   "settings.keybinding": "キーバインド",
   "settings.keybindingDesc":
     "一覧のフォーカス移動・ファイルの前後移動・スクロール・検索フォーカスのキー割り当て。",

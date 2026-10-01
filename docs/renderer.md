@@ -141,9 +141,10 @@ Styling is Tailwind CSS v4 (`@tailwindcss/vite`). `@/*` is an alias for `src/*`.
 
 i18n lives in `src/i18n/` (`I18nProvider` plus `t("key", { params })`, persisted
 to `localStorage`). The supported languages are `ja`, `en`, `es`, `fr`, `ko`, and
-`zh-CN`, with one file per locale in `src/i18n/locales/`. The key type
-`TranslationKey` is defined primarily in `src/i18n/locales/ja.ts`. When adding a
-key, sync **all** locales.
+`zh-CN`, with one file per locale in `src/i18n/locales/`. A supported
+`meguri.lang` value is always honored; when there is no valid saved preference,
+the provider defaults to `zh-CN`. The key type `TranslationKey` is defined
+primarily in `src/i18n/locales/ja.ts`. When adding a key, sync **all** locales.
 
 ## UI primitives and dialogs
 
