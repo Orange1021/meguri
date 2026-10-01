@@ -312,6 +312,27 @@ export const AppStatusSchema = z.object({
 });
 export type AppStatus = z.infer<typeof AppStatusSchema>;
 
+export const RecoveryStatusSchema = z.object({
+  state: z.enum([
+    "ready",
+    "needs-initialization",
+    "migration-failed",
+    "restore-available",
+  ]),
+  dataDir: z.string(),
+  messageCode: z.string(),
+  backupIds: z.array(z.string()),
+});
+export type RecoveryStatus = z.infer<typeof RecoveryStatusSchema>;
+
+export const RecoveryBackupSchema = z.object({
+  backupId: z.string(),
+  createdAt: z.number().int(),
+  appVersion: z.string(),
+  schemaVersion: z.number().int().nonnegative(),
+});
+export type RecoveryBackup = z.infer<typeof RecoveryBackupSchema>;
+
 export const WorkspaceInfoSchema = z.object({
   id: z.string(),
   path: z.string(),

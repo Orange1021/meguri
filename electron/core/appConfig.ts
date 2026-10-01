@@ -185,7 +185,7 @@ function parseConfig(
         : null;
 
   return {
-    formatVersion: raw.formatVersion === 2 ? 2 : 2,
+    formatVersion: 2,
     workspaces,
     activeWorkspaceId,
     roots,

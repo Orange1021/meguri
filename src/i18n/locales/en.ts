@@ -10,6 +10,20 @@ export const en: Record<TranslationKey, string> = {
   "common.cancel": "Cancel",
   "common.ok": "OK",
 
+  // Portable data recovery
+  "recovery.title": "Portable data recovery",
+  "recovery.loading": "Checking data status…",
+  "recovery.needsInitialization": "This portable library needs to be initialized.",
+  "recovery.migrationFailed": "The data migration failed.",
+  "recovery.restoreAvailable": "Migration failed. You can restore a backup.",
+  "recovery.dataDirectory": "Data directory",
+  "recovery.retry": "Retry",
+  "recovery.initialize": "Initialize and start",
+  "recovery.restore": "Restore selected backup",
+  "recovery.restart": "Restart",
+  "recovery.backup": "Backup",
+  "recovery.noBackups": "No usable backups are available.",
+
   // kind
   "kind.video": "Video",
   "kind.image": "Image",

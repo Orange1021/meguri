@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import Database from "better-sqlite3";
 import {
   DEFAULT_LOGO,
   locatorForResolvedRoot,
@@ -8,7 +9,13 @@ import {
   type AppConfigV2,
   type WorkspaceConfig,
 } from "./appConfig.js";
-import { copyDatabaseSnapshot } from "./backups.js";
+import {
+  copyDatabaseSnapshot,
+  createBackup,
+  listValidatedBackups,
+} from "./backups.js";
+import { DEFAULT_MIGRATION_REGISTRY } from "./migrations.js";
+import { openDb } from "./db.js";
 import {
   ensurePortableDirectories,
   type PortableLayout,
@@ -35,6 +42,84 @@ export interface ImportResult {
   status: ImportStatus;
   messageCode?: string;
   manifestPath?: string;
+}
+
+export type RecoveryState =
+  | "ready"
+  | "needs-initialization"
+  | "migration-failed"
+  | "restore-available";
+
+export interface RecoveryStatus {
+  state: RecoveryState;
+  dataDir: string;
+  messageCode: string;
+  backupIds: string[];
+}
+
+export interface PreparePortableDataOptions {
+  legacyUserDataDir: string;
+  appVersion?: string;
+  now?: () => number;
+}
+
+export async function preparePortableData(
+  layout: PortableLayout,
+  options: PreparePortableDataOptions,
+): Promise<RecoveryStatus> {
+  ensurePortableDirectories(layout);
+  if (!isCurrentPortableConfig(layout.configPath)) {
+    const legacyConfigPath = path.join(options.legacyUserDataDir, "config.json");
+    if (
+      path.resolve(legacyConfigPath) !== path.resolve(layout.configPath) &&
+      fs.existsSync(legacyConfigPath)
+    ) {
+      const imported = await importLegacyUserData({
+        layout,
+        legacyUserDataDir: options.legacyUserDataDir,
+        legacyConfigPath,
+        appVersion: options.appVersion,
+        now: options.now,
+      });
+      if (imported.status === "recovery-required") {
+        return recoveryStatus(
+          layout,
+          "migration-failed",
+          imported.messageCode ?? "legacy-import-failed",
+        );
+      }
+    }
+  }
+  if (!isCurrentPortableConfig(layout.configPath)) {
+    return recoveryStatus(
+      layout,
+      "needs-initialization",
+      "portable-data-needs-initialization",
+    );
+  }
+
+  try {
+    await migratePortableDatabases(layout, options);
+    return recoveryStatus(layout, "ready", "portable-data-ready");
+  } catch {
+    const backups = listValidatedBackups(layout.backupsDir);
+    return recoveryStatus(
+      layout,
+      backups.length > 0 ? "restore-available" : "migration-failed",
+      "portable-migration-failed",
+    );
+  }
+}
+
+export async function retryPortableData(
+  layout: PortableLayout,
+  options: PreparePortableDataOptions & { initialize?: boolean },
+): Promise<RecoveryStatus> {
+  if (options.initialize && !fs.existsSync(layout.configPath)) {
+    ensurePortableDirectories(layout);
+    writeJson(layout.configPath, emptyPortableConfig());
+  }
+  return preparePortableData(layout, options);
 }
 
 interface ImportManifestEntry {
@@ -181,7 +266,7 @@ async function importLegacyUserDataLocked(
     fs.renameSync(temporaryManifestPath, manifestPath);
     manifestPublished = true;
     return { status: "migrated", manifestPath };
-  } catch (error) {
+  } catch {
     if (manifestPublished) fs.rmSync(manifestPath, { force: true });
     if (configPublished) fs.rmSync(layout.configPath, { force: true });
     if (rootsPublished && fs.existsSync(finalRootsDir)) {
@@ -189,8 +274,7 @@ async function importLegacyUserDataLocked(
     }
     return {
       status: "recovery-required",
-      messageCode:
-        error instanceof Error ? "legacy-import-failed" : "legacy-import-failed",
+      messageCode: "legacy-import-failed",
     };
   } finally {
     fs.rmSync(importDirectory, { recursive: true, force: true });
@@ -347,4 +431,93 @@ function writeJson(file: string, value: unknown): void {
 
 function hashFile(file: string): string {
   return createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
+
+function isCurrentPortableConfig(file: string): boolean {
+  const config = readJsonIfPresent(file);
+  return config?.formatVersion === 2 && Array.isArray(config.workspaces);
+}
+
+function recoveryStatus(
+  layout: PortableLayout,
+  state: RecoveryState,
+  messageCode: string,
+): RecoveryStatus {
+  return {
+    state,
+    dataDir: layout.dataDir,
+    messageCode,
+    backupIds: listValidatedBackups(layout.backupsDir).map(
+      (record) => record.manifest.backupId,
+    ),
+  };
+}
+
+async function migratePortableDatabases(
+  layout: PortableLayout,
+  options: PreparePortableDataOptions,
+): Promise<void> {
+  const rootsDir = path.join(layout.dataDir, "roots");
+  if (!fs.existsSync(rootsDir)) return;
+  const configPath = layout.configPath;
+  for (const entry of fs.readdirSync(rootsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const databasePath = path.join(rootsDir, entry.name, "db.sqlite");
+    if (!fs.existsSync(databasePath)) continue;
+    const needsMigration = databaseNeedsMigration(databasePath);
+    if (needsMigration) {
+      const db = new Database(databasePath);
+      try {
+        await createBackup({
+          db,
+          configPath,
+          backupsDir: layout.backupsDir,
+          appVersion: options.appVersion ?? "unknown",
+          now: options.now,
+          targetDatabasePath: databasePath,
+        });
+      } finally {
+        db.close();
+      }
+    }
+    const migrated = openDb(databasePath);
+    migrated.close();
+  }
+}
+
+function databaseNeedsMigration(databasePath: string): boolean {
+  const latestVersion = Math.max(
+    0,
+    ...DEFAULT_MIGRATION_REGISTRY.steps.map((step) => step.version),
+  );
+  const db = new Database(databasePath, {
+    readonly: true,
+    fileMustExist: true,
+  });
+  try {
+    const row = db
+      .prepare("SELECT MAX(version) AS version FROM schema_migrations")
+      .get() as { version: number | null } | undefined;
+    return (row?.version ?? 0) < latestVersion;
+  } catch {
+    return true;
+  } finally {
+    db.close();
+  }
+}
+
+function emptyPortableConfig() {
+  return {
+    formatVersion: 2,
+    workspaces: [],
+    activeWorkspaceId: null,
+    collections: [],
+    workspaceEmojis: {},
+    logo: DEFAULT_LOGO,
+    update: {
+      autoCheck: true,
+      ignoredVersion: null,
+      lastCheckAt: null,
+    },
+  };
 }

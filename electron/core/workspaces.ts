@@ -10,12 +10,16 @@ import {
   saveConfig,
   cleanupStaleTemp,
   normalizeDir,
+  type WorkspaceConfig,
   type AppConfig,
   type UserCollectionConfig,
   type UserCollectionItemConfig,
 } from "./appConfig.js";
-import { dataDirForRoot, pathHash } from "./paths.js";
-import type { PortableLayout } from "./portablePaths.js";
+import { dataDirForWorkspaceId, pathHash } from "./paths.js";
+import {
+  resolveWorkspaceLocator,
+  type PortableLayout,
+} from "./portablePaths.js";
 import log from "./logger.js";
 import { nowUnix } from "./db.js";
 
@@ -116,6 +120,29 @@ export class Workspaces {
     return pathHash(normalizeDir(p));
   }
 
+  /** Resolve the persisted identity for a root, falling back to the legacy path hash. */
+  idForPath(p: string): string {
+    const normalized = path.resolve(p);
+    const record = this.config.workspaces.find((candidate) => {
+      const resolved = this.resolveWorkspaceRecord(candidate);
+      return resolved !== null && samePath(resolved, normalized);
+    });
+    return record?.workspaceId ?? Workspaces.idFor(normalized);
+  }
+
+  private resolveWorkspaceRecord(record: WorkspaceConfig): string | null {
+    try {
+      if (record.locator.kind === "portable-relative") {
+        return this.layout
+          ? resolveWorkspaceLocator(this.layout, record.locator)
+          : null;
+      }
+      return path.resolve(record.locator.value);
+    } catch {
+      return null;
+    }
+  }
+
   list(): WorkspaceInfo[] {
     // The virtual "All" workspace is always listed first.
     const all: WorkspaceInfo = {
@@ -127,7 +154,7 @@ export class Workspaces {
     return [
       all,
       ...this.config.roots.map((p) => {
-        const id = Workspaces.idFor(p);
+        const id = this.idForPath(p);
         return {
           id,
           path: p,
@@ -156,7 +183,7 @@ export class Workspaces {
     if (collectionId) return collectionTarget(collectionId);
     if (this.config.activePath === ALL_ID) return ALL_ID;
     return this.config.activePath
-      ? Workspaces.idFor(this.config.activePath)
+      ? this.idForPath(this.config.activePath)
       : null;
   }
 
@@ -199,7 +226,7 @@ export class Workspaces {
     const out: { id: string; core: Core }[] = [];
     for (const p of this.config.roots) {
       const core = this.coreForPath(p);
-      if (core) out.push({ id: Workspaces.idFor(p), core });
+      if (core) out.push({ id: this.idForPath(p), core });
     }
     return out;
   }
@@ -219,7 +246,7 @@ export class Workspaces {
 
   /** Workspace ID → registered root path. */
   pathOf(id: string): string | null {
-    return this.config.roots.find((p) => Workspaces.idFor(p) === id) ?? null;
+    return this.config.roots.find((p) => this.idForPath(p) === id) ?? null;
   }
 
   /** The active Core (null if none selected). */
@@ -247,7 +274,7 @@ export class Workspaces {
     )
       return null;
     return (
-      this.errors.get(Workspaces.idFor(this.config.activePath))?.message ?? null
+      this.errors.get(this.idForPath(this.config.activePath))?.message ?? null
     );
   }
 
@@ -260,7 +287,7 @@ export class Workspaces {
     )
       return null;
     return (
-      this.errors.get(Workspaces.idFor(this.config.activePath))?.kind ?? null
+      this.errors.get(this.idForPath(this.config.activePath))?.kind ?? null
     );
   }
 
@@ -293,7 +320,7 @@ export class Workspaces {
    * The media files themselves are never touched. If active, switch to another root.
    */
   remove(p: string): void {
-    const id = Workspaces.idFor(p);
+    const id = this.idForPath(p);
     const core = this.cores.get(id);
     this.cores.delete(id);
     this.errors.delete(id);
@@ -316,7 +343,8 @@ export class Workspaces {
     this.persist();
 
     // Close the DB handle first so the files can be removed (Windows locks open files).
-    const dir = core?.dataDir ?? dataDirForRoot(p, this.layout);
+    const dir =
+      core?.dataDir ?? dataDirForWorkspaceId(id, this.layout);
     core?.close();
     try {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -556,7 +584,7 @@ export class Workspaces {
    */
   reorder(ids: string[]): void {
     const byId = new Map(
-      this.config.roots.map((p) => [Workspaces.idFor(p), p]),
+      this.config.roots.map((p) => [this.idForPath(p), p]),
     );
     const ordered: string[] = [];
     for (const id of ids) {
@@ -568,7 +596,7 @@ export class Workspaces {
     }
     // Preserve any roots not mentioned in `ids` (robustness against stale input).
     for (const p of this.config.roots) {
-      if (byId.has(Workspaces.idFor(p))) ordered.push(p);
+      if (byId.has(this.idForPath(p))) ordered.push(p);
     }
     this.config.roots = ordered;
     this.persist();
@@ -702,13 +730,17 @@ export class Workspaces {
   }
 
   private coreForPath(p: string): Core | null {
-    const id = Workspaces.idFor(p);
+    const id = this.idForPath(p);
     const cached = this.cores.get(id);
     if (cached) return cached;
     if (this.closed) return null;
     try {
-      const core = Core.init(p, { layout: this.layout });
-      this.cores.set(id, core);
+      const workspaceId = this.idForPath(p);
+      const core = Core.init(p, {
+        layout: this.layout,
+        workspaceId,
+      });
+      this.cores.set(workspaceId, core);
       this.errors.delete(id);
       return core;
     } catch (e) {
@@ -726,6 +758,14 @@ function activeCollectionId(activePath: string | null): string | null {
   return activePath?.startsWith(COLLECTION_ID_PREFIX)
     ? activePath.slice(COLLECTION_ID_PREFIX.length)
     : null;
+}
+
+function samePath(left: string, right: string): boolean {
+  const normalizedLeft = path.resolve(left);
+  const normalizedRight = path.resolve(right);
+  return process.platform === "win32"
+    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
+    : normalizedLeft === normalizedRight;
 }
 
 function isSchemaMismatchError(message: string): boolean {

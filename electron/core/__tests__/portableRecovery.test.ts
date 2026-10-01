@@ -10,14 +10,22 @@ import {
 import {
   importLegacyUserData,
   locatorForResolvedRoot,
+  preparePortableData,
+  retryPortableData,
   type LegacyImportOptions,
 } from "../portableRecovery.js";
-import { loadConfig, normalizeDir } from "../appConfig.js";
+import {
+  configureConfigStorage,
+  loadConfig,
+  normalizeDir,
+} from "../appConfig.js";
 import { pathHash } from "../paths.js";
+import { Workspaces } from "../workspaces.js";
 
 const directories: string[] = [];
 
 afterEach(() => {
+  configureConfigStorage(undefined);
   for (const directory of directories.splice(0)) {
     fs.rmSync(directory, { recursive: true, force: true });
   }
@@ -70,6 +78,45 @@ function createLegacyUserDataFixture(input: {
 }
 
 describe("portable recovery", () => {
+  it("reports needs-initialization when no portable or legacy data exists", async () => {
+    const packageRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-empty-root-"),
+    );
+    const legacyUserDataDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-empty-legacy-"),
+    );
+    directories.push(packageRoot, legacyUserDataDir);
+    const layout = layoutForRoot(packageRoot);
+
+    const status = await preparePortableData(layout, {
+      legacyUserDataDir,
+      appVersion: "0.8.0",
+    });
+
+    expect(status.state).toBe("needs-initialization");
+    expect(status.dataDir).toBe(layout.dataDir);
+  });
+
+  it("only becomes ready after explicit initialization", async () => {
+    const packageRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-init-root-"),
+    );
+    const legacyUserDataDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-init-legacy-"),
+    );
+    directories.push(packageRoot, legacyUserDataDir);
+    const layout = layoutForRoot(packageRoot);
+
+    const status = await retryPortableData(layout, {
+      legacyUserDataDir,
+      initialize: true,
+      appVersion: "0.8.0",
+    });
+
+    expect(status.state).toBe("ready");
+    expect(fs.existsSync(layout.configPath)).toBe(true);
+  });
+
   it("imports legacy userData into Data without deleting the source", async () => {
     const fixture = createLegacyUserDataFixture({
       root: "E:/Media/柯南",
@@ -128,5 +175,48 @@ describe("portable recovery", () => {
     const second = await importLegacyUserData(fixture.options);
 
     expect(second.status).toBe("already-current");
+  });
+
+  it("keeps the persisted workspace database id when a portable root moves", () => {
+    const packageRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-stable-workspace-"),
+    );
+    directories.push(packageRoot);
+    const layout = layoutForRoot(packageRoot);
+    const mediaRoot = path.join(layout.mediaDir, "柯南");
+    const workspaceId = "stable-workspace-id";
+    fs.mkdirSync(mediaRoot, { recursive: true });
+    fs.mkdirSync(layout.dataDir, { recursive: true });
+    fs.writeFileSync(
+      layout.configPath,
+      JSON.stringify({
+        formatVersion: 2,
+        workspaces: [
+          {
+            workspaceId,
+            name: "柯南",
+            locator: { kind: "portable-relative", value: "柯南" },
+            legacyPathHash: "legacy-path-hash",
+            createdAt: 1_700_000_000,
+          },
+        ],
+        activeWorkspaceId: workspaceId,
+        collections: [],
+        workspaceEmojis: {},
+        update: {
+          autoCheck: false,
+          ignoredVersion: null,
+          lastCheckAt: null,
+        },
+        logo: "dark",
+      }),
+    );
+    configureConfigStorage(layout);
+
+    const workspaces = new Workspaces({ layout });
+    const core = workspaces.byId(workspaceId);
+
+    expect(core?.dataDir).toBe(path.join(layout.dataDir, "roots", workspaceId));
+    workspaces.closeAll();
   });
 });

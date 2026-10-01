@@ -9,6 +9,20 @@ export const ja = {
   "common.cancel": "キャンセル",
   "common.ok": "OK",
 
+  // ポータブルデータの復旧
+  "recovery.title": "ポータブルデータの復旧",
+  "recovery.loading": "データ状態を確認中…",
+  "recovery.needsInitialization": "このポータブルライブラリは初期化が必要です。",
+  "recovery.migrationFailed": "データの移行に失敗しました。",
+  "recovery.restoreAvailable": "移行に失敗しました。バックアップから復元できます。",
+  "recovery.dataDirectory": "データ保存先",
+  "recovery.retry": "再試行",
+  "recovery.initialize": "初期化して開始",
+  "recovery.restore": "選択したバックアップを復元",
+  "recovery.restart": "再起動",
+  "recovery.backup": "バックアップ",
+  "recovery.noBackups": "利用可能なバックアップはありません。",
+
   // 種別
   "kind.video": "動画",
   "kind.image": "画像",

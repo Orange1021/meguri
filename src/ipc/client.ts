@@ -55,6 +55,12 @@ function invoke<C extends Exclude<ChannelName, PreloadInvokeChannel>>(
 
 export const api = {
   appStatus: () => invoke("app_status"),
+  recoveryStatus: () => invoke("recovery_status"),
+  recoveryListBackups: () => invoke("recovery_list_backups"),
+  recoveryRestore: (backupId: string) =>
+    invoke("recovery_restore", { backupId }),
+  recoveryRetry: (initialize = false) =>
+    invoke("recovery_retry", { initialize }),
   /** App + runtime versions for the Settings "About" section. */
   aboutInfo: () => invoke("about_info"),
   workspaceStats: () => invoke("workspace_stats"),

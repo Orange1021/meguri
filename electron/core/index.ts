@@ -9,6 +9,8 @@ import { upsertScanRoot } from "./queries.js";
 export interface CoreInitOptions {
   layout?: PortableLayout;
   dataDir?: string;
+  /** Persisted workspace identity; stable when a portable root changes drive letters. */
+  workspaceId?: string;
 }
 
 export class Core {
@@ -34,7 +36,11 @@ export class Core {
     } catch {
       root = path.resolve(rawRoot);
     }
-    const dataDir = dataDirForRoot(root, options.dataDir ?? options.layout);
+    const dataDir = dataDirForRoot(
+      root,
+      options.dataDir ?? options.layout,
+      options.workspaceId,
+    );
     fs.mkdirSync(path.join(dataDir, "thumbs"), { recursive: true });
 
     const db = openDb(dbPathForDataDir(dataDir));

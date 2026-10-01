@@ -10,6 +10,20 @@ export const zhCN: Record<TranslationKey, string> = {
   "common.cancel": "取消",
   "common.ok": "确定",
 
+  // 便携数据恢复
+  "recovery.title": "便携数据恢复",
+  "recovery.loading": "正在检查数据状态…",
+  "recovery.needsInitialization": "此便携式媒体库需要初始化。",
+  "recovery.migrationFailed": "数据迁移失败。",
+  "recovery.restoreAvailable": "迁移失败，可以从备份恢复。",
+  "recovery.dataDirectory": "数据目录",
+  "recovery.retry": "重试",
+  "recovery.initialize": "初始化并启动",
+  "recovery.restore": "恢复所选备份",
+  "recovery.restart": "重新启动",
+  "recovery.backup": "备份",
+  "recovery.noBackups": "没有可用的备份。",
+
   // kind
   "kind.video": "视频",
   "kind.image": "图片",

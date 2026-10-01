@@ -13,6 +13,8 @@ import type {
   FolderListing,
   HistoryPage,
   LogoId,
+  RecoveryBackup,
+  RecoveryStatus,
   SceneBookmark,
   SearchResult,
   TagList,
@@ -136,6 +138,10 @@ const FileTarget = z.object({
 
 export const ChannelInputs = {
   app_status: z.void(),
+  recovery_status: z.void(),
+  recovery_list_backups: z.void(),
+  recovery_restore: z.object({ backupId: z.string().min(1).max(200) }),
+  recovery_retry: z.object({ initialize: z.boolean().optional() }).default({}),
   about_info: z.void(),
   workspace_stats: z.void(),
   workspaces_list: z.void(),
@@ -382,6 +388,10 @@ export interface WorkspaceAddResult {
 // signature and the renderer client wrapper to match.
 export interface ChannelOutputs {
   app_status: AppStatus;
+  recovery_status: RecoveryStatus;
+  recovery_list_backups: RecoveryBackup[];
+  recovery_restore: RecoveryStatus;
+  recovery_retry: RecoveryStatus;
   about_info: AboutInfo;
   workspace_stats: WorkspaceStats;
   workspaces_list: WorkspacesList;

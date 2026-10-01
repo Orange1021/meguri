@@ -3,7 +3,6 @@ import { handle } from "../core/ipcHandler.js";
 import {
   ALL_ID,
   COLLECTION_ID_PREFIX,
-  Workspaces,
 } from "../core/workspaces.js";
 import { droppedDirectory } from "../core/paths.js";
 import type { WorkspaceAddResult } from "../../shared/ipc/channels.js";
@@ -30,7 +29,7 @@ export function registerWorkspaceHandlers(ctx: IpcContext): void {
     ws.setActive(np);
     const scanJobId = ctx.scans.start();
     emit("workspace:changed", { activeId: ws.activeId });
-    return { added: true, id: Workspaces.idFor(np), scanJobId, existing };
+    return { added: true, id: ws.idForPath(np), scanJobId, existing };
   };
 
   handle("workspace_add", async () => {

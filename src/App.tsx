@@ -17,6 +17,9 @@ import { useContentZoom } from "@/hooks/useContentZoom";
 import { useSelectAllGuard } from "@/hooks/useSelectAllGuard";
 import { useUpdateNotifier } from "@/hooks/useUpdateNotifier";
 import { registerRouterNavigate } from "@/lib/routerBridge";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/ipc/client";
+import { RecoveryPage } from "@/components/RecoveryPage";
 
 // In a webview, a hash router is more stable than a file-path-style history.
 // /file/:id, /play and /settings are child routes of Home so a modal overlays on top while the list stays mounted
@@ -41,9 +44,42 @@ const router = createHashRouter([
 registerRouterNavigate((to, opts) => void router.navigate(to, opts));
 
 export default function App() {
+  const recovery = useQuery({
+    queryKey: ["recovery_status"],
+    queryFn: api.recoveryStatus,
+    retry: false,
+  });
   useContentZoom();
   useSelectAllGuard();
   useUpdateNotifier();
+  if (recovery.isLoading) {
+    return (
+      <RecoveryPage
+        loading
+        initialStatus={{
+          state: "needs-initialization",
+          dataDir: "",
+          messageCode: "recovery-loading",
+          backupIds: [],
+        }}
+      />
+    );
+  }
+  if (recovery.data && recovery.data.state !== "ready") {
+    return <RecoveryPage initialStatus={recovery.data} />;
+  }
+  if (recovery.error) {
+    return (
+      <RecoveryPage
+        initialStatus={{
+          state: "migration-failed",
+          dataDir: "",
+          messageCode: "recovery-status-unavailable",
+          backupIds: [],
+        }}
+      />
+    );
+  }
   return (
     <div className="flex h-full">
       <WorkspaceRail />

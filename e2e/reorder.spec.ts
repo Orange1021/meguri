@@ -14,11 +14,34 @@ test("dragging in manual order reorders without opening the detail view", async 
   const mediaRoot = fs.mkdtempSync(path.join(os.tmpdir(), "meguri-media-"));
   fs.copyFileSync(fixtureImage, path.join(mediaRoot, "aaa.png"));
   fs.copyFileSync(fixtureImage, path.join(mediaRoot, "bbb.png"));
+  const portableRoot = path.join(userDataDir, "portable");
+  const dataDir = path.join(portableRoot, "Data");
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dataDir, "config.json"),
+    JSON.stringify({
+      formatVersion: 2,
+      workspaces: [],
+      activeWorkspaceId: null,
+      collections: [],
+      workspaceEmojis: {},
+      update: {
+        autoCheck: false,
+        ignoredVersion: null,
+        lastCheckAt: null,
+      },
+      logo: "dark",
+    }),
+  );
 
   const app = await _electron.launch(
     electronLaunchOptions({
       args: [`--user-data-dir=${userDataDir}`],
-      env: { MEGURI_DISABLE_TRAY: "1", MEGURI_ROOT: mediaRoot },
+      env: {
+        MEGURI_DISABLE_TRAY: "1",
+        MEGURI_ROOT: mediaRoot,
+        MEGURI_PORTABLE_ROOT: portableRoot,
+      },
     }),
   );
 

@@ -10,6 +10,20 @@ export const fr: Record<TranslationKey, string> = {
   "common.cancel": "Annuler",
   "common.ok": "OK",
 
+  // Récupération des données portables
+  "recovery.title": "Récupération des données portables",
+  "recovery.loading": "Vérification de l’état des données…",
+  "recovery.needsInitialization": "Cette bibliothèque portable doit être initialisée.",
+  "recovery.migrationFailed": "La migration des données a échoué.",
+  "recovery.restoreAvailable": "La migration a échoué. Vous pouvez restaurer une sauvegarde.",
+  "recovery.dataDirectory": "Dossier de données",
+  "recovery.retry": "Réessayer",
+  "recovery.initialize": "Initialiser et démarrer",
+  "recovery.restore": "Restaurer la sauvegarde sélectionnée",
+  "recovery.restart": "Redémarrer",
+  "recovery.backup": "Sauvegarde",
+  "recovery.noBackups": "Aucune sauvegarde utilisable n’est disponible.",
+
   // kind
   "kind.video": "Vidéo",
   "kind.image": "Image",

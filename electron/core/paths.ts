@@ -24,9 +24,19 @@ export function pathHash(p: string): string {
 export function dataDirForRoot(
   root: string,
   dataRoot?: string | Pick<PortableLayout, "dataDir">,
+  workspaceId?: string,
 ): string {
   const base = typeof dataRoot === "string" ? dataRoot : baseDataDir(dataRoot);
-  return path.join(base, "roots", pathHash(root));
+  return path.join(base, "roots", workspaceId ?? pathHash(root));
+}
+
+/** The artifacts directory for a persisted workspace identity. */
+export function dataDirForWorkspaceId(
+  workspaceId: string,
+  dataRoot?: string | Pick<PortableLayout, "dataDir">,
+): string {
+  const base = typeof dataRoot === "string" ? dataRoot : baseDataDir(dataRoot);
+  return path.join(base, "roots", workspaceId);
 }
 
 /** The SQLite file inside a root's data directory. */

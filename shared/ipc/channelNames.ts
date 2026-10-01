@@ -5,6 +5,10 @@
 /** Renderer → main invoke channels (ipcMain.handle). */
 export const INVOKE_CHANNELS = [
   "app_status",
+  "recovery_status",
+  "recovery_list_backups",
+  "recovery_restore",
+  "recovery_retry",
   "about_info",
   "workspace_stats",
   "workspaces_list",

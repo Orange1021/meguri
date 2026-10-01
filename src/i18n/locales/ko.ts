@@ -10,6 +10,20 @@ export const ko: Record<TranslationKey, string> = {
   "common.cancel": "취소",
   "common.ok": "확인",
 
+  // 휴대용 데이터 복구
+  "recovery.title": "휴대용 데이터 복구",
+  "recovery.loading": "데이터 상태 확인 중…",
+  "recovery.needsInitialization": "이 휴대용 라이브러리는 초기화가 필요합니다.",
+  "recovery.migrationFailed": "데이터 마이그레이션에 실패했습니다.",
+  "recovery.restoreAvailable": "마이그레이션에 실패했습니다. 백업에서 복원할 수 있습니다.",
+  "recovery.dataDirectory": "데이터 디렉터리",
+  "recovery.retry": "다시 시도",
+  "recovery.initialize": "초기화하고 시작",
+  "recovery.restore": "선택한 백업 복원",
+  "recovery.restart": "다시 시작",
+  "recovery.backup": "백업",
+  "recovery.noBackups": "사용 가능한 백업이 없습니다.",
+
   // kind
   "kind.video": "동영상",
   "kind.image": "이미지",

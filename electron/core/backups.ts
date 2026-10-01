@@ -15,6 +15,7 @@ export interface BackupManifest {
   databaseBytes: number;
   configBytes: number;
   createdAt: number;
+  databaseTargetRelative?: string;
 }
 
 export interface BackupRecord {
@@ -38,6 +39,7 @@ export interface CreateBackupOptions {
   backupsDir: string;
   appVersion: string;
   now?: () => number;
+  targetDatabasePath?: string;
 }
 
 export async function copyDatabaseSnapshot(
@@ -93,6 +95,14 @@ export async function createBackup(
       databaseBytes: fs.statSync(temporaryDatabasePath).size,
       configBytes: fs.statSync(temporaryConfigPath).size,
       createdAt,
+      ...(options.targetDatabasePath
+        ? {
+            databaseTargetRelative: path.relative(
+              path.dirname(options.backupsDir),
+              options.targetDatabasePath,
+            ),
+          }
+        : {}),
     };
     fs.writeFileSync(
       temporaryManifestPath,
@@ -139,9 +149,14 @@ export function validateBackup(options: {
     !Number.isSafeInteger(manifest.createdAt) ||
     !Number.isSafeInteger(manifest.schemaVersion) ||
     !manifest.databaseFile ||
-    !manifest.configFile
+    !manifest.configFile ||
+    (manifest.databaseTargetRelative !== undefined &&
+      typeof manifest.databaseTargetRelative !== "string")
   ) {
     throw new BackupValidationError("backup manifest is invalid");
+  }
+  if (manifest.databaseTargetRelative !== undefined) {
+    resolveDatabaseTarget(options.backupsDir, manifest.databaseTargetRelative);
   }
   const databasePath = safeManifestPath(directory, manifest.databaseFile);
   const configPath = safeManifestPath(directory, manifest.configFile);
@@ -178,7 +193,7 @@ export function listValidatedBackups(backupsDir: string): BackupRecord[] {
 export function restoreBackup(options: {
   backupsDir: string;
   backupId: string;
-  targetDatabasePath: string;
+  targetDatabasePath?: string;
   targetConfigPath: string;
   closeDatabase?: () => void;
 }): BackupRecord {
@@ -186,14 +201,27 @@ export function restoreBackup(options: {
     backupsDir: options.backupsDir,
     backupId: options.backupId,
   });
-  const targetDirectory = path.dirname(options.targetDatabasePath);
+  const targetDatabasePath =
+    options.targetDatabasePath ??
+    (record.manifest.databaseTargetRelative
+      ? resolveDatabaseTarget(
+          options.backupsDir,
+          record.manifest.databaseTargetRelative,
+        )
+      : null);
+  if (!targetDatabasePath) {
+    throw new BackupValidationError(
+      "backup does not specify a database restore target",
+    );
+  }
+  const targetDirectory = path.dirname(targetDatabasePath);
   fs.mkdirSync(targetDirectory, { recursive: true });
   const temporaryDirectory = fs.mkdtempSync(
     path.join(targetDirectory, ".restore-"),
   );
   const temporaryDatabasePath = path.join(
     temporaryDirectory,
-    path.basename(options.targetDatabasePath),
+    path.basename(targetDatabasePath),
   );
   const temporaryConfigPath = path.join(
     temporaryDirectory,
@@ -215,7 +243,7 @@ export function restoreBackup(options: {
     );
     options.closeDatabase?.();
     replaceFilesAtomically([
-      { source: temporaryDatabasePath, target: options.targetDatabasePath },
+      { source: temporaryDatabasePath, target: targetDatabasePath },
       { source: temporaryConfigPath, target: options.targetConfigPath },
     ]);
     return record;
@@ -255,6 +283,24 @@ function safeManifestPath(directory: string, name: string): string {
     throw new BackupValidationError("backup manifest contains an unsafe path");
   }
   return path.join(directory, name);
+}
+
+function resolveDatabaseTarget(backupsDir: string, relative: string): string {
+  if (!relative || path.isAbsolute(relative)) {
+    throw new BackupValidationError("unsafe database restore target");
+  }
+  const dataDir = path.resolve(path.dirname(backupsDir));
+  const target = path.resolve(dataDir, relative);
+  const withinDataDir = path.relative(dataDir, target);
+  if (
+    !withinDataDir ||
+    withinDataDir === ".." ||
+    withinDataDir.startsWith(".." + path.sep) ||
+    path.isAbsolute(withinDataDir)
+  ) {
+    throw new BackupValidationError("unsafe database restore target");
+  }
+  return target;
 }
 
 function verifyFile(file: string, bytes: number, sha256: string): void {

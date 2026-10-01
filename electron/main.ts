@@ -18,6 +18,16 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { DEFAULT_LOGO, loadConfig } from "./core/appConfig.js";
+import { configureConfigStorage } from "./core/appConfig.js";
+import {
+  preparePortableData,
+  type PreparePortableDataOptions,
+  type RecoveryStatus,
+} from "./core/portableRecovery.js";
+import {
+  resolvePortableLayout,
+  type PortableLayout,
+} from "./core/portablePaths.js";
 import { TRAY_ICON_BASE64, WINDOW_ICON_BASE64 } from "./core/logoAssets.js";
 import log, { setupLogger } from "./core/logger.js";
 import { withTimeout } from "./core/concurrency.js";
@@ -34,6 +44,7 @@ import {
 import { Workspaces } from "./core/workspaces.js";
 import { PositionWriter } from "./core/positionWriter.js";
 import { registerIpc } from "./ipc/index.js";
+import { registerRecoveryIpc } from "./ipc/recovery.js";
 import { ScanManager } from "./scanManager.js";
 import type { LogoId } from "../shared/ipc/schema.js";
 
@@ -42,12 +53,14 @@ setupLogger();
 
 // In CJS output, __dirname exists globally (out/main/).
 
-const ws = new Workspaces();
 // Heavy read-only list/search queries run on a worker thread so a slow query
 // can't stall the main event loop (UI, IPC, media serving). Writes stay here.
 const queryClient = new QueryWorkerClient(
   path.join(__dirname, "queryWorker.js"),
 );
+let ws: Workspaces | null = null;
+let scans: ScanManager | null = null;
+let recoveryStatus: RecoveryStatus | null = null;
 // Playback positions reported by the renderer, held briefly so bursts collapse
 // into one write per file (see positionWriter.ts).
 const positions = new PositionWriter((e) =>
@@ -306,6 +319,16 @@ function isDevMode(): boolean {
   return !app.isPackaged;
 }
 
+function resolveRuntimeLayout(): PortableLayout {
+  return resolvePortableLayout({
+    appPath: app.getAppPath(),
+    executablePath: process.execPath,
+    isPackaged: app.isPackaged,
+    portableRootOverride: process.env["MEGURI_PORTABLE_ROOT"],
+    portableExecutableDir: process.env["PORTABLE_EXECUTABLE_DIR"],
+  });
+}
+
 function isTrayEnabled(): boolean {
   return process.env.MEGURI_DISABLE_TRAY !== "1";
 }
@@ -336,12 +359,6 @@ function emit(channel: string, payload: unknown): void {
 
 // Scans are orchestrated by ScanManager (electron/scanManager.ts); main only
 // starts the initial one and aborts them all on quit.
-const scans = new ScanManager({
-  ws,
-  queryClient,
-  emit,
-  isQuitting,
-});
 
 function trayImage(logo: LogoId): Electron.NativeImage {
   return nativeImage.createFromDataURL(
@@ -536,11 +553,63 @@ void app.whenReady().then(async () => {
   // Completely remove the native app menu (File/Edit/View…).
   Menu.setApplicationMenu(null);
 
-  ws.bootstrap(resolveCliRoot());
+  const layout = resolveRuntimeLayout();
+  configureConfigStorage(layout);
+  const prepareOptions: PreparePortableDataOptions = {
+    legacyUserDataDir: app.getPath("userData"),
+    appVersion: app.getVersion(),
+  };
+  const initialRecoveryStatus = await preparePortableData(
+    layout,
+    prepareOptions,
+  );
+  recoveryStatus = initialRecoveryStatus;
+  if (initialRecoveryStatus.state !== "ready") {
+    registerRecoveryIpc({
+      layout,
+      prepareOptions,
+      getStatus: () => recoveryStatus ?? initialRecoveryStatus,
+      setStatus: (status) => {
+        recoveryStatus = status;
+      },
+      onReady: () => {
+        setTimeout(() => {
+          app.relaunch();
+          app.quit();
+        }, 0);
+      },
+    });
+    createWindow();
+    return;
+  }
+
+  const workspaceManager = new Workspaces({
+    layout,
+    recovery: initialRecoveryStatus,
+  });
+  ws = workspaceManager;
+  registerRecoveryIpc({
+    layout,
+    prepareOptions,
+    getStatus: () => recoveryStatus ?? initialRecoveryStatus,
+    setStatus: (status) => {
+      recoveryStatus = status;
+    },
+    onReady: () => {},
+    readOnly: true,
+  });
+  const scanManager = new ScanManager({
+    ws: workspaceManager,
+    queryClient,
+    emit,
+    isQuitting,
+  });
+  scans = scanManager;
+  workspaceManager.bootstrap(resolveCliRoot());
 
   // The media server resolves the DB by workspace ID to serve (independent of the active one).
   ({ port: mediaPort, server: mediaServer } = await startServer(
-    (id) => ws.byId(id),
+    (id) => workspaceManager.byId(id),
     mediaToken,
   ));
   installMediaAuthHeader();
@@ -556,14 +625,14 @@ void app.whenReady().then(async () => {
   });
 
   registerIpc({
-    ws,
+    ws: workspaceManager,
     queryClient,
     positions,
     mainWindow: () => mainWindow,
     mediaBase: () => (mediaPort ? `http://127.0.0.1:${mediaPort}` : null),
     isDevMode,
     emit,
-    scans,
+    scans: scanManager,
     applyLogo,
   });
   createTray();
@@ -580,7 +649,7 @@ void app.whenReady().then(async () => {
       mainWindow?.webContents.openDevTools({ mode: "right" });
     });
   }
-  scans.start();
+  scanManager.start();
   scheduleStartupUpdateCheck();
 
   app.on("activate", () => showWindow());
@@ -613,7 +682,10 @@ function stopIntake(): void {
 
 async function shutdown(): Promise<void> {
   stopIntake();
-  await withTimeout(scans.abortAll(), SHUTDOWN_SCAN_WAIT_MS);
+  await withTimeout(
+    scans?.abortAll() ?? Promise.resolve(),
+    SHUTDOWN_SCAN_WAIT_MS,
+  );
   await queryClient.dispose();
 }
 
@@ -629,7 +701,7 @@ function finalizeQuit(): void {
     log.error("flushing playback positions on quit failed:", e);
   }
   try {
-    ws.closeAll();
+    ws?.closeAll();
   } catch (e) {
     log.error("closing workspaces on quit failed:", e);
   }
@@ -652,7 +724,7 @@ function teardownSync(): void {
   if (quitPhase === "done") return;
   quitPhase = "disposing";
   stopIntake();
-  void scans.abortAll();
+  void scans?.abortAll();
   queryClient.terminateNow();
   finalizeQuit();
 }

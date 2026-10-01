@@ -101,4 +101,31 @@ describe("backup service", () => {
       roots: ["Media"],
     });
   });
+
+  it("rejects a manifest restore target outside the Data directory", async () => {
+    const fixture = createFixture();
+    const result = await createBackup({
+      db: fixture.db,
+      configPath: fixture.configPath,
+      backupsDir: fixture.backupsDir,
+      appVersion: "0.8.0",
+    });
+    const manifestPath = path.join(
+      fixture.backupsDir,
+      result.manifest.backupId,
+      "manifest.json",
+    );
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+      databaseTargetRelative?: string;
+    };
+    manifest.databaseTargetRelative = "../outside.sqlite";
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+
+    expect(() =>
+      validateBackup({
+        backupsDir: fixture.backupsDir,
+        backupId: result.manifest.backupId,
+      }),
+    ).toThrow("unsafe database restore target");
+  });
 });

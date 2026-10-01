@@ -14,6 +14,8 @@ test.describe("Workspace", () => {
   });
 
   test("shows workspace path in header", async ({ ready }) => {
-    await expect(ready.getByText(/e2e\/fixtures\/media/)).toBeVisible();
+    await expect(
+      ready.getByText(new RegExp("e2e[\\\\/]fixtures[\\\\/]media")),
+    ).toBeVisible();
   });
 });
