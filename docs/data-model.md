@@ -1,23 +1,52 @@
 # Data Model
 
-Each workspace has its own SQLite database. This document covers the storage
-layout, the schema, the versionless migration scheme, the `meta_key` design that
-keeps user-edited metadata durable, full-text search, and the query layer.
+Each workspace has its own SQLite database. This document covers the portable
+storage layout, stable workspace identities, the schema, checksummed migrations
+and backups, the `meta_key` design that keeps user-edited metadata durable,
+full-text search, and the query layer.
 
 ## Storage layout
 
-A workspace's generated files live under Electron's `userData`, in a directory
-named after the workspace's path hash:
+A release resolves its root from the executable location. `App` contains only
+the replaceable program files; `Data` contains all library state; and `Media`
+is the default portable media root:
 
 ```text
-<userData>/roots/<hash>/
-├─ db.sqlite   # this workspace's database (WAL mode)
-└─ thumbs/     # generated thumbnails (WebP)
+PortableVideoLibrary/
+├─ App/
+├─ Data/
+│  ├─ config.json
+│  ├─ roots/<workspaceId>/
+│  │  ├─ db.sqlite   # this workspace's database (WAL mode)
+│  │  └─ thumbs/    # generated thumbnails (WebP)
+│  ├─ assets/
+│  ├─ playlists/
+│  ├─ backups/
+│  ├─ logs/
+│  └─ temp/
+└─ Media/
 ```
 
-`electron/core/paths.ts` resolves these paths. The top-level
-[README](../README.md#where-data-is-stored) is the canonical description of the
-full storage tree, including `config.json`.
+`electron/core/portablePaths.ts` resolves these paths. During development the
+root is `<checkout>/.portable-dev`; tests can inject a temporary root. The
+top-level [README](../README.md#where-data-is-stored) is the user-facing
+canonical description of the full storage tree.
+
+### Workspace identity and locators
+
+`Data/config.json` version 2 stores each workspace as a record containing a
+`workspaceId`, display name, locator, the old path hash, and creation time. A
+root below `Media` is serialized as a `/`-separated `portable-relative` locator;
+an external root is serialized as an explicit `absolute` locator and is not
+portable across drive layouts. The persisted workspace ID, rather than the
+current absolute path hash, names `Data/roots/<workspaceId>`. This is what lets
+a copied library keep using the same database after a drive-letter change or an
+`App` replacement.
+
+The reader still accepts the legacy `roots: string[]` configuration. On startup,
+legacy `userData` is copied into `Data` through a temporary import directory,
+SQLite snapshots are made with the backup API, every copied file is hashed, and
+the source remains intact until the user chooses to remove it.
 
 ## Schema
 
@@ -49,29 +78,57 @@ The main tables:
   version (see [Derived tags](#derived-tags)).
 - `files_fts` — the FTS5 virtual table (see below).
 
-## Versionless migrations
+## Versioned migrations and backups
 
-Migrations deliberately use **no version number**. There is no `SCHEMA_VERSION`
-and no `user_version`. Existing on-disk databases are reconciled by two
-idempotent mechanisms in `db.ts`:
+The existing DDL remains idempotent for compatibility: `CORE_DDL` uses
+`CREATE TABLE IF NOT EXISTS`, and `backfillColumns()` adds missing legacy
+columns safely. Phase 1 adds a checked migration registry in
+`electron/core/migrations.ts` on top of that compatibility layer:
 
-- `CREATE TABLE IF NOT EXISTS` in `CORE_DDL` for whole tables.
-- `backfillColumns()`, which uses `hasColumn()` to add columns one at a time with
-  `ALTER TABLE ... ADD COLUMN`, each step safe to run repeatedly.
+- every step has a monotonically increasing version, name, SQL text, and
+  SHA-256 checksum;
+- a legacy database receives a version 0 baseline after its required tables are
+  checked;
+- each pending step and its metadata row run in one SQLite transaction;
+- an altered checksum, missing step, or failed transaction stops startup before
+  a normal workspace/query handle is opened.
 
-This avoids a past failure mode where bumping `user_version` first left columns
-missing on databases that never received the corresponding `ALTER`. To evolve the
-schema: add the DDL (so fresh databases get it) and, for a new column on an
-existing table, add the matching idempotent `ALTER` to `backfillColumns()`.
+The first registered step creates `portable_metadata` with the layout version,
+application version, and last backup ID. It does not rename or delete existing
+media tables. Indexes and compatibility backfills remain in `CORE_DDL` and
+`backfillColumns()` because they must also repair older databases.
 
 Indexes go in `CORE_DDL` too — `openDb()` re-executes it on every open, so
 `CREATE INDEX IF NOT EXISTS` reaches existing databases without any entry in
 `backfillColumns()`.
 
-The `auto_meta_ruleset_version` row in `settings` is **not** an exception to this
-rule. It versions _derived data_, not schema: it gates nothing about DDL, and a
-database whose marker is missing or stale simply has its derived tags rebuilt on
-the next scan.
+The `auto_meta_ruleset_version` row in `settings` versions _derived data_, not
+schema. It does not gate the migration runner; a missing or stale marker simply
+causes derived tags to be rebuilt on the next scan.
+
+Before a pending migration, `electron/core/backups.ts` creates a directory under
+`Data/backups/<timestamp>-<uuid>/` containing:
+
+```text
+library.sqlite   # SQLite-consistent snapshot, including WAL state
+config.json      # matching configuration snapshot
+manifest.json    # sizes, SHA-256 hashes, schema version, and restore target
+```
+
+The temporary directory is validated before publication. Recovery lists only
+backups whose manifest and snapshot hashes still validate. Restoring copies both
+files to a temporary location, validates them again, closes active handles, and
+atomically replaces the current database/configuration. The original backup is
+never deleted by restore.
+
+### Startup recovery states
+
+`preparePortableData()` classifies startup as `ready`, `needs-initialization`,
+`migration-failed`, or `restore-available`. The renderer receives only the
+resolved Data directory, a stable message code, and validated backup summaries.
+When the state is not ready, normal workspace IPC and query handles are not
+started. The recovery page offers one primary action for the current state and
+relaunches the app after a successful initialize, retry, or restore.
 
 ## Metadata and `meta_key`
 

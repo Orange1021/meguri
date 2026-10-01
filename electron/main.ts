@@ -29,7 +29,7 @@ import {
   type PortableLayout,
 } from "./core/portablePaths.js";
 import { TRAY_ICON_BASE64, WINDOW_ICON_BASE64 } from "./core/logoAssets.js";
-import log, { setupLogger } from "./core/logger.js";
+import log, { configureLogDirectory, setupLogger } from "./core/logger.js";
 import { withTimeout } from "./core/concurrency.js";
 import {
   DISPOSE_TIMEOUT_MS,
@@ -84,7 +84,7 @@ let relaunchAfterQuit = false;
 app.setName("Meguri");
 
 // Only one running instance. Multiple processes would race on the same
-// SQLite WAL under userData/roots/<hash>/db.sqlite and confuse the user
+// SQLite WAL under Data/roots/<workspaceId> and confuse the user
 // (the app is tray-resident, so it's easy to launch twice by accident).
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -555,6 +555,7 @@ void app.whenReady().then(async () => {
 
   const layout = resolveRuntimeLayout();
   configureConfigStorage(layout);
+  configureLogDirectory(layout.logsDir);
   const prepareOptions: PreparePortableDataOptions = {
     legacyUserDataDir: app.getPath("userData"),
     appVersion: app.getVersion(),

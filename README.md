@@ -245,6 +245,12 @@ variable (once added, it is persisted to settings thereafter).
 MEGURI_ROOT=/path/to/media npm run dev
 ```
 
+Development data is kept in `.portable-dev/` inside the checkout. You can point
+the same build at a disposable location with `MEGURI_PORTABLE_ROOT`; this is
+useful for tests and for keeping a development checkout clean. On a first launch
+with no `Data/config.json`, choose **Initialize** on the recovery screen; the
+app then restarts and applies `MEGURI_ROOT` if it was supplied.
+
 ### Docker development mode
 
 ```bash
@@ -261,6 +267,7 @@ the seed step with `MEGURI_SEED_SAMPLE_CONFIG=force`.
 ```bash
 npm run build      # build main / preload / renderer
 npm run dist       # generate AppImage / deb (electron-builder)
+npm run dist -- --win portable  # generate the Windows portable artifact
 ```
 
 ### Type checking
@@ -276,6 +283,10 @@ Unit tests (Vitest: main/core + renderer):
 ```bash
 npm test
 ```
+
+On Windows, `npm run test:core` starts Vitest through the Electron runtime so
+the `better-sqlite3` ABI matches the application. The command is also useful
+when you only need the core suite.
 
 E2E tests (Playwright + Electron). Builds the app first, then launches the
 packaged main process against fixture media in `e2e/fixtures/media/`. Run them
@@ -309,25 +320,53 @@ already run Electron apps locally.
 
 ## Where Data Is Stored
 
-Scan root paths are hashed for identification and managed centrally under
-Electron's userData.
+The portable package keeps the application and its user data side by side. The
+root is resolved from the executable location; the development build uses
+`.portable-dev/`, and tests may inject another root.
 
 ```text
-<userData>/                 # e.g. ~/.config/Meguri
-├─ config.json              # registered workspaces and the active root
-└─ roots/<hash of root>/
-   ├─ db.sqlite             # metadata (WAL)
-   └─ thumbs/               # generated thumbnails (webp)
+PortableVideoLibrary/
+├─ App/
+│  ├─ PortableVideoLibrary.exe
+│  └─ resources/             # packaged application files
+├─ Data/
+│  ├─ config.json            # workspace locators and user collections
+│  ├─ roots/<workspaceId>/
+│  │  ├─ db.sqlite           # workspace index and metadata (WAL)
+│  │  └─ thumbs/             # generated thumbnails (WebP)
+│  ├─ assets/                # derived assets
+│  ├─ playlists/             # reserved for playlist exports
+│  ├─ backups/<backupId>/    # validated database/config snapshots
+│  ├─ logs/                  # rotated application log
+│  └─ temp/                  # crash-safe import and restore staging
+└─ Media/                    # the default portable media root
 ```
 
-> [!WARNING]
-> Data stored here (tags, ratings, playback history, and other metadata) may
-> be lost when Meguri's internal data structures change between versions.
->
-> Your media files themselves are never touched: Meguri only ever **reads**
-> the directories you register, and all of its own data stays under
-> `userData` above. Nothing Meguri does can destroy or modify your videos
-> and images.
+Workspaces below `Media/` are stored as portable-relative locators. Their
+persisted `workspaceId` names the database directory, so changing the drive
+letter or replacing only `App/` does not create a second database. A workspace
+outside `Media/` is retained as an explicit absolute locator and is therefore
+not portable across machines or drive layouts.
+
+On first launch, Meguri creates the directory structure but does not silently
+create a database in Electron's system `userData`. If `Data/config.json` is
+missing or a migration cannot be completed, the recovery page shows the exact
+`Data` directory and offers only the applicable action: initialize, retry, or
+restore a validated backup. Legacy data in the old system `userData` location
+is copied into `Data` with checksum verification; the source is retained until
+the user removes it explicitly.
+
+Schema migrations have versions and SHA-256 checksums. Before a pending
+migration, Meguri creates a SQLite-consistent backup containing the database,
+configuration, sizes, hashes, schema version, and restore target. A backup is
+listed for restore only after its manifest and both snapshot hashes validate.
+
+Your media files themselves are never touched: Meguri only ever **reads**
+the directories you register, and all of its own library data stays under
+`Data` above. The short-lived single-instance control file may still be placed
+under Electron's `userData`; it contains only a local control token and is
+removed when the app exits. Nothing Meguri does can destroy or modify your
+videos and images.
 
 ## Free, forever
 
@@ -438,7 +477,7 @@ kind. Use it at your own risk.
 
 - **No liability for data loss.** Although Meguri is designed to leave your
   original media files untouched and only manages its own metadata and
-  thumbnails under `userData`, the authors accept no responsibility for any loss,
+  thumbnails under `Data`, the authors accept no responsibility for any loss,
   corruption, or deletion of files or data that may occur while using it. Keep
   your own backups of anything important.
 - **Operations are your responsibility.** Actions taken through the app — such as

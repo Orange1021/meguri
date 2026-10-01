@@ -135,7 +135,7 @@ lifecycle behavior:
   Three logo variants exist (`dark` = vermilion kanji, `light` = inverted,
   `enso` = pictorial brush circle with a media card, raster-sourced — no SVG
   master); the choice is persisted as `logo` in
-  main's `config.json` and switched from Settings via the `logo_get` /
+  main's `Data/config.json` and switched from Settings via the `logo_get` /
   `logo_set` IPC channels. The renderer mirrors the same choice through
   `useLogo()` (react-query cache), which drives the Settings picker and the
   in-app logo in the workspace rail.
@@ -143,12 +143,15 @@ lifecycle behavior:
 ## Workspace model
 
 Each scan root is an independent workspace with its own database and thumbnails.
-The root path is hashed (SHA1, first 16 hex characters) into a stable ID via
-`Workspaces.idFor()` / `pathHash()`; that ID is also the name of the directory
-holding the workspace's generated files.
+New workspaces start with the legacy SHA1 path hash, but version 2 config
+persists that identity explicitly. A workspace below portable `Media/` is
+resolved from a relative locator after a drive-letter change, while its
+persisted ID continues to name the same `Data/roots/<workspaceId>` directory.
+External roots keep an absolute locator and are explicitly non-portable.
 
-- `electron/core/appConfig.ts` is the lone layer that persists `roots`,
-  `activePath`, and `collections` to `<userData>/config.json`.
+- `electron/core/appConfig.ts` is the lone layer that persists version 2
+  workspace locators, compatibility `roots`, `activePath`, and `collections` to
+  `Data/config.json`.
 - `electron/core/workspaces.ts` reads the config and caches a `Core` per ID. It
   distinguishes `active()` (the active workspace) from `byId()` (any workspace by
   ID). Code that opens files should be deliberate about which it needs — the
@@ -156,7 +159,8 @@ holding the workspace's generated files.
   selection.
 - `electron/core/index.ts` defines `Core`, which holds one workspace's `db`,
   `root`, and `dataDir`.
-- `electron/core/paths.ts` resolves the storage layout; see
+- `electron/core/portablePaths.ts` resolves the `App`/`Data`/`Media` layout;
+  `electron/core/paths.ts` resolves workspace artifacts below `Data`. See
   [Data Model](data-model.md#storage-layout).
 
 ### The virtual "All" workspace
@@ -210,7 +214,7 @@ owns them, so keep them distinct.
 ### User collections
 
 Manually curated virtual folders that span workspaces. They are stored in the
-`collections` array of `<userData>/config.json` (see `UserCollectionConfig` in
+`collections` array of `Data/config.json` (see `UserCollectionConfig` in
 `electron/core/appConfig.ts`), and each item references a file by
 `workspaceId + fileId`. The main process is the source of truth, manipulated
 through the `collection_create` / `collection_remove` / `collection_reorder` /

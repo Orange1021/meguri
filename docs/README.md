@@ -2,7 +2,8 @@
 
 This directory is the architecture reference for people working on Meguri's
 source. It explains how the app is put together and why — the mechanisms,
-invariants, data flow, and extension procedures behind the codebase.
+invariants, data flow, extension procedures, portable storage, and recovery
+boundaries behind the codebase.
 
 For what the app is, how to install it, and how to use it, see the top-level
 [README](../README.md). This set assumes you have already read it.
@@ -11,9 +12,9 @@ For what the app is, how to install it, and how to use it, see the top-level
 
 - [Architecture](architecture.md) — process boundaries, the IPC type system,
   the tray-resident lifecycle, the workspace model, and collections.
-- [Data Model](data-model.md) — the SQLite schema, the `meta_key` design that
-  makes user metadata durable, the versionless migration scheme, full-text
-  search, and the query layer.
+- [Data Model](data-model.md) — the portable `App`/`Data`/`Media` layout, stable
+  workspace identities, SQLite schema, checksummed migrations, backups, and
+  the query layer.
 - [Media Pipeline](media-pipeline.md) — the scan pipeline (walk → sync →
   thumbnails/metadata) and the local HTTP media server (Range streaming,
   on-the-fly remux, frame previews).
@@ -37,11 +38,11 @@ Read in this order for a top-down picture:
 
 | Doc                                   | Audience                        | Role                                                                                    |
 | ------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
-| [README](../README.md)                | Users and first-time developers | What the app is, install, basic usage, and the canonical "Where Data Is Stored" layout. |
+| [README](../README.md)                | Users and first-time developers | What the app is, install, basic usage, and the canonical portable "Where Data Is Stored" layout. |
 | `docs/**` (this set)                  | Contributors                    | How the code works and why — the architecture reference.                                |
 | [CLAUDE.md](../CLAUDE.md)             | Claude Code agent               | Concise agent guidance, conventions, and invariants (Japanese).                         |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributors                    | Branch model, pull-request flow, and releases.                                          |
 
 The top-level [README](../README.md) remains the single source of truth for
-install/usage and the on-disk storage layout. These docs link to it rather than
-restating it.
+install/usage and the user-facing on-disk storage layout. The detailed data
+model and recovery contract live in [Data Model](data-model.md).

@@ -2,12 +2,12 @@
 //
 // Reasons for centralizing logging:
 //  - Packaged builds have no stdout/stderr visible to end users, so console.* is
-//    effectively a black hole. A rotated file log under userData/logs lets users
+//    effectively a black hole. A rotated file log under Data/logs lets users
 //    attach the log when reporting issues.
 //  - The renderer can call the same API and have its messages forwarded over IPC
 //    to the same file, so frontend errors don't get lost on reload.
 //
-// The file lives at <userData>/logs/main.log (with rotation to main.old.log).
+// The file lives at <Data>/logs/main.log (with rotation to main.old.log).
 import { app } from "electron";
 import os from "node:os";
 import path from "node:path";
@@ -45,6 +45,12 @@ function redactForLog(value: unknown): string {
 }
 
 let initialized = false;
+let logDirectory: string | null = null;
+
+/** Point file logging at the resolved portable Data directory after app ready. */
+export function configureLogDirectory(directory: string): void {
+  logDirectory = path.resolve(directory);
+}
 
 /**
  * Configure transports and install global error handlers. Safe to call multiple times.
@@ -54,11 +60,14 @@ export function setupLogger(): void {
   if (initialized) return;
   initialized = true;
 
-  // Resolve to <userData>/logs/<fileName>. electron-log's default puts it under
-  // libraryDefaultDir which differs by OS; pinning to userData keeps the path
-  // predictable for support requests.
+  // Resolve to <Data>/logs/<fileName>. Before the portable layout is resolved,
+  // the early-startup fallback remains under userData so launch failures still
+  // have somewhere predictable to be recorded.
   log.transports.file.resolvePathFn = (vars) =>
-    path.join(app.getPath("userData"), "logs", vars.fileName ?? "main.log");
+    path.join(
+      logDirectory ?? path.join(app.getPath("userData"), "logs"),
+      vars.fileName ?? "main.log",
+    );
   log.transports.file.maxSize = MAX_FILE_BYTES;
   log.transports.file.format =
     "[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}]{scope} {text}";

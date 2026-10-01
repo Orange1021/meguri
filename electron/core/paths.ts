@@ -1,5 +1,6 @@
 // Resolve the storage location for artifacts (DB and thumbnails).
-// Centralized under the app userData directory, with one hashed folder per scan root.
+// Centralized under the resolved portable Data directory, with one folder per
+// persisted workspace identity.
 import { app } from "electron";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -7,7 +8,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { PortableLayout } from "./portablePaths.js";
 
-/** The app's base data directory. Uses Electron's userData. */
+/** The app's base data directory. Uses Electron's userData only for legacy/test callers. */
 export function baseDataDir(
   layout?: Pick<PortableLayout, "dataDir">,
 ): string {

@@ -11,6 +11,7 @@ npm run dev        # development mode (electron-vite dev)
 npm run build      # build main / preload / renderer into out/
 npm run preview    # launch the built app (= npm start)
 npm run dist       # produce distributables (electron-builder)
+npm run dist -- --win portable  # produce the Windows portable package
 npm run typecheck  # tsc --noEmit over both src and electron
 npm test           # regression tests (Vitest): core then renderer
 npm run install:local  # install into the local environment
@@ -20,6 +21,13 @@ npm run install:local  # install into the local environment
 than calling `electron-vite` directly. The wrapper strips
 `ELECTRON_RUN_AS_NODE` (which the test runner sets) from the environment before
 launching, so Electron does not accidentally start in node mode.
+
+Development resolves its portable root to `<checkout>/.portable-dev`. Set
+`MEGURI_PORTABLE_ROOT` to isolate a run in a temporary directory. Packaged
+Windows builds resolve the root as the parent of `App/` and therefore keep
+`Data/` and `Media/` beside the executable's `App/` directory. The explicit
+`PORTABLE_EXECUTABLE_DIR` input is available to launchers that know the App
+directory independently.
 
 ## electron-vite config
 
@@ -41,6 +49,8 @@ Tests run under Vitest (`vitest.config.ts`) as two projects.
 better-sqlite3 is built for Electron's ABI, this **runs Electron as Node**
 (`ELECTRON_RUN_AS_NODE=1` plus `--experimental-require-module` to allow
 `require()` of ESM). It exercises real SQL against an in-memory SQLite database.
+The launcher sets this environment in a Windows-safe way, so the native module
+uses Electron's ABI instead of the system Node ABI.
 The config carries a plugin that resolves NodeNext-style `.js` import specifiers
 to `.ts`.
 
@@ -60,6 +70,25 @@ the jsdom worker does not start under Electron's experimental loader.
 
 Distribution targets are Linux (AppImage / deb), Windows (nsis / portable), and
 macOS (dmg / zip).
+
+### Portable artifact checks
+
+After `npm run dist -- --win portable`, inspect the generated
+`release/Meguri-<version>-win32-x64.exe`. A portable smoke check should verify:
+
+1. the artifact launches with `App/` resources available;
+2. first launch creates `Data/` beside `App/`, not a database below Electron's
+   system `userData`;
+3. scanning a folder below `Media/` writes `Data/config.json` and
+   `Data/roots/<workspaceId>/db.sqlite`;
+4. replacing only `App/` leaves the configuration and database hashes unchanged;
+5. a copy with an equivalent `Media/` layout resolves the same portable-relative
+   workspace and reuses the same workspace database.
+
+The repository E2E smoke test uses `MEGURI_PORTABLE_ROOT` to exercise the same
+startup boundary without mutating the developer's checkout. A physical second
+drive is not required for that test; if a release is manually moved to another
+drive, record that verification separately.
 
 ### macOS code signing
 
