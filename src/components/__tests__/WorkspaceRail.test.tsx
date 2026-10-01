@@ -52,6 +52,7 @@ vi.mock("@/ipc/client", () => ({
 
 describe("WorkspaceRail", () => {
   beforeEach(() => {
+    localStorage.setItem("meguri.lang", "en");
     mocks.appStatus.mockResolvedValue(defaultAppStatus);
     mocks.workspacesList.mockResolvedValue(defaultWorkspacesList);
     mocks.workspaceSwitch.mockResolvedValue(undefined);
@@ -67,6 +68,9 @@ describe("WorkspaceRail", () => {
       expect(screen.getByRole("button", { name: "Media" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Other" })).toBeTruthy();
     });
+    expect(screen.getByAltText("Meguri").getAttribute("src")).toMatch(
+      /^data:image\/svg\+xml;charset=utf-8,/,
+    );
   });
 
   it("switches workspace when an inactive entry is clicked", async () => {

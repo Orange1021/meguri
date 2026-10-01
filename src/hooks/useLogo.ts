@@ -1,23 +1,19 @@
-// App logo variant, shared app-wide through the react-query cache.
+// The canonical app logo, shared app-wide through the react-query cache.
 //
 // The value lives in main's config.json (the tray and window icons need it
 // before any renderer exists), so unlike other UI preferences it is fetched
 // and stored over IPC instead of PreferencesProvider/localStorage. Reading it
-// through a query keys every consumer (Settings picker, workspace rail logo)
-// to the same cache entry, so a change propagates everywhere at once.
+// through a query keeps every consumer (settings, workspace rail, and future
+// surfaces) on the same cache entry.
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/ipc/client";
 import type { LogoId } from "@shared/ipc/schema";
-import logoDarkPng from "../../logo/app-256.png";
-import logoLightPng from "../../logo/light/app-256.png";
-import logoEnsoPng from "../../logo/enso/app-256.png";
+import { ORANGE_LOGO_DATA_URL } from "@shared/branding/orangeLogo";
 
-/** Bundled preview/in-app bitmap per logo variant. */
+/** Canonical preview/in-app asset shared with the main process. */
 export const LOGO_SRC: Record<LogoId, string> = {
-  dark: logoDarkPng,
-  light: logoLightPng,
-  enso: logoEnsoPng,
+  orange: ORANGE_LOGO_DATA_URL,
 };
 
 const LOGO_QUERY_KEY = ["logo"] as const;
@@ -55,10 +51,10 @@ export function useLogo(): {
       else void qc.invalidateQueries({ queryKey: LOGO_QUERY_KEY });
     },
   });
-  const logo = data ?? "dark";
+  const logo = data ?? "orange";
   const setLogo = useCallback(
     (next: LogoId) => {
-      // Re-picking the active variant would be a pointless IPC round-trip.
+      // Re-applying the canonical logo would be a pointless IPC round-trip.
       if (next !== qc.getQueryData<LogoId>(LOGO_QUERY_KEY)) mutate(next);
     },
     [qc, mutate],

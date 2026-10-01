@@ -18,16 +18,6 @@ vi.mock("@/ipc/client", () => ({
 
 const { useLogo } = await import("@/hooks/useLogo");
 
-function deferred<T>() {
-  let resolve!: (v: T) => void;
-  let reject!: (e: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -41,61 +31,27 @@ beforeEach(() => {
 });
 
 describe("useLogo", () => {
-  it("falls back to dark until the initial fetch resolves, then reports it", async () => {
-    logoGet.mockResolvedValue("light");
+  it("falls back to orange until the initial fetch resolves", async () => {
+    logoGet.mockResolvedValue("orange");
     const { result } = renderHook(() => useLogo(), { wrapper });
-    expect(result.current.logo).toBe("dark");
-    await waitFor(() => expect(result.current.logo).toBe("light"));
+    expect(result.current.logo).toBe("orange");
+    await waitFor(() => expect(result.current.logo).toBe("orange"));
   });
 
-  it("applies optimistically and settles on main's echoed value", async () => {
-    logoGet.mockResolvedValue("dark");
-    const echo = deferred<LogoId>();
-    logoSet.mockReturnValue(echo.promise);
+  it("reports the canonical value from main", async () => {
+    logoGet.mockResolvedValue("orange");
     const { result } = renderHook(() => useLogo(), { wrapper });
     await waitFor(() => expect(logoGet).toHaveBeenCalled());
-
-    act(() => result.current.setLogo("enso"));
-    // Optimistic: visible while the IPC is still pending (echo unresolved).
-    await waitFor(() => expect(result.current.logo).toBe("enso"));
-    expect(logoSet).toHaveBeenCalledWith("enso");
-
-    await act(async () => echo.resolve("enso"));
-    expect(result.current.logo).toBe("enso");
+    expect(result.current.logo).toBe("orange");
   });
 
-  it("rolls back to the previous value when the IPC fails", async () => {
-    logoGet.mockResolvedValue("light");
-    logoSet.mockRejectedValue(new Error("ipc down"));
-    const { result } = renderHook(() => useLogo(), { wrapper });
-    await waitFor(() => expect(result.current.logo).toBe("light"));
-
-    act(() => result.current.setLogo("enso"));
-    await waitFor(() => expect(result.current.logo).toBe("light"));
-    expect(logoSet).toHaveBeenCalledWith("enso");
-  });
-
-  it("does not let a slow initial fetch overwrite an optimistic pick", async () => {
-    const initial = deferred<LogoId>();
-    logoGet.mockReturnValue(initial.promise);
+  it("skips the IPC when re-applying the canonical logo", async () => {
+    logoGet.mockResolvedValue("orange");
     logoSet.mockImplementation((logo) => Promise.resolve(logo));
     const { result } = renderHook(() => useLogo(), { wrapper });
+    await waitFor(() => expect(result.current.logo).toBe("orange"));
 
-    act(() => result.current.setLogo("enso"));
-    await waitFor(() => expect(result.current.logo).toBe("enso"));
-
-    // The pre-pick fetch resolving late must not roll the cache back.
-    await act(async () => initial.resolve("dark"));
-    expect(result.current.logo).toBe("enso");
-  });
-
-  it("skips the IPC when re-picking the active variant", async () => {
-    logoGet.mockResolvedValue("light");
-    logoSet.mockImplementation((logo) => Promise.resolve(logo));
-    const { result } = renderHook(() => useLogo(), { wrapper });
-    await waitFor(() => expect(result.current.logo).toBe("light"));
-
-    act(() => result.current.setLogo("light"));
+    act(() => result.current.setLogo("orange"));
     expect(logoSet).not.toHaveBeenCalled();
   });
 });

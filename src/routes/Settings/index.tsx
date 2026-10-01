@@ -37,8 +37,7 @@ import {
   KEYBINDING_PRESETS,
   type KeybindingPreset,
 } from "@/settings/keybindings";
-import { LOGO_IDS, type LogoId } from "@shared/ipc/schema";
-import { LOGO_SRC, useLogo } from "@/hooks/useLogo";
+import { LOGO_SRC } from "@/hooks/useLogo";
 import { SettingsModal, SETTINGS_MODAL_TITLE_ID } from "./SettingsModal";
 import { UpdateSection } from "./UpdateSection";
 import { AboutSection } from "./AboutSection";
@@ -108,12 +107,6 @@ const EMOJI_STYLE_FONTS: Record<EmojiStyle, string> = {
 
 const EMOJI_SAMPLE = "😀🎬📁";
 
-const LOGO_LABELS: Record<LogoId, TranslationKey> = {
-  dark: "logo.dark",
-  light: "logo.light",
-  enso: "logo.enso",
-};
-
 /** Tab ids. The tab bar's order comes from the `tabs` array below. */
 type TabId = "general" | "library" | "playback" | "audio" | "app";
 
@@ -168,8 +161,6 @@ export default function Settings() {
   const [tab, setTab] = useState<TabId>("general");
   // Closing the modal = drop the child route and return to the list (the list stays mounted).
   const onClose = useCallback(() => navigate("/"), [navigate]);
-
-  const { logo, setLogo: selectLogo } = useLogo();
 
   return (
     <SettingsModal onClose={() => void onClose()}>
@@ -395,38 +386,14 @@ export default function Settings() {
                     {t("settings.logoDesc")}
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  {LOGO_IDS.map((id) => {
-                    const active = logo === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => selectLogo(id)}
-                        className={
-                          "flex flex-col items-center gap-1.5 rounded-md border px-3 py-2 transition " +
-                          (active
-                            ? "border-primary ring-1 ring-primary"
-                            : "border-border hover:border-primary")
-                        }
-                      >
-                        <img
-                          src={LOGO_SRC[id]}
-                          alt=""
-                          className="size-12 rounded-md"
-                          draggable={false}
-                        />
-                        <span
-                          className={
-                            "text-xs " + (active ? "text-fg" : "text-muted")
-                          }
-                        >
-                          {t(LOGO_LABELS[id])}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
+                  <img
+                    src={LOGO_SRC.orange}
+                    alt={t("logo.orange")}
+                    className="size-12 rounded-md"
+                    draggable={false}
+                  />
+                  <span className="text-sm text-fg">{t("logo.orange")}</span>
                 </div>
               </section>
             </>
