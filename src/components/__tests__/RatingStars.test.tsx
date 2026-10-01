@@ -7,6 +7,7 @@ import { RatingStars } from "@/components/RatingStars";
 import { I18nProvider } from "@/i18n/I18nProvider";
 
 function setup(value: number, onChange?: (r: number) => void) {
+  localStorage.setItem("meguri.lang", "en");
   const view = render(
     <I18nProvider>
       <RatingStars value={value} onChange={onChange} />

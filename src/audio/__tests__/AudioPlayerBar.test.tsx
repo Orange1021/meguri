@@ -62,6 +62,7 @@ beforeEach(() => {
   mocks.fileRecordPlay.mockReset().mockResolvedValue(undefined);
   mocks.thumbDoneListeners.clear();
   localStorage.clear();
+  localStorage.setItem("meguri.lang", "en");
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});

@@ -26,6 +26,7 @@ beforeAll(() => {
 afterEach(cleanup);
 
 function renderPicker() {
+  localStorage.setItem("meguri.lang", "en");
   return render(
     <ThemeProvider>
       <I18nProvider>

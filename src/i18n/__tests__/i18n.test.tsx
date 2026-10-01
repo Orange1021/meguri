@@ -27,12 +27,14 @@ describe("I18nProvider", () => {
   });
 
   it("interpolates {param} placeholders", () => {
+    localStorage.setItem("meguri.lang", "zh-CN");
     const { result } = renderHook(() => useI18n(), { wrapper });
     const expected = zhCN["home.initError"].replace("{msg}", "boom");
     expect(result.current.t("home.initError", { msg: "boom" })).toBe(expected);
   });
 
   it("leaves a placeholder intact when its param is missing", () => {
+    localStorage.setItem("meguri.lang", "zh-CN");
     const { result } = renderHook(() => useI18n(), { wrapper });
     expect(result.current.t("home.initError")).toContain("{msg}");
   });

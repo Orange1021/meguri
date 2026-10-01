@@ -49,6 +49,7 @@ const { I18nProvider } = await import("@/i18n/I18nProvider");
 
 /** Render the box the way FilterBar does: controlled, with the query lifted out. */
 function setup(initial = "", catalog = CATALOG) {
+  localStorage.setItem("meguri.lang", "en");
   mocks.tagsListAll.mockResolvedValue({ tags: catalog, truncated: false });
   const seen = vi.fn();
   const qc = new QueryClient({

@@ -17,6 +17,7 @@ import {
 import type { FileRow } from "@/ipc/types";
 
 function renderThumb(file: FileRow): ReturnType<typeof render> {
+  localStorage.setItem("meguri.lang", "en");
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const ui: ReactElement = (
     <QueryClientProvider client={qc}>

@@ -14,6 +14,7 @@ const { TagEditor } = await import("@/components/TagEditor");
 const { I18nProvider } = await import("@/i18n/I18nProvider");
 
 function setup() {
+  localStorage.setItem("meguri.lang", "en");
   const onAdd = vi.fn();
   render(
     <I18nProvider>

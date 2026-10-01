@@ -119,6 +119,7 @@ function fireVideoError(video: HTMLVideoElement, code: number) {
 describe("VideoPlayer", () => {
   beforeEach(() => {
     fileRecordPlay.mockClear();
+    localStorage.setItem("meguri.lang", "en");
   });
   afterEach(() => {
     resetVideoHandOff();

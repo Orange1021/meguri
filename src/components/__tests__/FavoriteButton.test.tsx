@@ -22,6 +22,7 @@ const { FavoriteButton } = await import("@/components/FavoriteButton");
 const { I18nProvider } = await import("@/i18n/I18nProvider");
 
 function setup(favorite: number) {
+  localStorage.setItem("meguri.lang", "en");
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   qc.setQueryData(
     ["files_random"],

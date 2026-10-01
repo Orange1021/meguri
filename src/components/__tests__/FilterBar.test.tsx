@@ -26,6 +26,7 @@ const { FilterBar } = await import("@/components/FilterBar");
 const { I18nProvider } = await import("@/i18n/I18nProvider");
 
 function setup(initial: SearchQuery = {}) {
+  localStorage.setItem("meguri.lang", "en");
   const seen = vi.fn();
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   function Harness() {

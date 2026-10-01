@@ -32,6 +32,10 @@ export function renderWithProviders(
     ...options
   }: RenderWithProvidersOptions = {},
 ) {
+  // Component tests assert behavior using the stable English catalog. The
+  // product default remains Simplified Chinese; language-specific tests set
+  // their desired catalog explicitly.
+  localStorage.setItem("meguri.lang", "en");
   window.location.hash = route.startsWith("#") ? route : `#${route}`;
 
   function Wrapper({ children }: { children: ReactNode }) {
