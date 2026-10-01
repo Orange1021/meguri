@@ -8,6 +8,10 @@ dist-ssr
 /out
 /release
 
+# Portable development data
+/.portable-dev/
+/Data/
+
 # Sample media (keep samples/config.json tracked)
 /samples/**/*.avi
 /samples/**/*.gif

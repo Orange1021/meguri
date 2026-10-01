@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { layoutForRoot } from "../portablePaths.js";
 
 // paths.ts pulls the base dir from Electron's `app`; stub it for the test.
 vi.mock("electron", () => ({ app: { getPath: () => "/base/userData" } }));
@@ -32,6 +33,17 @@ describe("dataDirForRoot", () => {
   it("places artifacts under <userData>/roots/<hash>", () => {
     expect(dataDirForRoot("/media/movies")).toBe(
       `/base/userData/roots/${pathHash("/media/movies")}`,
+    );
+  });
+
+  it("places artifacts below an injected portable Data directory", () => {
+    const layout = layoutForRoot("D:/PortableVideoLibrary");
+    expect(dataDirForRoot("D:/PortableVideoLibrary/Media", layout)).toBe(
+      path.join(
+        layout.dataDir,
+        "roots",
+        pathHash("D:/PortableVideoLibrary/Media"),
+      ),
     );
   });
 });

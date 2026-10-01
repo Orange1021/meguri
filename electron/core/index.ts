@@ -3,7 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { openDb, type DB } from "./db.js";
 import { dataDirForRoot, dbPathForDataDir, pathHash } from "./paths.js";
+import type { PortableLayout } from "./portablePaths.js";
 import { upsertScanRoot } from "./queries.js";
+
+export interface CoreInitOptions {
+  layout?: PortableLayout;
+  dataDir?: string;
+}
 
 export class Core {
   readonly db: DB;
@@ -21,14 +27,14 @@ export class Core {
     this.dbPath = dbPathForDataDir(dataDir);
   }
 
-  static init(rawRoot: string): Core {
+  static init(rawRoot: string, options: CoreInitOptions = {}): Core {
     let root: string;
     try {
       root = fs.realpathSync(rawRoot);
     } catch {
       root = path.resolve(rawRoot);
     }
-    const dataDir = dataDirForRoot(root);
+    const dataDir = dataDirForRoot(root, options.dataDir ?? options.layout);
     fs.mkdirSync(path.join(dataDir, "thumbs"), { recursive: true });
 
     const db = openDb(dbPathForDataDir(dataDir));

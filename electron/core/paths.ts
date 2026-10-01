@@ -5,11 +5,14 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
+import type { PortableLayout } from "./portablePaths.js";
 
 /** The app's base data directory. Uses Electron's userData. */
-export function baseDataDir(): string {
+export function baseDataDir(
+  layout?: Pick<PortableLayout, "dataDir">,
+): string {
   // e.g. Linux ~/.config/Meguri → unified under userData here.
-  return app.getPath("userData");
+  return layout?.dataDir ?? app.getPath("userData");
 }
 
 /** Stable hash of a scan root path (hex). */
@@ -18,8 +21,12 @@ export function pathHash(p: string): string {
 }
 
 /** The artifacts directory corresponding to a root. */
-export function dataDirForRoot(root: string): string {
-  return path.join(baseDataDir(), "roots", pathHash(root));
+export function dataDirForRoot(
+  root: string,
+  dataRoot?: string | Pick<PortableLayout, "dataDir">,
+): string {
+  const base = typeof dataRoot === "string" ? dataRoot : baseDataDir(dataRoot);
+  return path.join(base, "roots", pathHash(root));
 }
 
 /** The SQLite file inside a root's data directory. */
