@@ -64,7 +64,7 @@ the jsdom worker does not start under Electron's experimental loader.
 
 `npm run dist` runs `electron-vite build` then `electron-builder`. The builder's
 `asarUnpack` includes better-sqlite3, ffmpeg-static, and
-@derhuerst/ffprobe-static; code that uses ffmpeg paths must apply the
+@hoardodile/ffprobe-bin; code that uses ffmpeg paths must apply the
 `app.asar` → `app.asar.unpacked` substitution (see
 [ffmpeg/ffprobe path resolution](media-pipeline.md#ffmpegffprobe-path-resolution)).
 
@@ -111,9 +111,11 @@ GitHub Actions workflows live in `.github/workflows/`:
 - `build.yml` triggers on `v*` tag pushes and builds a three-way matrix (linux
   x64, win x64, mac arm64), then creates a draft release.
 
-ffmpeg-static and @derhuerst/ffprobe-static each fetch a single-architecture
+ffmpeg-static and @hoardodile/ffprobe-bin each fetch a single-architecture
 binary at install time (`npm_config_arch || os.arch()`), so CI pins
 `npm_config_arch` to the target arch to keep the bundled binaries consistent.
+The project uses ffprobe 9.0.1 so HEIF grid images are probeable on Windows as
+well as on the development platforms.
 
 ## Docker development
 

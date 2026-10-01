@@ -72,8 +72,16 @@ beforeAll(async () => {
   fs.writeFileSync(outsideThumb, "EVIL");
   const outsideMedia = path.join(outside, "evil.mp4");
   fs.writeFileSync(outsideMedia, "EVIL");
-  const symlinkMedia = path.join(root, "symlink.mp4");
-  fs.symlinkSync(outsideMedia, symlinkMedia);
+  // Windows does not allow unprivileged file symlinks on a default developer
+  // machine. A directory link exercises the same realpath confinement guard
+  // without requiring Developer Mode or elevated test privileges.
+  const symlinkDir = path.join(root, "symlink");
+  fs.symlinkSync(
+    outside,
+    symlinkDir,
+    process.platform === "win32" ? "junction" : undefined,
+  );
+  const symlinkMedia = path.join(symlinkDir, "evil.mp4");
 
   // A real (tiny) Matroska file so the remux path actually transcodes to fMP4,
   // and a bogus one so the immediate-failure branch (0-byte output ⇒ 500) is
@@ -124,7 +132,7 @@ beforeAll(async () => {
   thumbId = mediaId;
   badThumbId = insert("b.mp4", path.join(root, "b.mp4"), outsideThumb, "done");
   outsideMediaId = insert("c.mp4", outsideMedia, null, "pending");
-  symlinkMediaId = insert("symlink.mp4", symlinkMedia, null, "pending");
+  symlinkMediaId = insert("symlink/evil.mp4", symlinkMedia, null, "pending");
   remuxId = insert("real.mkv", remuxFile, null, "pending");
   brokenRemuxId = insert("broken.mkv", brokenFile, null, "pending");
 

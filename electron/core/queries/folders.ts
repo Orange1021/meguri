@@ -26,7 +26,11 @@ const PREVIEW_COUNT = 4;
 
 // Natural order the way a file manager shows it: case folded, digits compared
 // as numbers ("Ep2" before "Ep10"). SQLite's collations can do neither.
-const folderNameOrder = new Intl.Collator(undefined, {
+// An explicit locale keeps folder order stable across developer machines and
+// packaged runtimes. The default locale differs between Windows and Linux
+// (notably for emoji/non-Latin names), which would make the same library jump
+// between orders after a platform move.
+const folderNameOrder = new Intl.Collator("en-US", {
   numeric: true,
   sensitivity: "base",
 });

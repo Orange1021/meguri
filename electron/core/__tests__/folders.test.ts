@@ -2,6 +2,7 @@
 // folderFiles) and the folder filter on searchFiles. Runs the real SQL on an
 // in-memory DB; the Windows cases inject "\" as the separator.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import path from "node:path";
 import type { DB } from "../db.js";
 import {
   FOLDER_FILE_FROM,
@@ -203,7 +204,7 @@ describe("searchFiles folder filter", () => {
   let ids: Record<string, number>;
   beforeEach(() => {
     ({ db, rootId } = newDb());
-    ids = seed(db, rootId, "/");
+    ids = seed(db, rootId, path.sep);
   });
   afterEach(() => db.close());
 
@@ -258,7 +259,9 @@ describe("searchFiles folder filter", () => {
 
   it("pages through a folder without leaking rows from outside it", () => {
     for (let i = 0; i < 5; i++) {
-      insertFile(db, rootId, { relPath: `Movie/p${i}.mp4` });
+      insertFile(db, rootId, {
+        relPath: ["Movie", `p${i}.mp4`].join(path.sep),
+      });
     }
     const seen: number[] = [];
     let cursor: number | undefined = 0;
@@ -298,7 +301,7 @@ describe("folderFiles", () => {
   let ids: Record<string, number>;
   beforeEach(() => {
     ({ db, rootId } = newDb());
-    ids = seed(db, rootId, "/");
+    ids = seed(db, rootId, path.sep);
   });
   afterEach(() => db.close());
 
@@ -307,8 +310,8 @@ describe("folderFiles", () => {
     const res = folderFiles(db, ["Movie", "A_B"], { limit: 100 });
     expect(res[0]).toMatchObject({ path: "Movie", total: 2 });
     expect(res[0].rows.map((r) => r.relPath)).toEqual([
-      "Movie/2024/deep/d1.mp4",
-      "Movie/m1.mp4",
+      ["Movie", "2024", "deep", "d1.mp4"].join(path.sep),
+      ["Movie", "m1.mp4"].join(path.sep),
     ]);
     expect(res[1]).toEqual({ path: "A_B", total: 0, rows: [] });
   });
@@ -331,7 +334,9 @@ describe("folderFiles", () => {
 
   it("spends one row budget across the whole call but always reports totals", () => {
     for (let i = 0; i < 5; i++)
-      insertFile(db, rootId, { relPath: `Big/b${i}.jpg` });
+      insertFile(db, rootId, {
+        relPath: ["Big", `b${i}.jpg`].join(path.sep),
+      });
     const res = folderFiles(db, ["Big", "Movie"], { limit: 3 });
     expect(res[0]).toMatchObject({ path: "Big", total: 5 });
     expect(res[0].rows).toHaveLength(3);
@@ -342,7 +347,7 @@ describe("folderFiles", () => {
 describe("folder queries at the workspace level", () => {
   it("stamps preview and expanded rows with the workspace", () => {
     const { db, rootId } = newDb();
-    insertFile(db, rootId, { relPath: "Movie/m1.mp4" });
+    insertFile(db, rootId, { relPath: ["Movie", "m1.mp4"].join(path.sep) });
     const listing = listFoldersWorkspace(target(db), "");
     expect(listing.folders[0].previews[0].workspaceId).toBe(WS);
     const [expanded] = folderFilesWorkspace(target(db), ["Movie"], 10);
@@ -378,18 +383,21 @@ describe("folder plans without statistics", () => {
   it("keeps ranged queries on idx_files_alive_rel_path", () => {
     const { db, rootId } = newDb();
     for (let i = 0; i < 50; i++) {
-      const id = insertFile(db, rootId, { relPath: `F${i % 5}/v${i}.mp4` });
+      const id = insertFile(db, rootId, {
+        relPath: [`F${i % 5}`, `v${i}.mp4`].join(path.sep),
+      });
       markThumb(db, id);
     }
+    const range = folderRange("F1");
     const detail = (
       db
         .prepare(
           `EXPLAIN QUERY PLAN SELECT f.id ${FOLDER_FILE_FROM}
-            WHERE f.deleted_at IS NULL AND f.rel_path >= 'F1/' AND f.rel_path < 'F10'
+            WHERE f.deleted_at IS NULL AND f.rel_path >= ? AND f.rel_path < ?
               AND f.thumb_status = 'done' AND f.thumb_path IS NOT NULL
             ORDER BY f.rel_path LIMIT 4`,
         )
-        .all() as { detail: string }[]
+        .all(range.prefix, range.upper) as { detail: string }[]
     )
       .map((r) => r.detail)
       .join("\n");
@@ -400,10 +408,10 @@ describe("folder plans without statistics", () => {
       db
         .prepare(
           `EXPLAIN QUERY PLAN SELECT f.id ${FOLDER_FILE_FROM}
-            WHERE f.deleted_at IS NULL AND f.rel_path >= 'F1/' AND f.rel_path < 'F10'
+            WHERE f.deleted_at IS NULL AND f.rel_path >= ? AND f.rel_path < ?
             ORDER BY ${orderByFor("captured", "desc")} LIMIT 101`,
         )
-        .all() as { detail: string }[]
+        .all(range.prefix, range.upper) as { detail: string }[]
     )
       .map((r) => r.detail)
       .join("\n");
@@ -420,9 +428,9 @@ describe("folder plans without statistics", () => {
       db
         .prepare(
           `EXPLAIN QUERY PLAN SELECT f.id ${fromFor({ folder: { path: "F1", recursive: true } })}
-            WHERE f.deleted_at IS NULL AND f.rel_path >= 'F1/' AND f.rel_path < 'F10'`,
+            WHERE f.deleted_at IS NULL AND f.rel_path >= ? AND f.rel_path < ?`,
         )
-        .all() as { detail: string }[]
+        .all(range.prefix, range.upper) as { detail: string }[]
     )
       .map((r) => r.detail)
       .join("\n");
@@ -435,7 +443,7 @@ describe("folder plans without statistics", () => {
       limit: 50,
     });
     expect(picked.length).toBe(10);
-    expect(picked.every((r) => r.relPath.startsWith("F1/"))).toBe(true);
+    expect(picked.every((r) => r.relPath.startsWith(range.prefix))).toBe(true);
     // The real queries prepare with the pin too (INDEXED BY fails loudly if
     // the index cannot serve them).
     expect(() => listFolders(db, "F1")).not.toThrow();
