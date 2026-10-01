@@ -13,7 +13,8 @@ npm run preview    # launch the built app (= npm start)
 npm run dist       # produce distributables (electron-builder)
 npm run dist -- --win portable  # produce the Windows portable package
 npm run typecheck  # tsc --noEmit over both src and electron
-npm test           # regression tests (Vitest): core then renderer
+npm test           # core, renderer, and portable-upgrade regression tests
+npm run test:portable-upgrade  # App slot activation/rollback regression tests
 npm run install:local  # install into the local environment
 ```
 
@@ -84,6 +85,23 @@ After `npm run dist -- --win portable`, inspect the generated
 4. replacing only `App/` leaves the configuration and database hashes unchanged;
 5. a copy with an equivalent `Media/` layout resolves the same portable-relative
    workspace and reuses the same workspace database.
+
+The Windows unpacked directory also contains `portable-manifest.json`. It is
+the release operator's compatibility contract for an `App.new` candidate. To
+exercise the upgrade and rollback transaction against a portable root:
+
+```powershell
+npm run test:portable-upgrade
+node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --activate
+node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --rollback
+```
+
+Keep Meguri closed while a slot operation runs. The command only renames
+`App`, `App.new`, and `App.previous`; it does not copy, migrate, or remove
+`Data`/`Media`. On the next launch the normal migration path makes a
+pre-migration backup and sends an incompatible schema to the recovery screen.
+If a process is interrupted between renames, rerun the command with
+`--recover` (the other commands recover automatically first).
 
 The repository E2E smoke test uses `MEGURI_PORTABLE_ROOT` to exercise the same
 startup boundary without mutating the developer's checkout. A physical second

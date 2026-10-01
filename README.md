@@ -23,7 +23,7 @@ videos and images with thumbnails. It recursively scans any folder you point it 
 generates thumbnails, tags, and metadata, and lets you browse the collection in
 a native window.
 
-The name **Meguri** comes from the Japanese word *巡り* — "going around,
+The name **Meguri** comes from the Japanese word _巡り_ — "going around,
 coming back around" — with the sentiment of wandering back through your
 memories and rediscovering them.
 
@@ -309,14 +309,14 @@ already run Electron apps locally.
 
 ## Basic Usage
 
-| Action     | How                                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| Scan       | Runs automatically at startup. Re-scan via the header "Scan" (incremental, move tracking)                          |
+| Action     | How                                                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| Scan       | Runs automatically at startup. Re-scan via the header "Scan" (incremental, move tracking)                            |
 | Play       | Click a thumbnail → play in the detail view (audio plays in the bottom bar). When unsupported, use "Open externally" |
-| Tag / Rate | Assign in the detail view (tags have autocomplete). Click a tag in the grid to search                              |
-| Search     | Filter and sort by full text, kind, and rating in the top bar (conditions shown as badges, individually removable) |
-| Theme      | Switch from Theme at the top-right of the header                                                                   |
-| Zoom       | Ctrl + wheel, Ctrl +/-, Ctrl + 0 to reset                                                                          |
+| Tag / Rate | Assign in the detail view (tags have autocomplete). Click a tag in the grid to search                                |
+| Search     | Filter and sort by full text, kind, and rating in the top bar (conditions shown as badges, individually removable)   |
+| Theme      | Switch from Theme at the top-right of the header                                                                     |
+| Zoom       | Ctrl + wheel, Ctrl +/-, Ctrl + 0 to reset                                                                            |
 
 ## Where Data Is Stored
 
@@ -367,6 +367,28 @@ the directories you register, and all of its own library data stays under
 under Electron's `userData`; it contains only a local control token and is
 removed when the app exits. Nothing Meguri does can destroy or modify your
 videos and images.
+
+### Upgrade and rollback
+
+For a directory-layout portable release, stage the next program files as
+`App.new/` beside `App/`. Close Meguri, then run the release helper with an
+explicit root:
+
+```powershell
+node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --activate
+```
+
+The helper keeps the old program in `App.previous/`, never changes `Data/` or
+`Media/`, and can roll back the program slot if needed:
+
+```powershell
+node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --rollback
+```
+
+The next launch performs the versioned, checksummed database migration. It
+creates a backup before writing; if compatibility or migration validation
+fails, use the recovery screen to restore the validated backup. An interrupted
+slot rename is recoverable with `--recover`.
 
 ## Free, forever
 

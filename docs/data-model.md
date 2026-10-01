@@ -148,6 +148,43 @@ When the state is not ready, normal workspace IPC and query handles are not
 started. The recovery page offers one primary action for the current state and
 relaunches the app after a successful initialize, retry, or restore.
 
+## Replaceable App slots and upgrade safety
+
+The program files and the library state have separate lifecycles. A directory-
+layout portable release may use these slots:
+
+```text
+PortableVideoLibrary/
+├─ App/                 # active program files
+├─ App.new/             # validated next release
+├─ App.previous/        # last active release, retained for rollback
+├─ Data/                # never moved by an App upgrade
+└─ Media/
+```
+
+Every staged Windows App contains `portable-manifest.json`. The manifest
+declares the executable, portable Data/config compatibility range, and the
+`backup-before-migrate` policy. `scripts/portable-upgrade.mjs` performs a
+same-volume rename transaction: it writes a small recovery marker, preserves
+the current App as `App.previous`, promotes `App.new`, and removes only its
+temporary swap directory after the final rename succeeds. If the process is
+interrupted, the next `--activate`, `--rollback`, or `--recover` command
+repairs the marker before starting another operation.
+
+Use an explicit root and keep Meguri closed while operating the slots:
+
+```powershell
+node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --activate
+node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --rollback
+```
+
+The swap service never renames or deletes `Data` or `Media`, and its regression
+test hashes the complete `Data` tree before and after both activation and
+rollback. SQLite schema compatibility is checked by the application on the
+next launch: `preparePortableData()` creates a consistent backup before a
+pending checksummed migration; an incompatible or failed migration stops
+normal startup and exposes the validated backup for restore.
+
 ## Metadata and `meta_key`
 
 User-edited metadata is split into `file_meta`, whose primary key is **not**

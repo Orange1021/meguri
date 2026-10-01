@@ -23,6 +23,9 @@ For what the app is, how to install it, and how to use it, see the top-level
 - [Build and CI](build-and-ci.md) — npm scripts, the electron-vite build, the
   two-project test setup, packaging, CI, and Docker-based development.
 
+The replaceable `App` slot workflow, `App.new` staging, `App.previous`
+rollback, and the schema-migration boundary are documented in [Data Model](data-model.md#replaceable-app-slots-and-upgrade-safety).
+
 ## Where to start
 
 Read in this order for a top-down picture:
@@ -36,12 +39,12 @@ Read in this order for a top-down picture:
 
 ## Relationship to other docs
 
-| Doc                                   | Audience                        | Role                                                                                    |
-| ------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
+| Doc                                   | Audience                        | Role                                                                                             |
+| ------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
 | [README](../README.md)                | Users and first-time developers | What the app is, install, basic usage, and the canonical portable "Where Data Is Stored" layout. |
-| `docs/**` (this set)                  | Contributors                    | How the code works and why — the architecture reference.                                |
-| [CLAUDE.md](../CLAUDE.md)             | Claude Code agent               | Concise agent guidance, conventions, and invariants (Japanese).                         |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributors                    | Branch model, pull-request flow, and releases.                                          |
+| `docs/**` (this set)                  | Contributors                    | How the code works and why — the architecture reference.                                         |
+| [CLAUDE.md](../CLAUDE.md)             | Claude Code agent               | Concise agent guidance, conventions, and invariants (Japanese).                                  |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributors                    | Branch model, pull-request flow, and releases.                                                   |
 
 The top-level [README](../README.md) remains the single source of truth for
 install/usage and the user-facing on-disk storage layout. The detailed data

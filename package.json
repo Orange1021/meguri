@@ -27,15 +27,18 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npm run test:core && npm run test:renderer",
+    "test": "npm run test:core && npm run test:renderer && npm run test:portable-upgrade",
     "test:core": "node scripts/run-electron-vitest.mjs --project core",
     "test:renderer": "vitest run --project renderer",
+    "test:portable-upgrade": "node --test scripts/__tests__/portable-upgrade.test.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:headless": "npm run build && MEGURI_FORCE_X11=1 xvfb-run -a -s \"-screen 0 1280x960x24\" -- playwright test",
     "test:e2e:install": "playwright install --with-deps",
     "postinstall": "electron-builder install-app-deps",
     "dist": "electron-vite build && electron-builder",
-    "install:local": "node scripts/install-local.mjs"
+    "install:local": "node scripts/install-local.mjs",
+    "portable:activate": "node scripts/portable-upgrade.mjs",
+    "portable:rollback": "node scripts/portable-upgrade.mjs"
   },
   "engines": {
     "node": ">=22.22"
@@ -116,7 +119,7 @@
       "output": "release"
     },
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
-    "afterPack": "scripts/mac-adhoc-sign.mjs",
+    "afterPack": "scripts/after-pack.mjs",
     "protocols": [
       {
         "name": "Meguri",

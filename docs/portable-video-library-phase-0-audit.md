@@ -26,29 +26,29 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 | 现有身份           | `files.id` 是 SQLite 整数；用户元数据绑定 `meta_key=content_hash` 或根内相对路径回退值                                                                                | 不满足稳定 UUID `video_id`；阶段 2 需要双轨迁移                             |
 | 移动/改名          | `syncFiles()` 用 `(content_hash,size)` 找候选并取第一个未见旧路径；同路径变化会更新原 `files` 行                                                                      | 不满足多候选冲突、不自动继承替换内容身份的要求                              |
 | 缺失/删除          | 扫描将未见文件标记 `deleted_at`；UI 另有从索引删除操作                                                                                                                | 需要 missing 状态、30 天保留、确认清理和问题记录                            |
-| 派生资产           | `assets`/`asset_tasks` 按稳定 `video_id` 保存 Cover、4×4 Sheet、manual-original；手动来源优先，自动任务可重试                         | 阶段 3 已实现；更丰富的封面源提取与资产垃圾回收仍可后续增强                 | 3 已实现  |
-| 标签               | `tags` 有 namespace，`meta_tags.source` 区分 manual/auto-meta；自动标签可按规则集回填                                                                                 | 现有标签字典与 FTS 保留；持久化播放列表已支持 tag/AND/OR/NOT 规则 AST       | 4 已实现  |
-| 播放列表           | 新增 SQLite `playlists`/`playlist_items`，支持静态、智能、排序、M3U8 与 PotPlayer 参数数组启动                                                     | 跨工作区统一播放列表仍留待 `video_files` 规范化                             | 5 已实现  |
+| 派生资产           | `assets`/`asset_tasks` 按稳定 `video_id` 保存 Cover、4×4 Sheet、manual-original；手动来源优先，自动任务可重试                                                         | 阶段 3 已实现；更丰富的封面源提取与资产垃圾回收仍可后续增强                 | 3 已实现 |
+| 标签               | `tags` 有 namespace，`meta_tags.source` 区分 manual/auto-meta；自动标签可按规则集回填                                                                                 | 现有标签字典与 FTS 保留；持久化播放列表已支持 tag/AND/OR/NOT 规则 AST       | 4 已实现 |
+| 播放列表           | 新增 SQLite `playlists`/`playlist_items`，支持静态、智能、排序、M3U8 与 PotPlayer 参数数组启动                                                                        | 跨工作区统一播放列表仍留待 `video_files` 规范化                             | 5 已实现 |
 | 外部进程           | `electron/ipc/shell.ts` 使用 Electron `shell.openPath` 或平台默认打开，不拼接 shell 命令                                                                              | 安全边界可复用；PotPlayer 需新增参数数组适配器                              |
 | 打包               | `package.json` 已配置 `nsis`、`portable`、`appx`，并将 better-sqlite3/FFmpeg/ffprobe `asarUnpack`                                                                     | 构建基础可复用；运行时仍依赖 `userData`，便携数据尚未实现                   |
 
 ## 差距矩阵
 
-| 方案要求                       | 上游现状                                                                           | 差距                                                                                  | 阶段       |
-| ------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------- |
-| `App` 与 `Data` 分离           | 程序可生成 portable exe，但 DB/config 仍写 Electron `userData`                     | 便携包可能出现第二份系统数据，换盘符也无法按包内 Data 恢复                            | 1          |
-| 同盘媒体相对路径               | `scan_roots.path`、`files.abs_path` 保存绝对路径，root ID 由绝对路径 hash 得到     | 盘符变化会改变工作区身份和路径解析                                                    | 1          |
-| 版本化 schema migration        | 版本无编号，启动时按当前 DDL/列探测自修复                                          | 无法可靠判断版本、checksum、失败位置和回滚边界                                        | 1          |
-| 迁移前备份/恢复                | 没有一致性备份服务和恢复入口                                                       | 升级或移动硬盘中断可能只留下部分写入                                                  | 1          |
-| 稳定 `workspace_id`            | 由规范化绝对路径 hash 派生                                                         | 路径变化导致逻辑身份变化                                                              | 1/2        |
-| UUID `video_id` 与物理文件分离 | 已增加 `files.video_id`、`videos` 和事务化身份服务；旧行迁移时一对一生成 UUID      | 阶段 2.1 已覆盖复制、替换、缺失、重复候选和冲突记录；跨工作区统一身份仍留待后续规范化 | 2.1 已实现 |
-| `quick-v1` fingerprint         | 已实现固定 4 MiB 采样、8 MiB 以下全哈希、媒体流签名和版本化 key                    | 作为当前身份候选证据；更强的内容验证和算法升级留待后续阶段                            | 2.1 已实现 |
-| 冲突队列                       | `scan_issues` 持久化多候选、弱证据、指纹失败和移动冲突；禁止静默取第一候选         | 人工处理界面和问题关闭策略留待后续阶段                                                | 2.1 已实现 |
-| 持久化扫描状态                 | `scan_runs` 保存阶段、完成/取消/失败状态和错误；`scan_issues` 保存单文件问题与冲突 | 断点恢复和缺失保留策略仍待后续阶段                                                    | 2.1 已实现 |
-| Cover/Sheet/manual 资产        | 已新增 `assets`/`asset_tasks`、来源优先级、原子写入和 4×4 Sheet             | 更丰富的封面源提取与资产垃圾回收仍可后续增强                                            | 3 已实现   |
-| 纯标签 AND/OR/NOT              | 已新增受限、规范化的版本化规则 AST，并由 SQLite 参数化 SQL 评估                 | 跨工作区统一规则仍留待 `video_files` 规范化                                            | 4 已实现   |
-| M3U8/PotPlayer                 | 已新增当前绝对路径 M3U8、缺失跳过、播放器发现/配置和参数数组启动             | 更多外部播放器适配仍可后续增加                                                        | 5 已实现   |
-| 升级/回退演练                  | portable artifact 可构建，没有 App.new/App.previous 和 schema 兼容流程             | 发布无法保证 Data 不变、失败可回退                                                    | 6          |
+| 方案要求                       | 上游现状                                                                                          | 差距                                                                                              | 阶段       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- |
+| `App` 与 `Data` 分离           | 程序可生成 portable exe，但 DB/config 仍写 Electron `userData`                                    | 便携包可能出现第二份系统数据，换盘符也无法按包内 Data 恢复                                        | 1          |
+| 同盘媒体相对路径               | `scan_roots.path`、`files.abs_path` 保存绝对路径，root ID 由绝对路径 hash 得到                    | 盘符变化会改变工作区身份和路径解析                                                                | 1          |
+| 版本化 schema migration        | 版本无编号，启动时按当前 DDL/列探测自修复                                                         | 无法可靠判断版本、checksum、失败位置和回滚边界                                                    | 1          |
+| 迁移前备份/恢复                | 没有一致性备份服务和恢复入口                                                                      | 升级或移动硬盘中断可能只留下部分写入                                                              | 1          |
+| 稳定 `workspace_id`            | 由规范化绝对路径 hash 派生                                                                        | 路径变化导致逻辑身份变化                                                                          | 1/2        |
+| UUID `video_id` 与物理文件分离 | 已增加 `files.video_id`、`videos` 和事务化身份服务；旧行迁移时一对一生成 UUID                     | 阶段 2.1 已覆盖复制、替换、缺失、重复候选和冲突记录；跨工作区统一身份仍留待后续规范化             | 2.1 已实现 |
+| `quick-v1` fingerprint         | 已实现固定 4 MiB 采样、8 MiB 以下全哈希、媒体流签名和版本化 key                                   | 作为当前身份候选证据；更强的内容验证和算法升级留待后续阶段                                        | 2.1 已实现 |
+| 冲突队列                       | `scan_issues` 持久化多候选、弱证据、指纹失败和移动冲突；禁止静默取第一候选                        | 人工处理界面和问题关闭策略留待后续阶段                                                            | 2.1 已实现 |
+| 持久化扫描状态                 | `scan_runs` 保存阶段、完成/取消/失败状态和错误；`scan_issues` 保存单文件问题与冲突                | 断点恢复和缺失保留策略仍待后续阶段                                                                | 2.1 已实现 |
+| Cover/Sheet/manual 资产        | 已新增 `assets`/`asset_tasks`、来源优先级、原子写入和 4×4 Sheet                                   | 更丰富的封面源提取与资产垃圾回收仍可后续增强                                                      | 3 已实现   |
+| 纯标签 AND/OR/NOT              | 已新增受限、规范化的版本化规则 AST，并由 SQLite 参数化 SQL 评估                                   | 跨工作区统一规则仍留待 `video_files` 规范化                                                       | 4 已实现   |
+| M3U8/PotPlayer                 | 已新增当前绝对路径 M3U8、缺失跳过、播放器发现/配置和参数数组启动                                  | 更多外部播放器适配仍可后续增加                                                                    | 5 已实现   |
+| 升级/回退演练                  | `App.new`/`App.previous` 原子槽位切换、portable manifest、Data 配置兼容校验和迁移前备份链路已实现 | 已有 Windows 目录布局可演练；SQLite schema 仍由启动迁移/恢复界面判定，不把数据库降级混入 App 回退 | 6 已实现   |
 
 ## 需要修改和新增的模块
 
@@ -77,7 +77,8 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 - 已实现：扫描运行阶段记录、`quick-v1` 指纹、唯一强证据复用、多候选冲突队列、内容替换隔离、旧行首次收敛和重建后的逻辑身份恢复。
 - 已实现：`assets`/`asset_tasks` 版本化 Cover/Sheet/manual 资产、来源优先级、原子写入、失败重试、手动封面 IPC 和媒体服务路由。
 - 已实现：`playlists`/`playlist_items` 持久化静态/智能播放列表、受限规则 AST、SQL 评估、M3U8 导出以及 PotPlayer 发现/配置/参数数组启动。
-- 后续预留：跨工作区统一 `video_files`、人工冲突处理界面、资产垃圾回收、更多播放器适配和第 6 阶段升级/回退演练。
+- 已实现：`scripts/portable-upgrade.mjs` 的 `App.new`/`App.previous` 原子切换、可中断恢复、Data/config 兼容门禁和回退流程；`after-pack.mjs` 为 Windows unpacked App 写入兼容清单。
+- 后续预留：跨工作区统一 `video_files`、人工冲突处理界面、资产垃圾回收和更多播放器适配。
 
 ## 迁移与兼容风险
 
@@ -120,3 +121,14 @@ E2E 失败的 trace 已由 Playwright 保存在被忽略的 `test-results/worksp
 - `npm run test:renderer`：92 个文件，1447 个测试通过。
 - `npm run test:e2e`：76/77 通过；唯一失败为 Discover 用例的 Playwright worker 异常退出（Windows code `3221226505`），同用例单独重跑通过。
 - 资产、规则、播放列表、M3U8、PotPlayer 和 Sheet 生成新增回归测试均通过。
+
+## 阶段 6 验证记录
+
+- `npm run test:portable-upgrade`：3 个 App 槽位/数据隔离测试通过。
+- `e2e/portable-data.spec.ts`：验证构建输出包含 main/renderer/query worker，并通过真实 Node 子进程演练 App 激活、回退和 Data SHA-256 不变。
+- `npm run test:e2e`：78/78 通过，包含新增便携升级场景。
+- `npm run dist -- --win portable`：after-pack 写入 `release/win-unpacked/portable-manifest.json`；portable artifact 仍可构建。
+- 最终 artifact：`release/Meguri-0.8.0-win32-x64.exe`，146,429,660 bytes，SHA-256 `1845F920098099D1944000B71B4C094145F349B71B6BCB6F169079EA6D72AA9D`。
+- portable 启动 smoke：8 秒内进程保持运行，缺少 Data 时不创建 `Data/config.json`，也不在注入的 Electron userData 创建数据库。
+- SQLite 兼容性边界：App 槽位只校验并保留 Data/config，数据库由 `preparePortableData()` 在启动时按 checksummed migration 创建备份；失败时进入现有恢复/restore UI。
+- `npm run lint`：仍为仓库既有基线失败，86 个问题（84 errors、2 warnings）；新增/修改的升级脚本和便携 E2E 文件已通过定向 ESLint。
