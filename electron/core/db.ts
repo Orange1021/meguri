@@ -1,5 +1,6 @@
 // SQLite (better-sqlite3). Schema definition and connection.
 import Database from "better-sqlite3";
+import { applyMigrations } from "./migrations.js";
 
 export type DB = Database.Database;
 
@@ -166,6 +167,7 @@ export function openDb(file: string): DB {
   migrateKindCheck(db);
   backfillColumns(db);
   migrateFtsToTrigram(db);
+  applyMigrations(db);
   return db;
 }
 
