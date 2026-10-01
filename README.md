@@ -23,9 +23,10 @@ videos and images with thumbnails. It recursively scans any folder you point it 
 generates thumbnails, tags, and metadata, and lets you browse the collection in
 a native window.
 
-The name **Meguri** comes from the Japanese word _巡り_ — "going around,
-coming back around" — with the sentiment of wandering back through your
-memories and rediscovering them.
+> 中文用户：请先阅读 [简体中文使用文档](./docs/user-guide-zh-CN.md)，里面包含首次配置、主要功能和 Windows 便携版数据说明。
+
+Meguri is named for the feeling of revisiting your local media and rediscovering
+something worth coming back to.
 
 Built with **Electron + Node/TypeScript + React**. Chromium is bundled, so video
 playback and rendering are largely insulated from the host environment. The only
