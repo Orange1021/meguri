@@ -9,6 +9,7 @@ import { app, net } from "electron";
 import { loadConfig, updateConfig, type UpdateConfig } from "./appConfig.js";
 import { UpdateInfoSchema, type UpdateInfo } from "../../shared/ipc/schema.js";
 import type { UpdateSettings } from "../../shared/ipc/channels.js";
+import { PRODUCT_NAME } from "../../shared/branding/product.js";
 import { scopedLog } from "./logger.js";
 
 const log = scopedLog("updater");
@@ -121,7 +122,7 @@ function fetchLatestRelease(): Promise<GithubRelease> {
   return new Promise((resolve, reject) => {
     const request = net.request({ method: "GET", url: latestReleaseApi() });
     request.setHeader("Accept", "application/vnd.github+json");
-    request.setHeader("User-Agent", `Meguri/${app.getVersion()}`);
+    request.setHeader("User-Agent", `${PRODUCT_NAME}/${app.getVersion()}`);
 
     const timer = setTimeout(() => {
       request.abort();

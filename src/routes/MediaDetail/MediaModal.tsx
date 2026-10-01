@@ -25,7 +25,7 @@ import { LIST_MIN_WIDTH, PEEK_MIN_WIDTH, usePeekResize } from "./usePeekResize";
 export type ModalSize = "large" | "small";
 
 // How the detail view is presented: a modal over the whole window, or a side
-// peek — a sheet docked to the right edge of the list area that leaves the
+// peek — a sheet docked to the left edge of the list area that leaves the
 // list, the toolbar and the bottom player bar visible and usable.
 export type Presentation = "modal" | "peek";
 
@@ -103,7 +103,7 @@ export function MediaModal({
   // outrank a variant's (Tailwind orders the generated rules, not the class
   // string).
   // The modal clips its content to its rounded corners; the peek must not
-  // clip, or the grip that straddles its left edge loses its outer half.
+  // clip, or the grip that straddles its right edge loses its outer half.
   const innerBase = "flex min-h-0 flex-col bg-bg";
   let outerClass: string;
   let innerClass: string;
@@ -115,7 +115,7 @@ export function MediaModal({
     // frame of a resize drag). While fullscreen only the decorations go: the
     // UA stylesheet sizes the fullscreen element itself.
     innerClass = `${innerBase} relative shrink-0${
-      fullscreen ? "" : " border-l border-border"
+      fullscreen ? "" : " border-r border-border"
     }`;
   } else {
     const outerBase = "fixed inset-0 z-50 flex bg-black/70 backdrop-blur-sm";
@@ -155,7 +155,7 @@ export function MediaModal({
         data-presentation={presentation}
       >
         {docked && (
-          // Grab strip along the sheet's left edge. Wider than its 1px look
+          // Grab strip along the sheet's right edge. Wider than its 1px look
           // (the hit area extends past the border) so it is easy to catch,
           // with a grip glyph at mid-height to say it can be dragged.
           <div
@@ -169,7 +169,7 @@ export function MediaModal({
             title={t("media.peekResize")}
             onPointerDown={peek.onPointerDown}
             onKeyDown={peek.onKeyDown}
-            className="group/handle absolute inset-y-0 -left-1 z-10 flex w-2 cursor-col-resize items-center justify-center touch-none hover:bg-primary/40 focus-visible:bg-primary/60 focus-visible:outline-none"
+            className="group/handle absolute inset-y-0 -right-1 z-10 flex w-2 cursor-col-resize items-center justify-center touch-none hover:bg-primary/40 focus-visible:bg-primary/60 focus-visible:outline-none"
           >
             <span
               aria-hidden

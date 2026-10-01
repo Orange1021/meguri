@@ -68,7 +68,7 @@ describe("WorkspaceRail", () => {
       expect(screen.getByRole("button", { name: "Media" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Other" })).toBeTruthy();
     });
-    expect(screen.getByAltText("Meguri").getAttribute("src")).toMatch(
+    expect(screen.getByAltText("橙映").getAttribute("src")).toMatch(
       /^data:image\/svg\+xml;charset=utf-8,/,
     );
   });
@@ -382,7 +382,7 @@ describe("WorkspaceRail", () => {
       expect(screen.queryByText(/as a workspace and scan it\?/)).toBeNull();
       expect(mocks.workspaceAddDropped).not.toHaveBeenCalled();
       expect(toasts.info).toHaveBeenCalledWith(
-        "Meguri indexes folders, not individual files. Drop a folder instead.",
+        "橙映 indexes folders, not individual files. Drop a folder instead.",
       );
     });
 

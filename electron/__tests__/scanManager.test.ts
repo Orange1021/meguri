@@ -60,6 +60,7 @@ function makeDeps(
     queryClient: { invalidateCaches } as unknown as Deps["queryClient"],
     emit: vi.fn(),
     isQuitting: () => false,
+    logPath: () => "D:/PortableVideoLibrary/Data/logs/main.log",
     ...overrides,
   };
 }
@@ -125,7 +126,11 @@ describe("ScanManager", () => {
     await scans.abort("a");
     expect(deps.emit).toHaveBeenCalledWith(
       "scan:done",
-      expect.objectContaining({ error: true }),
+      expect.objectContaining({
+        error: true,
+        errorMessage: "boom",
+        logPath: "D:/PortableVideoLibrary/Data/logs/main.log",
+      }),
     );
     pendingScan();
     expect(scans.start()).not.toBe("");

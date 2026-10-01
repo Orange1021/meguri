@@ -2,7 +2,7 @@
 // 補間は {name} 形式。en.ts はこのキー集合と同型でなければならない（型で強制）。
 export const ja = {
   // アプリ名
-  "app.name": "Meguri",
+  "app.name": "橙映",
 
   // 共通
   "common.close": "閉じる",
@@ -85,7 +85,8 @@ export const ja = {
   "settings.emojiStyleNoto": "Noto Emoji",
   "settings.emojiStyleOpenmoji": "OpenMoji",
   "settings.logo": "アプリのロゴ",
-  "settings.logoDesc": "ウィンドウ・トレイ・画面内のアイコンに統一して適用されます。",
+  "settings.logoDesc":
+    "ウィンドウ・トレイ・画面内のアイコンに統一して適用されます。",
   "logo.orange": "オレンジ",
   "settings.keybinding": "キーバインド",
   "settings.keybindingDesc":
@@ -117,6 +118,11 @@ export const ja = {
   "about.license": "ライセンス",
   "about.source": "ソース",
   "about.fullDependencies": "すべての依存パッケージを見る (package.json)",
+  "about.logs": "診断ログ",
+  "about.logsDesc":
+    "スキャンとメディアツールのエラーは Data/logs/main.log に保存されます。",
+  "about.openLogs": "ログフォルダを開く",
+  "about.openLogsFailed": "ログフォルダを開けませんでした",
   "keybinding.normal": "標準",
   "keybinding.vim": "Vim",
   "keybinding.emacs": "Emacs",
@@ -144,6 +150,8 @@ export const ja = {
   "home.scanCanceled": "スキャンをキャンセルしました",
   "home.escCloseHint": "もう一度 Esc を押すとウィンドウを閉じます",
   "home.scanError": "スキャン中にエラーが発生しました",
+  "home.scanErrorReason": "原因: {reason}",
+  "home.scanErrorLog": "詳細ログ: {path}",
   "home.scanStartFailed": "スキャンを開始できませんでした",
   "home.scanAlreadyRunning": "スキャンは既に実行中です",
 
@@ -548,7 +556,7 @@ export const ja = {
     "このフォルダはすでにワークスペースに登録されています",
   "drop.overlayTitle": "フォルダをドロップしてワークスペースに追加",
   "drop.foldersOnly":
-    "Meguriはファイル単体ではなくフォルダを取り込みます。フォルダをドロップしてください。",
+    "橙映はファイル単体ではなくフォルダを取り込みます。フォルダをドロップしてください。",
   "drop.addTitle": "ワークスペースを追加",
   "drop.addConfirm": "「{name}」をワークスペースに追加してスキャンしますか？",
   "drop.addAction": "追加",

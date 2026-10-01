@@ -24,6 +24,23 @@ export interface ScanManagerDeps {
   emit: (channel: string, payload: unknown) => void;
   /** Once the app is quitting no new scan may start. */
   isQuitting: () => boolean;
+  /** The resolved portable log file shown when a scan fails. */
+  logPath: () => string;
+}
+
+const MAX_SCAN_ERROR_MESSAGE = 2_048;
+
+function scanErrorMessage(error: unknown): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : String(error);
+  return (message.trim() || "Unknown scan error").slice(
+    0,
+    MAX_SCAN_ERROR_MESSAGE,
+  );
 }
 
 export class ScanManager {
@@ -106,7 +123,13 @@ export class ScanManager {
         );
       } catch (err) {
         log.error("scan failed", err);
-        emit("scan:done", { jobId, stats: emptyScanStats(), error: true });
+        emit("scan:done", {
+          jobId,
+          stats: emptyScanStats(),
+          error: true,
+          errorMessage: scanErrorMessage(err),
+          logPath: this.deps.logPath(),
+        });
       } finally {
         if (wsId) {
           this.scanning.delete(wsId);

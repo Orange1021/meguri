@@ -3,9 +3,8 @@
 // it is kept between PEEK_MIN_WIDTH and whatever leaves the list
 // LIST_MIN_WIDTH of room, re-fitted whenever the window changes size, and
 // remembered across sessions. While the sheet is docked its width is published
-// as a CSS variable so viewport-anchored overlays (Home's floating action
-// buttons) can move left out from under it — the same arrangement as the
-// player bar's `--meguri-player-bar-inset`.
+// as a CSS variable for any viewport-anchored overlay that needs to observe the
+// active panel, alongside the player bar's `--meguri-player-bar-inset`.
 import {
   useEffect,
   useLayoutEffect,
@@ -183,8 +182,8 @@ export function usePeekResize(
     const onMove = (ev: globalThis.PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
       moved = true;
-      // The edge moves left to grow: pointer travel is subtracted.
-      apply(clamp(startWidth + (startX - ev.clientX), maxRef.current));
+      // The right edge moves right to grow: pointer travel is added.
+      apply(clamp(startWidth + (ev.clientX - startX), maxRef.current));
     };
     const clampTo = (m: number) => {
       const clamped = clamp(next, m);
@@ -219,9 +218,9 @@ export function usePeekResize(
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    // Left grows the sheet (its edge moves left), right shrinks it.
+    // The sheet is on the left: right grows it, left shrinks it.
     const delta =
-      e.key === "ArrowLeft" ? KEY_STEP : e.key === "ArrowRight" ? -KEY_STEP : 0;
+      e.key === "ArrowRight" ? KEY_STEP : e.key === "ArrowLeft" ? -KEY_STEP : 0;
     if (!delta) return;
     e.preventDefault();
     // The player and the image viewer listen for the arrow keys on window

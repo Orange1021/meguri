@@ -3,7 +3,8 @@
 // legally: the bundled binaries are GPL-licensed, so we must surface the
 // license text and a way to obtain the corresponding source.
 import { useEffect, useState } from "react";
-import { ExternalLink, Scale } from "lucide-react";
+import { ExternalLink, FolderOpen, Scale } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api, type AboutInfo } from "@/ipc/client";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -91,6 +92,14 @@ export function AboutSection() {
   const { t } = useI18n();
   const [info, setInfo] = useState<AboutInfo | null>(null);
 
+  const openLogs = () => {
+    void api.openLogDirectory().catch((error: unknown) => {
+      toast.error(t("about.openLogsFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
   useEffect(() => {
     let active = true;
     void api.aboutInfo().then((i) => {
@@ -149,6 +158,26 @@ export function AboutSection() {
           MIT License
         </button>
       </p>
+
+      {/* The portable log location is part of the support contract: every
+          scan/tool failure keeps its complete details in this directory. */}
+      <section className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-bright-fg">
+            {t("about.logs")}
+          </span>
+          <span className="text-xs text-muted">{t("about.logsDesc")}</span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          onClick={openLogs}
+        >
+          <FolderOpen className="size-4" />
+          {t("about.openLogs")}
+        </Button>
+      </section>
 
       {/* Third-party licenses */}
       <div className="flex flex-col gap-2 border-t border-border pt-3">

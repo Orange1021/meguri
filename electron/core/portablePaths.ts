@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { PRODUCT_EXECUTABLE_NAME } from "../../shared/branding/product.js";
 
 export type WorkspaceLocator =
   | { kind: "portable-relative"; value: string }
@@ -58,7 +59,7 @@ export function layoutForRoot(rootDir: string): PortableLayout {
     executablePath: path.join(
       resolvedRoot,
       "App",
-      "PortableVideoLibrary.exe",
+      `${PRODUCT_EXECUTABLE_NAME}.exe`,
     ),
     isPackaged: true,
   });
@@ -108,7 +109,14 @@ function resolveRootDir(input: PortableLayoutInput): string {
   }
 
   if (input.portableExecutableDir) {
-    return path.resolve(input.portableExecutableDir, "..");
+    const executableDir = path.resolve(input.portableExecutableDir);
+    // electron-builder's portable launcher reports the directory containing
+    // the executable. The documented layout puts that executable under App,
+    // while a directly launched portable artifact puts it beside Data/Media.
+    // Treat only an actual App directory as a child of the portable root.
+    return path.basename(executableDir).toLowerCase() === "app"
+      ? path.dirname(executableDir)
+      : executableDir;
   }
 
   if (input.isPackaged) {

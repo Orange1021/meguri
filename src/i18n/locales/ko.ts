@@ -3,7 +3,7 @@ import type { TranslationKey } from "./ja";
 
 export const ko: Record<TranslationKey, string> = {
   // 애플리케이션 이름은 모든 언어에서 동일합니다.
-  "app.name": "Meguri",
+  "app.name": "橙映",
 
   // common
   "common.close": "닫기",
@@ -84,7 +84,8 @@ export const ko: Record<TranslationKey, string> = {
   "settings.emojiStyleNoto": "Noto Emoji",
   "settings.emojiStyleOpenmoji": "OpenMoji",
   "settings.logo": "앱 로고",
-  "settings.logoDesc": "창, 트레이, 앱 내 아이콘에 주황색 로고를 통일해 적용합니다.",
+  "settings.logoDesc":
+    "창, 트레이, 앱 내 아이콘에 주황색 로고를 통일해 적용합니다.",
   "logo.orange": "오렌지",
   "settings.keybinding": "키 바인딩",
   "settings.keybindingDesc":
@@ -114,6 +115,11 @@ export const ko: Record<TranslationKey, string> = {
   "about.license": "라이선스",
   "about.source": "소스",
   "about.fullDependencies": "모든 의존성 보기 (package.json)",
+  "about.logs": "진단 로그",
+  "about.logsDesc":
+    "스캔 및 미디어 도구 오류는 Data/logs/main.log에 저장됩니다.",
+  "about.openLogs": "로그 폴더 열기",
+  "about.openLogsFailed": "로그 폴더를 열 수 없습니다",
   "keybinding.normal": "표준",
   "keybinding.vim": "Vim",
   "keybinding.emacs": "Emacs",
@@ -141,6 +147,8 @@ export const ko: Record<TranslationKey, string> = {
   "home.scanCanceled": "스캔을 취소했습니다",
   "home.escCloseHint": "Esc 키를 한 번 더 누르면 창이 닫힙니다",
   "home.scanError": "스캔 중 오류가 발생했습니다",
+  "home.scanErrorReason": "원인: {reason}",
+  "home.scanErrorLog": "전체 세부 정보: {path}",
   "home.scanStartFailed": "스캔을 시작할 수 없습니다",
   "home.scanAlreadyRunning": "스캔이 이미 실행 중입니다",
 
@@ -542,7 +550,7 @@ export const ko: Record<TranslationKey, string> = {
   "workspace.alreadyAddedToast": "이미 워크스페이스로 등록된 폴더입니다",
   "drop.overlayTitle": "폴더를 드롭하여 워크스페이스로 추가",
   "drop.foldersOnly":
-    "Meguri는 개별 파일이 아닌 폴더를 색인합니다. 폴더를 드롭해 주세요.",
+    "橙映는 개별 파일이 아닌 폴더를 색인합니다. 폴더를 드롭해 주세요.",
   "drop.addTitle": "워크스페이스 추가",
   "drop.addConfirm": "「{name}」을(를) 워크스페이스로 추가하고 스캔할까요?",
   "drop.addAction": "추가",

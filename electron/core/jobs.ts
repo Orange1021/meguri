@@ -13,7 +13,10 @@ import {
   type IdentityTarget,
 } from "./scan.js";
 import { coverArtStreamIndex, extractMeta, generateThumb } from "./media.js";
-import { processPendingAssetTasks, queueDerivedAssets } from "./assetService.js";
+import {
+  processPendingAssetTasks,
+  queueDerivedAssets,
+} from "./assetService.js";
 import * as q from "./queries.js";
 import { syncFts } from "./tags.js";
 import {
@@ -326,6 +329,8 @@ export async function runScan(
       meta: Awaited<ReturnType<typeof extractMeta>>;
       preparedIdentity?: PreparedIdentity;
       identityError?: IdentityError;
+      metadataError?: string;
+      thumbnailError?: string;
       /** Set for audio files that carry no embedded cover art, which is a normal
        *  state rather than a failure. Such rows still need their metadata persisted
        *  (duration drives the UI), but must land on thumb_status 'done' with a null
@@ -372,6 +377,26 @@ export async function runScan(
         });
         identityStats.reconciled++;
         if (result.issueType) identityStats.issues++;
+      }
+      if (r.metadataError) {
+        q.recordScanIssue(db, {
+          runId,
+          fileId: r.id,
+          issueType: "probe_failed",
+          severity: "error",
+          details: { phase: "metadata", message: r.metadataError },
+          now: nowUnix(),
+        });
+      }
+      if (r.thumbnailError) {
+        q.recordScanIssue(db, {
+          runId,
+          fileId: r.id,
+          issueType: "thumbnail_failed",
+          severity: "error",
+          details: { phase: "thumbnail", message: r.thumbnailError },
+          now: nowUnix(),
+        });
       }
       if (r.skipThumb) {
         q.setThumb(db, r.id, null, "done");
@@ -452,7 +477,11 @@ export async function runScan(
       try {
         // ffprobe runs outside the decode slot: it doesn't decode, but it can be
         // slow on network shares and must not hold a decoder up meanwhile.
-        const meta = await extractMeta(f.abs_path, kind, signal);
+        let metadataError: string | undefined;
+        let thumbnailError: string | undefined;
+        const meta = await extractMeta(f.abs_path, kind, signal, (detail) => {
+          metadataError = detail;
+        });
         let preparedIdentity: PreparedIdentity | undefined;
         let identityError: IdentityError | undefined;
         try {
@@ -492,6 +521,7 @@ export async function runScan(
               meta,
               preparedIdentity,
               identityError,
+              metadataError,
             });
             if (buffer.length >= THUMB_FLUSH_EVERY) flush();
             return;
@@ -524,6 +554,9 @@ export async function runScan(
                 signal,
                 undefined,
                 coverIndex,
+                (detail) => {
+                  thumbnailError = detail;
+                },
               ),
             signal,
           );
@@ -539,6 +572,10 @@ export async function runScan(
             meta,
             preparedIdentity,
             identityError,
+            metadataError,
+            thumbnailError: coverOk
+              ? undefined
+              : (thumbnailError ?? "ffmpeg cover extraction failed"),
           });
           if (buffer.length >= THUMB_FLUSH_EVERY) flush();
           return;
@@ -550,7 +587,17 @@ export async function runScan(
             ? (q.thumbOffsetOf(db, f.id) ?? undefined)
             : undefined;
         const thumb = () =>
-          generateThumb(f.abs_path, kind, dest, signal, offsetSec);
+          generateThumb(
+            f.abs_path,
+            kind,
+            dest,
+            signal,
+            offsetSec,
+            undefined,
+            (detail) => {
+              thumbnailError = detail;
+            },
+          );
         // Only the expensive decodes take a slot: every video, and images big
         // enough to cost hundreds of MB — or of unknown size (ffprobe failed, or
         // a tiled HEIF/AVIF that extractMeta leaves unsized), which are treated
@@ -581,12 +628,24 @@ export async function runScan(
           meta,
           preparedIdentity,
           identityError,
+          metadataError,
+          thumbnailError: ok
+            ? undefined
+            : (thumbnailError ?? "ffmpeg thumbnail generation failed"),
         });
         if (buffer.length >= THUMB_FLUSH_EVERY) flush();
       } catch (err) {
         if (signal?.aborted) return;
         failed++;
         log.warn(`thumbnail worker failed for ${f.id}:`, err);
+        q.recordScanIssue(db, {
+          runId,
+          fileId: f.id,
+          issueType: "thumbnail_worker_failed",
+          severity: "error",
+          details: { phase: "thumbnail", message: formatErrorDetail(err) },
+          now: nowUnix(),
+        });
       }
     };
     // Images and videos run in separate pools (mediaConcurrency.ts has the

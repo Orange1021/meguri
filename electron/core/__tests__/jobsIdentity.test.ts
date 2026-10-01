@@ -27,10 +27,26 @@ vi.mock("../media.js", () => ({
     },
   })),
   coverArtStreamIndex: vi.fn(() => null),
-  generateThumb: vi.fn(async (_src: string, _kind: Kind, dest: string) => {
-    await fsp.writeFile(dest, "thumbnail");
-    return true;
-  }),
+  generateThumb: vi.fn(
+    async (
+      _src: string,
+      _kind: Kind,
+      dest: string,
+      _signal?: AbortSignal,
+      _offset?: number,
+      _cover?: number,
+      _onError?: (message: string) => void,
+    ) => {
+      void _src;
+      void _kind;
+      void _signal;
+      void _offset;
+      void _cover;
+      void _onError;
+      await fsp.writeFile(dest, "thumbnail");
+      return true;
+    },
+  ),
 }));
 
 describe("runScan identity integration", () => {
@@ -90,7 +106,12 @@ describe("runScan identity integration", () => {
 
   it("records a failed run before rethrowing a scan error", async () => {
     const media = await import("../media.js");
-    vi.mocked(media.generateThumb).mockResolvedValueOnce(false);
+    vi.mocked(media.generateThumb).mockImplementationOnce(
+      (_src, _kind, _dest, _signal, _offset, _cover, onError) => {
+        onError?.("ffmpeg test failure");
+        return Promise.resolve(false);
+      },
+    );
 
     await expect(runScan(core, "job-failed", () => {})).rejects.toThrow(
       "thumbnail extraction failed for all",
@@ -103,6 +124,19 @@ describe("runScan identity integration", () => {
         )
         .get(),
     ).toEqual({ status: "failed", errorCode: "scan_failed" });
+    expect(
+      db
+        .prepare(
+          "SELECT issue_type AS issueType, details_json AS detailsJson FROM scan_issues ORDER BY id DESC LIMIT 1",
+        )
+        .get(),
+    ).toEqual({
+      issueType: "thumbnail_failed",
+      detailsJson: JSON.stringify({
+        phase: "thumbnail",
+        message: "ffmpeg test failure",
+      }),
+    });
   });
 
   it("reuses the logical identity after a physical index rebuild", async () => {

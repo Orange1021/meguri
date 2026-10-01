@@ -10,7 +10,7 @@ import {
 
 test.describe("Home", () => {
   test("launches and indexes fixture media", async ({ window }) => {
-    await expect(window).toHaveTitle(/^Meguri/);
+    await expect(window).toHaveTitle(/^橙映/);
     await expect(statusBar(window)).toBeVisible();
     await expect(window.getByText(FIXTURE_FILE)).toBeVisible({
       timeout: 60_000,

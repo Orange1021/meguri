@@ -3,7 +3,7 @@ import type { TranslationKey } from "./ja";
 
 export const fr: Record<TranslationKey, string> = {
   // Nom de l’application, identique dans toutes les langues.
-  "app.name": "Meguri",
+  "app.name": "橙映",
 
   // common
   "common.close": "Fermer",
@@ -121,6 +121,11 @@ export const fr: Record<TranslationKey, string> = {
   "about.license": "Licence",
   "about.source": "Source",
   "about.fullDependencies": "Voir toutes les dépendances (package.json)",
+  "about.logs": "Journaux de diagnostic",
+  "about.logsDesc":
+    "Les erreurs de scan et des outils sont enregistrées dans Data/logs/main.log.",
+  "about.openLogs": "Ouvrir le dossier des journaux",
+  "about.openLogsFailed": "Impossible d’ouvrir le dossier des journaux",
   "keybinding.normal": "Normal",
   "keybinding.vim": "Vim",
   "keybinding.emacs": "Emacs",
@@ -149,6 +154,8 @@ export const fr: Record<TranslationKey, string> = {
   "home.scanCanceled": "Scan annulé",
   "home.escCloseHint": "Appuyez à nouveau sur Échap pour fermer la fenêtre",
   "home.scanError": "Une erreur s'est produite pendant le scan",
+  "home.scanErrorReason": "Raison : {reason}",
+  "home.scanErrorLog": "Détails complets : {path}",
   "home.scanStartFailed": "Impossible de démarrer le scan",
   "home.scanAlreadyRunning": "Un scan est déjà en cours",
 
@@ -562,7 +569,7 @@ export const fr: Record<TranslationKey, string> = {
   "drop.overlayTitle":
     "Déposez des dossiers pour les ajouter comme espaces de travail",
   "drop.foldersOnly":
-    "Meguri indexe des dossiers, pas des fichiers isolés. Déposez un dossier.",
+    "橙映 indexe des dossiers, pas des fichiers isolés. Déposez un dossier.",
   "drop.addTitle": "Ajouter un espace de travail",
   "drop.addConfirm":
     "Ajouter « {name} » comme espace de travail et l’analyser ?",

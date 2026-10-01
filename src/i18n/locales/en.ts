@@ -3,7 +3,7 @@ import type { TranslationKey } from "./ja";
 
 export const en: Record<TranslationKey, string> = {
   // Application name, identical in every locale.
-  "app.name": "Meguri",
+  "app.name": "橙映",
 
   // common
   "common.close": "Close",
@@ -117,6 +117,11 @@ export const en: Record<TranslationKey, string> = {
   "about.license": "License",
   "about.source": "Source",
   "about.fullDependencies": "View all dependencies (package.json)",
+  "about.logs": "Diagnostic logs",
+  "about.logsDesc":
+    "Scan and media-tool errors are saved in Data/logs/main.log.",
+  "about.openLogs": "Open log folder",
+  "about.openLogsFailed": "Could not open the log folder",
   "keybinding.normal": "Normal",
   "keybinding.vim": "Vim",
   "keybinding.emacs": "Emacs",
@@ -144,6 +149,8 @@ export const en: Record<TranslationKey, string> = {
   "home.scanCanceled": "Scan canceled",
   "home.escCloseHint": "Press Esc again to close the window",
   "home.scanError": "An error occurred during the scan",
+  "home.scanErrorReason": "Reason: {reason}",
+  "home.scanErrorLog": "Full details: {path}",
   "home.scanStartFailed": "Could not start scan",
   "home.scanAlreadyRunning": "A scan is already in progress",
 
@@ -543,7 +550,7 @@ export const en: Record<TranslationKey, string> = {
   "workspace.alreadyAddedToast": "This folder is already a workspace",
   "drop.overlayTitle": "Drop folders to add them as workspaces",
   "drop.foldersOnly":
-    "Meguri indexes folders, not individual files. Drop a folder instead.",
+    "橙映 indexes folders, not individual files. Drop a folder instead.",
   "drop.addTitle": "Add workspace",
   "drop.addConfirm": 'Add "{name}" as a workspace and scan it?',
   "drop.addAction": "Add",

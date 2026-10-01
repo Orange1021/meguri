@@ -29,9 +29,31 @@ describe("resolvePortableLayout", () => {
     });
 
     expect(layout.rootDir).toBe(path.resolve("C:/Temp/portable-fixture"));
-    expect(layout.dataDir).toBe(
-      path.resolve("C:/Temp/portable-fixture/Data"),
-    );
+    expect(layout.dataDir).toBe(path.resolve("C:/Temp/portable-fixture/Data"));
+  });
+
+  it("keeps Data beside a directly launched portable executable", () => {
+    const layout = resolvePortableLayout({
+      appPath: "D:/PortableVideoLibrary",
+      executablePath: "D:/PortableVideoLibrary/OrangeView.exe",
+      isPackaged: true,
+      portableExecutableDir: "D:/PortableVideoLibrary",
+    });
+
+    expect(layout.rootDir).toBe(path.resolve("D:/PortableVideoLibrary"));
+    expect(layout.dataDir).toBe(path.resolve("D:/PortableVideoLibrary/Data"));
+  });
+
+  it("keeps the documented App layout when the launcher reports App", () => {
+    const layout = resolvePortableLayout({
+      appPath: "D:/PortableVideoLibrary/App/resources/app.asar",
+      executablePath: "D:/PortableVideoLibrary/App/OrangeView.exe",
+      isPackaged: true,
+      portableExecutableDir: "D:/PortableVideoLibrary/App",
+    });
+
+    expect(layout.rootDir).toBe(path.resolve("D:/PortableVideoLibrary"));
+    expect(layout.dataDir).toBe(path.resolve("D:/PortableVideoLibrary/Data"));
   });
 });
 

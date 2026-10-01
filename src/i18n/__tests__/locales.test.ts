@@ -37,9 +37,9 @@ describe.each(Object.entries(catalogs))("%s locale", (_name, catalog) => {
   });
 });
 
-it("uses the Meguri brand and a single orange logo label", () => {
+it("uses the 橙映 brand and a single orange logo label", () => {
   for (const catalog of Object.values(catalogs)) {
-    expect(catalog["app.name"]).toBe("Meguri");
+    expect(catalog["app.name"]).toBe("橙映");
     expect(catalog["logo.orange"]).toBeTruthy();
     expect("logo.dark" in catalog).toBe(false);
     expect("logo.light" in catalog).toBe(false);

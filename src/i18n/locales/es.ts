@@ -3,7 +3,7 @@ import type { TranslationKey } from "./ja";
 
 export const es: Record<TranslationKey, string> = {
   // Nombre de la aplicación, idéntico en todos los idiomas.
-  "app.name": "Meguri",
+  "app.name": "橙映",
 
   // common
   "common.close": "Cerrar",
@@ -121,6 +121,11 @@ export const es: Record<TranslationKey, string> = {
   "about.license": "Licencia",
   "about.source": "Código fuente",
   "about.fullDependencies": "Ver todas las dependencias (package.json)",
+  "about.logs": "Registros de diagnóstico",
+  "about.logsDesc":
+    "Los errores del escaneo y de las herramientas se guardan en Data/logs/main.log.",
+  "about.openLogs": "Abrir carpeta de registros",
+  "about.openLogsFailed": "No se pudo abrir la carpeta de registros",
   "keybinding.normal": "Normal",
   "keybinding.vim": "Vim",
   "keybinding.emacs": "Emacs",
@@ -149,6 +154,8 @@ export const es: Record<TranslationKey, string> = {
   "home.scanCanceled": "Escaneo cancelado",
   "home.escCloseHint": "Pulsa Esc de nuevo para cerrar la ventana",
   "home.scanError": "Se produjo un error durante el escaneo",
+  "home.scanErrorReason": "Motivo: {reason}",
+  "home.scanErrorLog": "Detalles completos: {path}",
   "home.scanStartFailed": "No se pudo iniciar el escaneo",
   "home.scanAlreadyRunning": "Ya hay un escaneo en curso",
 
@@ -561,7 +568,7 @@ export const es: Record<TranslationKey, string> = {
   "drop.overlayTitle":
     "Suelta carpetas para añadirlas como espacios de trabajo",
   "drop.foldersOnly":
-    "Meguri indexa carpetas, no archivos sueltos. Suelta una carpeta.",
+    "橙映 indexa carpetas, no archivos sueltos. Suelta una carpeta.",
   "drop.addTitle": "Añadir espacio de trabajo",
   "drop.addConfirm": "¿Añadir «{name}» como espacio de trabajo y escanearla?",
   "drop.addAction": "Añadir",

@@ -16,18 +16,19 @@ export {
   PlaylistRuleSchema,
   PlaylistSortSchema,
 } from "../playlists.js";
-export type {
-  PlaylistKind,
-  PlaylistRule,
-  PlaylistSort,
-} from "../playlists.js";
+export type { PlaylistKind, PlaylistRule, PlaylistSort } from "../playlists.js";
 
 export const KindSchema = z.enum(["video", "image", "audio"]);
 export type Kind = z.infer<typeof KindSchema>;
 
 export const AssetKindSchema = z.enum(["cover", "sheet", "manual-original"]);
 export type AssetKind = z.infer<typeof AssetKindSchema>;
-export const AssetSourceSchema = z.enum(["manual", "embedded", "sidecar", "auto"]);
+export const AssetSourceSchema = z.enum([
+  "manual",
+  "embedded",
+  "sidecar",
+  "auto",
+]);
 export type AssetSource = z.infer<typeof AssetSourceSchema>;
 export const AssetStatusSchema = z.enum([
   "queued",
@@ -449,6 +450,10 @@ export const ScanDoneSchema = z.object({
   }),
   aborted: z.boolean().optional(),
   error: z.boolean().optional(),
+  /** Bounded original failure detail for the user-facing scan notification. */
+  errorMessage: z.string().max(2_048).optional(),
+  /** The portable log file containing the complete stack/tool output. */
+  logPath: z.string().max(4_096).optional(),
 });
 export type ScanDone = z.infer<typeof ScanDoneSchema>;
 

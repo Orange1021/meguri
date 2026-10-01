@@ -258,12 +258,12 @@ describe("MediaDetail presentation", () => {
     localStorage.setItem("meguri.media.detail.presentation", "peek");
     await openDetail(`/file/1?ws=${WS_ID}`);
     const handle = screen.getByRole("separator", { name: "Resize side peek" });
-    // Left grows the sheet (its edge moves left), right shrinks it.
-    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    // The sheet is on the left: right grows it, left shrinks it.
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(dialog().style.width).toBe("536px");
     expect(localStorage.getItem("meguri.media.detail.peekWidth")).toBe("536");
     for (let i = 0; i < 20; i++) {
-      fireEvent.keyDown(handle, { key: "ArrowRight" });
+      fireEvent.keyDown(handle, { key: "ArrowLeft" });
     }
     expect(dialog().style.width).toBe("320px");
   });
@@ -279,8 +279,8 @@ describe("MediaDetail presentation", () => {
     fireEvent.pointerDown(handle, { button: 0, clientX: 800, pointerId: 1 });
     // A second pointer joining mid-drag is ignored rather than fought over.
     fireEvent.pointerDown(handle, { button: 0, clientX: 300, pointerId: 2 });
-    // Dragging the edge 100px to the left widens the sheet by as much, live.
-    fireEvent.pointerMove(handle, { clientX: 700, pointerId: 1 });
+    // Dragging the right edge 100px to the right widens the sheet by as much, live.
+    fireEvent.pointerMove(handle, { clientX: 900, pointerId: 1 });
     fireEvent.pointerMove(handle, { clientX: 100, pointerId: 2 });
     expect(panel.style.width).toBe("620px");
     expect(handle.getAttribute("aria-valuenow")).toBe("620");
@@ -303,8 +303,8 @@ describe("MediaDetail presentation", () => {
     } as DOMRect);
     const handle = screen.getByRole("separator", { name: "Resize side peek" });
     fireEvent.pointerDown(handle, { button: 0, clientX: 800, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientX: 420, pointerId: 1 });
-    expect(panel.style.width).toBe("900px");
+    fireEvent.pointerMove(handle, { clientX: 900, pointerId: 1 });
+    expect(panel.style.width).toBe("620px");
     // The window narrows mid-drag: 700px row − 240px for the list = 460px.
     Object.defineProperty(panel.parentElement!.parentElement!, "clientWidth", {
       configurable: true,
@@ -328,7 +328,7 @@ describe("MediaDetail presentation", () => {
     } as DOMRect);
     const handle = screen.getByRole("separator", { name: "Resize side peek" });
     fireEvent.pointerDown(handle, { button: 0, clientX: 800, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientX: 750, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 850, pointerId: 1 });
     // Esc closes the view with the pointer still down: no pointerup will
     // ever reach the handle, so the drag is finished on the way out.
     fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
@@ -347,7 +347,7 @@ describe("MediaDetail presentation", () => {
     const handle = screen.getByRole("separator", { name: "Resize side peek" });
     expect(handle.getAttribute("aria-valuemax")).toBe("460");
     // …and to every later change.
-    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(dialog().style.width).toBe("460px");
     // The list keeps its side of the bargain in CSS as well.
     expect(dialog().style.maxWidth).toBe("calc(100% - 240px)");
@@ -391,7 +391,7 @@ describe("MediaDetail presentation", () => {
     video.currentTime = 30;
     const handle = screen.getByRole("separator", { name: "Resize side peek" });
     fireEvent.keyDown(handle, { key: "ArrowRight", code: "ArrowRight" });
-    expect(dialog().style.width).toBe("504px");
+    expect(dialog().style.width).toBe("536px");
     // The player also listens for the arrows on window (seek); a key spent on
     // the handle must not reach it.
     expect(video.currentTime).toBe(30);

@@ -2,7 +2,7 @@
   "name": "meguri",
   "private": true,
   "version": "0.8.0",
-  "description": "Meguri is a local video and image browser with thumbnails, search, and playback",
+  "description": "橙映 is a local video and image browser with thumbnails, search, and playback",
   "license": "MIT",
   "author": {
     "name": "amgsk",
@@ -113,7 +113,8 @@
   },
   "build": {
     "appId": "dev.amgsk.meguri",
-    "productName": "Meguri",
+    "productName": "橙映",
+    "executableName": "OrangeView",
     "directories": {
       "buildResources": "build",
       "output": "release"
@@ -122,7 +123,7 @@
     "afterPack": "scripts/after-pack.mjs",
     "protocols": [
       {
-        "name": "Meguri",
+        "name": "橙映",
         "schemes": [
           "meguri"
         ]
@@ -156,7 +157,7 @@
       "publisher": "CN=72C8C359-BF5B-4932-A8A6-9114D02CCAB3",
       "publisherDisplayName": "amgsk",
       "applicationId": "Meguri",
-      "displayName": "Meguri"
+      "displayName": "橙映"
     },
     "nsis": {
       "oneClick": false,

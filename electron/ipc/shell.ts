@@ -1,5 +1,6 @@
 import { clipboard, shell } from "electron";
 import { spawn } from "node:child_process";
+import path from "node:path";
 import { handle } from "../core/ipcHandler.js";
 import log from "../core/logger.js";
 import { folderDirInsideRoot, folderPathUnderRoot } from "../core/paths.js";
@@ -10,7 +11,7 @@ import { coreById, ensureFileInsideRoot } from "./helpers.js";
 // Launch an external file/URL in a fully detached child process.
 // shell.openPath leaves the spawned process attached to Electron's process
 // tree; on Wayland/Hyprland that makes the launched app's window a child of
-// Meguri and blocks the main window until the external app closes.
+// 橙映 and blocks the main window until the external app closes.
 // Windows uses shell.openPath directly: ShellExecuteExW doesn't reproduce the
 // child-process attachment issue, and routing through cmd.exe /c start would
 // open a command-injection surface for filenames containing &/|/^/( etc.
@@ -88,6 +89,13 @@ export function registerShellHandlers(ctx: IpcContext): void {
       throw new Error("unsupported protocol");
     }
     void shell.openExternal(parsed.toString());
+  });
+
+  handle("open_log_directory", async () => {
+    const dataDir = ctx.dataDir?.();
+    if (!dataDir) throw new Error("data directory unavailable");
+    const error = await shell.openPath(path.join(dataDir, "logs"));
+    if (error) throw new Error(error);
   });
 
   handle("open_devtools", () => {

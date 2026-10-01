@@ -19,11 +19,9 @@
      published by AudioPlayerBar while it is showing. Bottom-anchored overlays
      add it to their offset so they clear the bar; it stays 0 otherwise. */
   --meguri-player-bar-inset: 0px;
-  /* Width of the detail side peek while it is docked beside the list,
-     published by the peek on the element wrapping Home's FABs (see
-     PEEK_INSET_DOCK_PROPS in usePeekResize.ts). Right-anchored overlays add
-     it to their offset so they stay clear of the sheet; this is the value
-     they fall back to while it is not docked. */
+  /* Width of the detail side peek while it is docked beside the list. It is
+     available to viewport-anchored overlays that need the active peek width;
+     the default is zero while no sheet is docked. */
   --meguri-peek-inset: 0px;
 }
 
@@ -169,7 +167,7 @@ textarea,
   display: block !important;
 }
 
-/* Sonner uses its own light/dark palette by default. Bridge it to Meguri themes. */
+/* Sonner uses its own light/dark palette by default. Bridge it to 橙映 themes. */
 [data-sonner-toaster][data-sonner-theme] {
   --normal-bg: var(--c-surface) !important;
   --normal-bg-hover: var(--c-overlay) !important;

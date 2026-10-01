@@ -3,7 +3,7 @@ import type { TranslationKey } from "./ja";
 
 export const zhCN: Record<TranslationKey, string> = {
   // 应用名称，在所有语言中保持一致。
-  "app.name": "Meguri",
+  "app.name": "橙映",
 
   // common
   "common.close": "关闭",
@@ -110,6 +110,10 @@ export const zhCN: Record<TranslationKey, string> = {
   "about.license": "许可证",
   "about.source": "源代码",
   "about.fullDependencies": "查看全部依赖 (package.json)",
+  "about.logs": "诊断日志",
+  "about.logsDesc": "扫描和媒体工具错误会保存到 Data/logs/main.log。",
+  "about.openLogs": "打开日志目录",
+  "about.openLogsFailed": "无法打开日志目录",
   "keybinding.normal": "标准",
   "keybinding.vim": "Vim",
   "keybinding.emacs": "Emacs",
@@ -137,6 +141,8 @@ export const zhCN: Record<TranslationKey, string> = {
   "home.scanCanceled": "已取消扫描",
   "home.escCloseHint": "再按一次 Esc 关闭窗口",
   "home.scanError": "扫描过程中发生错误",
+  "home.scanErrorReason": "原因：{reason}",
+  "home.scanErrorLog": "完整详情：{path}",
   "home.scanStartFailed": "无法开始扫描",
   "home.scanAlreadyRunning": "扫描已在进行中",
 
@@ -524,7 +530,7 @@ export const zhCN: Record<TranslationKey, string> = {
   "workspace.removedToastDetail": "已删除“{label}”。",
   "workspace.alreadyAddedToast": "该文件夹已是工作区",
   "drop.overlayTitle": "拖放文件夹以添加为工作区",
-  "drop.foldersOnly": "Meguri 按文件夹建立索引，而不是单个文件。请拖放文件夹。",
+  "drop.foldersOnly": "橙映按文件夹建立索引，而不是单个文件。请拖放文件夹。",
   "drop.addTitle": "添加工作区",
   "drop.addConfirm": "将“{name}”添加为工作区并开始扫描？",
   "drop.addAction": "添加",

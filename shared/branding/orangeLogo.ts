@@ -1,12 +1,12 @@
 /**
- * Canonical Meguri application mark.
+ * Canonical 橙映 application mark.
  *
  * `logo/orange-logo.svg` is the reviewable static mirror of this source. Keep
  * the SVG here so both the renderer bundle and Electron's nativeImage can use
  * exactly the same vector without relying on a font or a bundle-relative path.
  */
 export const ORANGE_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title desc">
-  <title id="title">Meguri orange</title>
+  <title id="title">橙映 orange</title>
   <desc id="desc">A round orange fruit with a green leaf</desc>
   <defs>
     <radialGradient id="fruit" cx="34%" cy="26%" r="78%">

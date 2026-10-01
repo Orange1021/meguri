@@ -16,14 +16,14 @@ function createRoot() {
 
 function writeManifest(appDir, appVersion) {
   fs.mkdirSync(path.join(appDir, "resources"), { recursive: true });
-  fs.writeFileSync(path.join(appDir, "Meguri.exe"), appVersion);
+  fs.writeFileSync(path.join(appDir, "OrangeView.exe"), appVersion);
   fs.writeFileSync(path.join(appDir, "resources", "app.asar"), appVersion);
   fs.writeFileSync(
     path.join(appDir, "portable-manifest.json"),
     JSON.stringify({
       formatVersion: 1,
       appVersion,
-      executable: "Meguri.exe",
+      executable: "OrangeView.exe",
       minDataLayoutVersion: 1,
       maxDataLayoutVersion: 1,
       minConfigFormatVersion: 2,
@@ -71,7 +71,7 @@ test("activation swaps App slots while preserving Data byte-for-byte", () => {
       path.join(rootDir, "Data", "roots", "stable", "db.sqlite"),
       "database-placeholder",
     );
-    fs.writeFileSync(path.join(layout.activeAppDir, "Meguri.exe"), "old");
+    fs.writeFileSync(path.join(layout.activeAppDir, "OrangeView.exe"), "old");
     writeManifest(layout.stagedAppDir, "new");
 
     const dataHashBefore = hashTree(path.join(rootDir, "Data"));
@@ -79,11 +79,14 @@ test("activation swaps App slots while preserving Data byte-for-byte", () => {
 
     assert.equal(result.appVersion, "new");
     assert.equal(
-      fs.readFileSync(path.join(layout.activeAppDir, "Meguri.exe"), "utf8"),
+      fs.readFileSync(path.join(layout.activeAppDir, "OrangeView.exe"), "utf8"),
       "new",
     );
     assert.equal(
-      fs.readFileSync(path.join(layout.previousAppDir, "Meguri.exe"), "utf8"),
+      fs.readFileSync(
+        path.join(layout.previousAppDir, "OrangeView.exe"),
+        "utf8",
+      ),
       "old",
     );
     assert.equal(hashTree(path.join(rootDir, "Data")), dataHashBefore);
@@ -101,19 +104,22 @@ test("rollback restores the previous App and keeps the staged version available 
     fs.mkdirSync(layout.previousAppDir, { recursive: true });
     fs.mkdirSync(path.join(rootDir, "Data"), { recursive: true });
     fs.writeFileSync(path.join(rootDir, "Data", "config.json"), "stable-data");
-    fs.writeFileSync(path.join(layout.activeAppDir, "Meguri.exe"), "new");
-    fs.writeFileSync(path.join(layout.previousAppDir, "Meguri.exe"), "old");
+    fs.writeFileSync(path.join(layout.activeAppDir, "OrangeView.exe"), "new");
+    fs.writeFileSync(path.join(layout.previousAppDir, "OrangeView.exe"), "old");
 
     const dataHashBefore = hashTree(path.join(rootDir, "Data"));
     const result = rollbackPortableApp(rootDir);
 
     assert.equal(result.appVersion, null);
     assert.equal(
-      fs.readFileSync(path.join(layout.activeAppDir, "Meguri.exe"), "utf8"),
+      fs.readFileSync(path.join(layout.activeAppDir, "OrangeView.exe"), "utf8"),
       "old",
     );
     assert.equal(
-      fs.readFileSync(path.join(layout.previousAppDir, "Meguri.exe"), "utf8"),
+      fs.readFileSync(
+        path.join(layout.previousAppDir, "OrangeView.exe"),
+        "utf8",
+      ),
       "new",
     );
     assert.equal(hashTree(path.join(rootDir, "Data")), dataHashBefore);
@@ -129,7 +135,7 @@ test("activation rejects an incompatible Data config before touching App slots",
     fs.mkdirSync(layout.activeAppDir, { recursive: true });
     fs.mkdirSync(layout.stagedAppDir, { recursive: true });
     fs.mkdirSync(path.join(rootDir, "Data"), { recursive: true });
-    fs.writeFileSync(path.join(layout.activeAppDir, "Meguri.exe"), "old");
+    fs.writeFileSync(path.join(layout.activeAppDir, "OrangeView.exe"), "old");
     writeManifest(layout.stagedAppDir, "new");
     fs.writeFileSync(
       path.join(rootDir, "Data", "config.json"),
@@ -144,7 +150,7 @@ test("activation rejects an incompatible Data config before touching App slots",
     );
     assert.equal(fs.existsSync(layout.previousAppDir), false);
     assert.equal(
-      fs.readFileSync(path.join(layout.activeAppDir, "Meguri.exe"), "utf8"),
+      fs.readFileSync(path.join(layout.activeAppDir, "OrangeView.exe"), "utf8"),
       "old",
     );
     assert.equal(fs.existsSync(layout.stagedAppDir), true);

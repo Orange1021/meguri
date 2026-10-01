@@ -32,6 +32,7 @@ import { ShortcutsOverlay } from "@/components/ShortcutsOverlay";
 import { usePreferences } from "@/settings/PreferencesProvider";
 import { NAV_BINDINGS, isHelpKey, matchAny } from "@/settings/keybindings";
 import { cn } from "@/lib/utils";
+import { PRODUCT_NAME } from "@shared/branding/product";
 import { FilterBar } from "@/components/FilterBar";
 import { ScanProgress } from "@/components/ScanProgress";
 import { CommandMenu } from "@/components/CommandMenu";
@@ -359,8 +360,8 @@ export default function Home() {
 
   useEffect(() => {
     document.title = status.data?.root
-      ? `Meguri — ${status.data.root}`
-      : "Meguri";
+      ? `${PRODUCT_NAME} — ${status.data.root}`
+      : PRODUCT_NAME;
   }, [status.data?.root]);
 
   // On thumb:done, bump the version for that id to force the thumbnail to reload.
@@ -472,7 +473,20 @@ export default function Home() {
           return;
         }
         if (done.error) {
-          toast.error(t("home.scanError"), { id: "scan-error" });
+          const details = [
+            done.errorMessage
+              ? t("home.scanErrorReason", { reason: done.errorMessage })
+              : null,
+            done.logPath
+              ? t("home.scanErrorLog", { path: done.logPath })
+              : null,
+          ]
+            .filter((value): value is string => value !== null)
+            .join("\n");
+          toast.error(t("home.scanError"), {
+            id: "scan-error",
+            description: details || undefined,
+          });
           return;
         }
         // The success toast is only for manual scans (avoid noise on every auto-scan).
@@ -845,7 +859,7 @@ export default function Home() {
         folders={listOffset === 0 ? folderEntries : undefined}
         expandFolders={expandFolders}
       >
-        <div className="relative flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 flex-1 flex-row-reverse">
           {/* min-w-60 = the 240px the side peek leaves the list (LIST_MIN_WIDTH
           in usePeekResize); the two must agree. */}
           <main
@@ -966,8 +980,7 @@ export default function Home() {
         />
       </SelectionProvider>
 
-      {/* The two FABs, wrapped so the side peek can publish its width on this
-          element alone (see PEEK_INSET_DOCK_PROPS) rather than on <html>. */}
+      {/* The two FABs stay anchored to the right edge, alongside the list. */}
       <div className="contents" {...PEEK_INSET_DOCK_PROPS}>
         {/* Play the list as a playlist. No params: the player reads the very list
           order shared through MediaNavContext below, so whatever sort/filter is
@@ -983,9 +996,9 @@ export default function Home() {
           tabIndex={hasPool ? undefined : -1}
           className={cn(
             // Stacked above the discovery button; both lift together when the
-            // audio player bar is showing, and both move left of the detail
-            // side peek while it is docked (each variable is 0 otherwise).
-            "fixed bottom-[calc(6rem+var(--meguri-player-bar-inset))] right-[calc(1.25rem+var(--meguri-peek-inset))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            // audio player bar is showing. The list is on the right of the
+            // detail peek, so the viewport's right edge is the clear side.
+            "fixed bottom-[calc(6rem+var(--meguri-player-bar-inset))] right-5 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             !hasPool && "pointer-events-none opacity-45",
           )}
         >
@@ -999,9 +1012,8 @@ export default function Home() {
           aria-disabled={!hasPool}
           tabIndex={hasPool ? undefined : -1}
           className={cn(
-            // Lifted clear of the audio player bar when one is showing (the
-            // variable is 0 otherwise, keeping the original offset).
-            "fixed bottom-[calc(1.25rem+var(--meguri-player-bar-inset))] right-[calc(1.25rem+var(--meguri-peek-inset))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            // Lifted clear of the audio player bar when one is showing.
+            "fixed bottom-[calc(1.25rem+var(--meguri-player-bar-inset))] right-5 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-black/25 transition hover:scale-105 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             !hasPool && "pointer-events-none opacity-45",
           )}
         >

@@ -45,6 +45,11 @@ import { PositionWriter } from "./core/positionWriter.js";
 import { registerIpc } from "./ipc/index.js";
 import { registerRecoveryIpc } from "./ipc/recovery.js";
 import { ScanManager } from "./scanManager.js";
+import {
+  LEGACY_PRODUCT_NAME,
+  PRODUCT_NAME,
+  PRODUCT_PROTOCOL,
+} from "../shared/branding/product.js";
 
 // Set up logging before anything else so early failures land in the log file.
 setupLogger();
@@ -79,7 +84,10 @@ let mediaServer: http.Server | null = null;
 let controlServer: http.Server | null = null;
 let relaunchAfterQuit = false;
 
-app.setName("Meguri");
+// Keep Electron's internal data namespace stable so an installed upgrade still
+// sees the legacy %APPDATA%/Meguri directory. User-visible surfaces use
+// PRODUCT_NAME explicitly below, and the packaged executable is OrangeView.exe.
+app.setName(LEGACY_PRODUCT_NAME);
 
 // Only one running instance. Multiple processes would race on the same
 // SQLite WAL under Data/roots/<workspaceId> and confuse the user
@@ -97,7 +105,7 @@ if (!app.requestSingleInstanceLock()) {
 // - Windows: setAsDefaultProtocolClient registers the scheme in the registry
 //   (electron-builder's `protocols` covers installed builds).
 // - macOS: delivered as "open-url" instead of a second instance.
-const URL_SCHEME = "meguri";
+const URL_SCHEME = PRODUCT_PROTOCOL;
 
 app.on("second-instance", (_e, argv) => {
   const url = argv.find((a) => a.startsWith(`${URL_SCHEME}://`));
@@ -278,9 +286,9 @@ async function offerRendererRecovery(reason: string): Promise<void> {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const { response } = await dialog.showMessageBox(mainWindow, {
     type: "error",
-    title: "Meguri",
+    title: PRODUCT_NAME,
     message: "The window stopped responding and could not be recovered.",
-    detail: `Reason: ${reason}. You can try reloading it, or quit Meguri.`,
+    detail: `Reason: ${reason}. You can try reloading it, or quit ${PRODUCT_NAME}.`,
     buttons: ["Reload", "Quit"],
     defaultId: 0,
     cancelId: 0,
@@ -403,7 +411,7 @@ function createWindow(): void {
     height: 800,
     minWidth: 640,
     minHeight: 480,
-    title: "Meguri",
+    title: PRODUCT_NAME,
     // Window/taskbar icon (Linux/Windows; macOS uses the dock icon instead).
     icon: windowImage(),
     autoHideMenuBar: true,
@@ -458,9 +466,9 @@ function showWindow(): void {
 function createTray(): void {
   if (!isTrayEnabled()) return;
   tray = new Tray(trayImage());
-  tray.setToolTip("Meguri");
+  tray.setToolTip(PRODUCT_NAME);
   const menu = Menu.buildFromTemplate([
-    { label: "Show Meguri", click: () => showWindow() },
+    { label: `Show ${PRODUCT_NAME}`, click: () => showWindow() },
     {
       label: "Check for Updates…",
       click: () => {
@@ -478,7 +486,7 @@ function createTray(): void {
               // open a browser; tell the user the check failed.
               void dialog.showMessageBox({
                 type: "warning",
-                title: "Meguri",
+                title: PRODUCT_NAME,
                 message: "Could not check for updates.",
                 detail: "Please check your internet connection and try again.",
               });
@@ -588,6 +596,7 @@ void app.whenReady().then(async () => {
     queryClient,
     emit,
     isQuitting,
+    logPath: () => path.join(layout.logsDir, "main.log"),
   });
   scans = scanManager;
   workspaceManager.bootstrap(resolveCliRoot());

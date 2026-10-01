@@ -22,7 +22,9 @@ test.describe("Portable data recovery", () => {
 
     const unpackedApp = path.join(repoRoot, "release", "win-unpacked");
     if (fs.existsSync(unpackedApp)) {
-      expect(fs.existsSync(path.join(unpackedApp, "Meguri.exe"))).toBe(true);
+      expect(fs.existsSync(path.join(unpackedApp, "OrangeView.exe"))).toBe(
+        true,
+      );
       expect(
         fs.existsSync(path.join(unpackedApp, "resources", "app.asar")),
       ).toBe(true);
@@ -60,14 +62,14 @@ test.describe("Portable data recovery", () => {
 
     const createAppSlot = (directory: string, version: string): void => {
       fs.mkdirSync(path.join(directory, "resources"), { recursive: true });
-      fs.writeFileSync(path.join(directory, "Meguri.exe"), version);
+      fs.writeFileSync(path.join(directory, "OrangeView.exe"), version);
       fs.writeFileSync(path.join(directory, "resources", "app.asar"), version);
       fs.writeFileSync(
         path.join(directory, "portable-manifest.json"),
         JSON.stringify({
           formatVersion: 1,
           appVersion: version,
-          executable: "Meguri.exe",
+          executable: "OrangeView.exe",
           minDataLayoutVersion: 1,
           maxDataLayoutVersion: 1,
           minConfigFormatVersion: 2,
@@ -92,11 +94,11 @@ test.describe("Portable data recovery", () => {
         [upgradeScript, "--root", portableRoot, "--activate"],
         { cwd: repoRoot, stdio: "pipe" },
       );
-      expect(fs.readFileSync(path.join(activeApp, "Meguri.exe"), "utf8")).toBe(
-        "new",
-      );
       expect(
-        fs.readFileSync(path.join(previousApp, "Meguri.exe"), "utf8"),
+        fs.readFileSync(path.join(activeApp, "OrangeView.exe"), "utf8"),
+      ).toBe("new");
+      expect(
+        fs.readFileSync(path.join(previousApp, "OrangeView.exe"), "utf8"),
       ).toBe("old");
       expect(hashData()).toBe(dataHashBefore);
 
@@ -105,11 +107,11 @@ test.describe("Portable data recovery", () => {
         [upgradeScript, "--root", portableRoot, "--rollback"],
         { cwd: repoRoot, stdio: "pipe" },
       );
-      expect(fs.readFileSync(path.join(activeApp, "Meguri.exe"), "utf8")).toBe(
-        "old",
-      );
       expect(
-        fs.readFileSync(path.join(previousApp, "Meguri.exe"), "utf8"),
+        fs.readFileSync(path.join(activeApp, "OrangeView.exe"), "utf8"),
+      ).toBe("old");
+      expect(
+        fs.readFileSync(path.join(previousApp, "OrangeView.exe"), "utf8"),
       ).toBe("new");
       expect(hashData()).toBe(dataHashBefore);
     } finally {

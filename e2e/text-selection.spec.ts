@@ -77,10 +77,10 @@ test.describe("Text selection", () => {
     // About lives on the App tab, and only the selected tab's panel is mounted.
     const dialog = await openSettingsTab(ready, "App");
     // about.version renders as "<app name> version <x.y.z>".
-    const version = dialog.getByText(/^Meguri version /);
+    const version = dialog.getByText(/^橙映 version /);
     await expect(version).toHaveCSS("user-select", "text");
     await version.click({ clickCount: 3 });
-    expect(await selectedText(ready)).toContain("Meguri version");
+    expect(await selectedText(ready)).toContain("橙映 version");
   });
 
   test("error toasts stay selectable", async ({ ready }) => {

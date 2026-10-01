@@ -15,7 +15,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const APP_NAME = "Meguri";
+const APP_NAME = "橙映";
 const BIN_NAME = "meguri";
 const ICON_NAME = "meguri";
 const DESKTOP_FILE = "meguri.desktop";

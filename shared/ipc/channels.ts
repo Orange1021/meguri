@@ -362,6 +362,7 @@ export const ChannelInputs = {
   }),
   copy_file_path: FileTarget,
   open_url: z.object({ url: z.string() }),
+  open_log_directory: z.void(),
   open_devtools: z.void(),
   window_close: z.void(),
   // Update check (GitHub Releases). `force` bypasses the throttle used by the
@@ -514,6 +515,7 @@ export interface ChannelOutputs {
   folder_copy_path: void;
   copy_file_path: void;
   open_url: void;
+  open_log_directory: void;
   open_devtools: boolean;
   window_close: void;
   // null when the check could not reach GitHub (offline / rate-limited).

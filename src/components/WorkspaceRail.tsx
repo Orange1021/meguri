@@ -307,11 +307,7 @@ export function WorkspaceRail() {
   return (
     <>
       <nav className="flex h-full w-16 shrink-0 flex-col items-center gap-2 border-r border-border bg-bg py-3">
-        <img
-          src={LOGO_SRC[logo]}
-          alt="Meguri"
-          className="size-[50px] shrink-0"
-        />
+        <img src={LOGO_SRC[logo]} alt="橙映" className="size-[50px] shrink-0" />
 
         {/* Workspace list (scrolls only here when there are many).
           Add padding so the first avatar's selection ring (ring-2) is not clipped at the top edge. */}

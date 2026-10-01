@@ -25,8 +25,9 @@ launching, so Electron does not accidentally start in node mode.
 
 Development resolves its portable root to `<checkout>/.portable-dev`. Set
 `MEGURI_PORTABLE_ROOT` to isolate a run in a temporary directory. Packaged
-Windows builds resolve the root as the parent of `App/` and therefore keep
-`Data/` and `Media/` beside the executable's `App/` directory. The explicit
+Windows builds keep `Data/` and `Media/` beside `App/`. A portable executable
+launched directly from the root also keeps them beside that exe; the runtime
+accepts both layouts. The explicit
 `PORTABLE_EXECUTABLE_DIR` input is available to launchers that know the App
 directory independently.
 
@@ -75,7 +76,7 @@ macOS (dmg / zip).
 ### Portable artifact checks
 
 After `npm run dist -- --win portable`, inspect the generated
-`release/Meguri-<version>-win32-x64.exe`. A portable smoke check should verify:
+`release/橙映-<version>-win32-x64.exe`. A portable smoke check should verify:
 
 1. the artifact launches with `App/` resources available;
 2. first launch creates `Data/` beside `App/`, not a database below Electron's
@@ -96,7 +97,7 @@ node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --activate
 node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --rollback
 ```
 
-Keep Meguri closed while a slot operation runs. The command only renames
+Keep 橙映 closed while a slot operation runs. The command only renames
 `App`, `App.new`, and `App.previous`; it does not copy, migrate, or remove
 `Data`/`Media`. On the next launch the normal migration path makes a
 pre-migration backup and sends an incompatible schema to the recovery screen.

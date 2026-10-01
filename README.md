@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="./logo/app-512.png" width="160" alt="Meguri logo">
+<img src="./logo/app-512.png" width="160" alt="橙映 logo">
 
-# Meguri
+# 橙映
 
 **Redefining what a media manager is supposed to be.**
 
@@ -18,29 +18,29 @@ search, and play, all offline.
 
 </div>
 
-Meguri is a personal desktop app for browsing, searching, and playing local
+橙映 is a personal desktop app for browsing, searching, and playing local
 videos and images with thumbnails. It recursively scans any folder you point it at,
 generates thumbnails, tags, and metadata, and lets you browse the collection in
 a native window.
 
 > 中文用户：请先阅读 [简体中文使用文档](./docs/user-guide-zh-CN.md)，里面包含首次配置、主要功能和 Windows 便携版数据说明。
 
-Meguri is named for the feeling of revisiting your local media and rediscovering
-something worth coming back to.
+橙映 is named for its orange visual identity and the idea of revisiting local
+media and rediscovering something worth coming back to.
 
 Built with **Electron + Node/TypeScript + React**. Chromium is bundled, so video
 playback and rendering are largely insulated from the host environment. The only
 native dependency is SQLite (better-sqlite3); ffmpeg/ffprobe ship as static
 binaries, so no system-side ffmpeg is required.
 
-![Meguri demo — browsing, search, playback, and Discovery](./docs/assets/demo.gif)
+![橙映 demo — browsing, search, playback, and Discovery](./docs/assets/demo.gif)
 
 ## Philosophy
 
-Meguri exists to redefine what a media manager is supposed to be. The
+橙映 exists to redefine what a media manager is supposed to be. The
 category has settled into a set of assumptions — an account to sign up for, a
 cloud your files are uploaded to, a subscription to keep paying, a catalog
-that quietly reports what you watch. Meguri starts from the opposite premise: your library lives on
+that quietly reports what you watch. 橙映 starts from the opposite premise: your library lives on
 your disk, it stays there, and the tool that browses it owes you nothing but a
 good time. Everything runs offline, nothing phones home, the whole thing is
 [free forever](#free-forever), and the source is yours to read. What is left
@@ -76,7 +76,7 @@ music folder of albums plays through album by album.
 
 ## Download
 
-Windows users can install Meguri from the
+Windows users can install 橙映 from the
 [Microsoft Store](https://apps.microsoft.com/detail/9NRSM11RRH8Z).
 
 [![Get it from Microsoft](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9NRSM11RRH8Z)
@@ -92,18 +92,18 @@ Prebuilt packages for all platforms are also available on
 
 ### macOS: first launch
 
-Meguri is not yet notarized by Apple (that requires a paid developer account;
+橙映 is not yet notarized by Apple (that requires a paid developer account;
 proper code signing and notarization are planned), so the first launch is
 blocked with an "Apple could not verify…" dialog. To allow it:
 
 1. Open the app once and dismiss the dialog.
 2. Open **System Settings → Privacy & Security**, scroll down, and click
-   **Open Anyway** next to the Meguri entry.
+   **Open Anyway** next to the 橙映 entry.
 
 Alternatively, clear the quarantine flag from the terminal:
 
 ```bash
-xattr -d com.apple.quarantine /Applications/Meguri.app
+xattr -d com.apple.quarantine /Applications/橙映.app
 ```
 
 If macOS instead says the app **"is damaged and can't be opened"**, you are
@@ -115,7 +115,7 @@ needs the one-time approval above.
 
 [meguri-bin](https://aur.archlinux.org/packages/meguri-bin) is the package
 maintained by this project. It installs the prebuilt release binaries, so it
-is the recommended way to install Meguri on Arch. Install it with your favorite
+is the recommended way to install 橙映 on Arch. Install it with your favorite
 AUR helper:
 
 ```bash
@@ -179,7 +179,7 @@ Or run from source — see [Setup and Launch](#setup-and-launch).
   view, ready to paste elsewhere
 - 📑 **Side peek** — open any file's detail as a resizable sheet docked beside
   the library instead of a modal, keeping the grid, search, and player bar in
-  use while you watch, tag, and rate; Meguri remembers which you prefer
+  use while you watch, tag, and rate; 橙映 remembers which you prefer
 - 🎨 **Themes** — base16-based multi-theme switching (gruvbox / solarized /
   monokai / nord / dracula, etc.)
 - 🔎 **Content zoom** — Ctrl + wheel (and Ctrl +/-/0)
@@ -328,7 +328,7 @@ root is resolved from the executable location; the development build uses
 ```text
 PortableVideoLibrary/
 ├─ App/
-│  ├─ PortableVideoLibrary.exe
+│  ├─ OrangeView.exe
 │  └─ resources/             # packaged application files
 ├─ Data/
 │  ├─ config.json            # workspace locators and user collections
@@ -349,7 +349,7 @@ letter or replacing only `App/` does not create a second database. A workspace
 outside `Media/` is retained as an explicit absolute locator and is therefore
 not portable across machines or drive layouts.
 
-On first launch, Meguri creates the directory structure but does not silently
+On first launch, 橙映 creates the directory structure but does not silently
 create a database in Electron's system `userData`. If `Data/config.json` is
 missing or a migration cannot be completed, the recovery page shows the exact
 `Data` directory and offers only the applicable action: initialize, retry, or
@@ -358,21 +358,21 @@ is copied into `Data` with checksum verification; the source is retained until
 the user removes it explicitly.
 
 Schema migrations have versions and SHA-256 checksums. Before a pending
-migration, Meguri creates a SQLite-consistent backup containing the database,
+migration, 橙映 creates a SQLite-consistent backup containing the database,
 configuration, sizes, hashes, schema version, and restore target. A backup is
 listed for restore only after its manifest and both snapshot hashes validate.
 
-Your media files themselves are never touched: Meguri only ever **reads**
+Your media files themselves are never touched: 橙映 only ever **reads**
 the directories you register, and all of its own library data stays under
 `Data` above. The short-lived single-instance control file may still be placed
 under Electron's `userData`; it contains only a local control token and is
-removed when the app exits. Nothing Meguri does can destroy or modify your
+removed when the app exits. Nothing 橙映 does can destroy or modify your
 videos and images.
 
 ### Upgrade and rollback
 
 For a directory-layout portable release, stage the next program files as
-`App.new/` beside `App/`. Close Meguri, then run the release helper with an
+`App.new/` beside `App/`. Close 橙映, then run the release helper with an
 explicit root:
 
 ```powershell
@@ -393,7 +393,7 @@ slot rename is recoverable with `--recover`.
 
 ## Free, forever
 
-Meguri is **free software and always will be**. There is no paid tier, no
+橙映 is **free software and always will be**. There is no paid tier, no
 subscription, no in-app purchase, no license key, and no ads — and none will
 ever be added. Every feature, present and future, is available to everyone
 under the [MIT License](./LICENSE).
@@ -403,9 +403,9 @@ unlocks nothing and changes nothing about the app; it just helps keep it going.
 
 ## Privacy
 
-Meguri is **privacy-first**: everything stays on your machine.
+橙映 is **privacy-first**: everything stays on your machine.
 
-- **No telemetry, no analytics.** Meguri contains no usage-tracking mechanism
+- **No telemetry, no analytics.** 橙映 contains no usage-tracking mechanism
   such as Google Analytics, crash reporters, or any other third-party
   measurement SDK.
 - **No external network communication.** The app never sends your data —
@@ -418,7 +418,7 @@ Meguri is **privacy-first**: everything stays on your machine.
 ## Architecture
 
 ```text
-Meguri/
+橙映/
 ├─ electron/                # main process (Node/TypeScript)
 │  ├─ main.ts               # startup, windows, tray
 │  ├─ scanManager.ts        # scan orchestration (start / abort, renderer events)
@@ -446,12 +446,12 @@ main process.
 
 ## Contributors
 
-**Meguri is actively looking for contributors — all contributions are
+**橙映 is actively looking for contributors — all contributions are
 welcome!** 🎉
 
 You don't need to write code to help. Ideas, feature requests, bug reports,
 UI/UX feedback, translations, and documentation improvements are all just as
-appreciated — if Meguri could do something better for your library, please
+appreciated — if 橙映 could do something better for your library, please
 [open an issue](https://github.com/zabuton-app/meguri/issues) and tell us
 about it.
 
@@ -495,10 +495,10 @@ A few conventions to follow:
 
 ## Disclaimer
 
-Meguri is a personal-scale project provided **as is**, without warranty of any
+橙映 is a personal-scale project provided **as is**, without warranty of any
 kind. Use it at your own risk.
 
-- **No liability for data loss.** Although Meguri is designed to leave your
+- **No liability for data loss.** Although 橙映 is designed to leave your
   original media files untouched and only manages its own metadata and
   thumbnails under `Data`, the authors accept no responsibility for any loss,
   corruption, or deletion of files or data that may occur while using it. Keep

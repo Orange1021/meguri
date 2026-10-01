@@ -11,6 +11,9 @@ const execFileAsync = promisify(execFile);
 
 export const THUMB_MAX = 480;
 
+/** Receives the actionable tool detail for a scan issue. */
+export type MediaErrorReporter = (message: string) => void;
+
 export interface ExtractedMeta {
   width: number | null;
   height: number | null;
@@ -81,6 +84,7 @@ export async function extractMeta(
   file: string,
   kind: Kind,
   signal?: AbortSignal,
+  onError?: MediaErrorReporter,
 ): Promise<ExtractedMeta> {
   const empty: ExtractedMeta = {
     width: null,
@@ -141,7 +145,17 @@ export async function extractMeta(
       raw: tiled ? { ...json, streams: [v] } : json,
     };
   } catch (err) {
-    warnIfProbeUnavailable(err);
+    const probeUnavailable = warnIfProbeUnavailable(err);
+    if (!signal?.aborted) {
+      const detail =
+        (err as { stderr?: string }).stderr ??
+        (err as Error).message ??
+        String(err);
+      if (!probeUnavailable) {
+        log.warn(`ffprobe failed for ${file}: ${detail}`);
+      }
+      onError?.(detail);
+    }
     return empty;
   }
 }
@@ -164,12 +178,13 @@ let probeUnavailableWarned = false;
  *  node_modules shared with a host of another arch) would otherwise leave every
  *  file's metadata null with nothing in the log. Only spawn errors (ENOENT, EACCES,
  *  ENOEXEC) count; a non-zero exit, a timeout or an abort is a per-file outcome. */
-function warnIfProbeUnavailable(err: unknown): void {
-  if (probeUnavailableWarned) return;
+function warnIfProbeUnavailable(err: unknown): boolean {
   const e = err as NodeJS.ErrnoException | null;
-  if (!e?.syscall?.startsWith("spawn")) return;
+  if (!e?.syscall?.startsWith("spawn")) return false;
+  if (probeUnavailableWarned) return true;
   probeUnavailableWarned = true;
   log.warn(`ffprobe could not be started (${e.code}): ${FFPROBE}`);
+  return true;
 }
 
 /** The ffprobe stream index of a file's embedded cover picture, or null if it has
@@ -223,10 +238,15 @@ export async function generateThumb(
   signal?: AbortSignal,
   offsetSec?: number,
   coverStreamIndex?: number,
+  onError?: MediaErrorReporter,
 ): Promise<boolean> {
+  let failure: string | undefined;
+  const rememberFailure: MediaErrorReporter = (message) => {
+    failure = message;
+  };
   if (kind === "audio") {
     if (coverStreamIndex == null) return false;
-    return runFfmpegThumb(
+    const ok = await runFfmpegThumb(
       src,
       kind,
       dest,
@@ -234,7 +254,10 @@ export async function generateThumb(
       undefined,
       false,
       coverStreamIndex,
+      rememberFailure,
     );
+    if (!ok) onError?.(failure ?? "ffmpeg cover extraction failed");
+    return ok;
   }
   const useOffset =
     kind === "video" &&
@@ -249,6 +272,8 @@ export async function generateThumb(
       signal,
       useOffset ? offsetSec : undefined,
       false,
+      undefined,
+      rememberFailure,
     )
   ) {
     return true;
@@ -256,8 +281,20 @@ export async function generateThumb(
   // Hybrid seek failed (some containers don't survive a post-input -ss). Retry with a
   // pure pre-input seek so the user at least gets the nearest-keyframe frame.
   if (useOffset) {
-    return runFfmpegThumb(src, kind, dest, signal, offsetSec, true);
+    const ok = await runFfmpegThumb(
+      src,
+      kind,
+      dest,
+      signal,
+      offsetSec,
+      true,
+      undefined,
+      rememberFailure,
+    );
+    if (!ok) onError?.(failure ?? "ffmpeg thumbnail generation failed");
+    return ok;
   }
+  onError?.(failure ?? "ffmpeg thumbnail generation failed");
   return false;
 }
 
@@ -299,7 +336,8 @@ export async function generateSheet(
       ? duration
       : null;
   const start = safeDuration == null ? 0 : safeDuration * 0.03;
-  const window = safeDuration == null ? null : Math.max(0.1, safeDuration * 0.94);
+  const window =
+    safeDuration == null ? null : Math.max(0.1, safeDuration * 0.94);
   const args: string[] = [
     "-v",
     "error",
@@ -405,6 +443,7 @@ async function runFfmpegThumb(
   offsetSec: number | undefined,
   keyframeOnly: boolean,
   coverStreamIndex?: number,
+  onError?: MediaErrorReporter,
 ): Promise<boolean> {
   const useOffset = typeof offsetSec === "number";
   // scale BEFORE thumbnail: the thumbnail filter keeps its whole scoring
@@ -465,7 +504,9 @@ async function runFfmpegThumb(
       const st = await fsPromises.stat(dest).catch(() => null);
       if (!st || st.size === 0) {
         if (st) await fsPromises.unlink(dest).catch(() => {});
-        log.warn(`ffmpeg cover extraction produced no output for ${src}`);
+        const detail = `ffmpeg cover extraction produced no output for ${src}`;
+        log.warn(detail);
+        onError?.(detail);
         return false;
       }
     }
@@ -478,9 +519,9 @@ async function runFfmpegThumb(
         (err as { stderr?: string }).stderr ??
         (err as Error).message ??
         String(err);
-      log.warn(
-        `ffmpeg thumb failed (offset=${offsetSec ?? "auto"}, mode=${keyframeOnly ? "keyframe" : "hybrid"}): ${stderr}`,
-      );
+      const detail = `ffmpeg thumb failed (offset=${offsetSec ?? "auto"}, mode=${keyframeOnly ? "keyframe" : "hybrid"}): ${stderr}`;
+      log.warn(detail);
+      onError?.(detail);
     }
     return false;
   }

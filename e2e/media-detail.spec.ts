@@ -82,6 +82,34 @@ test.describe("Media detail", () => {
     ).toBeVisible();
   });
 
+  test("docks playback on the left and keeps the list on the right", async ({
+    ready,
+  }) => {
+    const modal = await openFileDetail(ready);
+    await modal.getByRole("button", { name: "Open as side peek" }).click();
+
+    const peek = ready.getByRole("dialog");
+    await expect(peek).toHaveAttribute("data-presentation", "peek");
+    const list = ready.locator("#list-main");
+    await expect(list).toBeVisible();
+
+    const peekBox = await peek.boundingBox();
+    const listBox = await list.boundingBox();
+    expect(peekBox).not.toBeNull();
+    expect(listBox).not.toBeNull();
+    expect(peekBox!.x + peekBox!.width).toBeLessThanOrEqual(listBox!.x + 1);
+
+    for (const kind of ["All", "Video", "Image"]) {
+      await ready.getByRole("radio", { name: kind }).click();
+      await expect(peek).toBeVisible();
+      const filteredListBox = await list.boundingBox();
+      expect(filteredListBox).not.toBeNull();
+      expect(peekBox!.x + peekBox!.width).toBeLessThanOrEqual(
+        filteredListBox!.x + 1,
+      );
+    }
+  });
+
   test("opens detail paused from metadata link", async ({ ready }) => {
     const metaLink = ready.locator('a[href*="autoplay=0"]');
     await expect(metaLink).toBeVisible();
