@@ -18,6 +18,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import type { Core } from "./index.js";
 import { absPathOf, thumbPathIfDone } from "./tags.js";
 import { isInsideRoot } from "./paths.js";
+import { assetAbsolutePath } from "./assets.js";
+import { preferredAsset } from "./queries/assets.js";
 import { FFMPEG } from "./ffmpeg-paths.js";
 import { QueueFullError, Semaphore } from "./concurrency.js";
 import { DECODE_FFMPEG_THREADS, videoDecodeSlots } from "./mediaConcurrency.js";
@@ -173,7 +175,8 @@ export function startServer(
 const AUTH_HEADER = "x-api-token";
 
 // URLs have the form /ws/<workspaceId>/<kind>/<fileId>.
-const ROUTE = /^\/ws\/([0-9a-f]+)\/(thumb|media|frame)\/(\d+)$/;
+const ROUTE =
+  /^\/ws\/([0-9a-f]+)\/(?:(thumb|media|frame)\/(\d+)|asset\/(cover|sheet|manual-original)\/([0-9a-f-]{36}))$/i;
 
 async function handle(
   req: http.IncomingMessage,
@@ -213,12 +216,33 @@ async function handle(
       res.writeHead(401).end();
       return;
     }
-    const [, wsId, kind, idStr] = m;
+    const [, wsId, kind, idStr, assetKind, assetVideoId] = m;
     const core = resolveWorkspace(wsId);
     if (!core) {
       res.writeHead(404).end();
       return;
     }
+    if (assetKind && assetVideoId) {
+      if (
+        assetKind !== "cover" &&
+        assetKind !== "sheet" &&
+        assetKind !== "manual-original"
+      ) {
+        res.writeHead(404).end();
+        return;
+      }
+      const asset = preferredAsset(core.db, assetVideoId, assetKind);
+      const assetPath = asset
+        ? assetAbsolutePath(core.assetsDir(), asset.path)
+        : null;
+      if (!assetPath || !isInsideRoot(assetPath, core.assetsDir())) {
+        res.writeHead(404).end();
+        return;
+      }
+      await serveFile(req, res, assetPath, THUMB_CACHE_CONTROL);
+      return;
+    }
+
     const id = Number(idStr);
 
     if (kind === "thumb") {

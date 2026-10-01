@@ -53,7 +53,13 @@ describe("applyMigrations", () => {
       db
         .prepare("SELECT version FROM schema_migrations ORDER BY version")
         .all(),
-    ).toEqual([{ version: 0 }, { version: 1 }, { version: 2 }]);
+    ).toEqual([
+      { version: 0 },
+      { version: 1 },
+      { version: 2 },
+      { version: 3 },
+      { version: 4 },
+    ]);
   });
 
   it("records a legacy baseline and applies a new migration once", () => {
@@ -64,12 +70,18 @@ describe("applyMigrations", () => {
       db
         .prepare("SELECT version FROM schema_migrations ORDER BY version")
         .all(),
-    ).toEqual([{ version: 0 }, { version: 1 }, { version: 2 }]);
+    ).toEqual([
+      { version: 0 },
+      { version: 1 },
+      { version: 2 },
+      { version: 3 },
+      { version: 4 },
+    ]);
 
     applyMigrations(db, { context: { now: () => 1_700_000_001 } });
     expect(
       db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get(),
-    ).toEqual({ count: 3 });
+    ).toEqual({ count: 5 });
   });
 
   it("rejects a changed checksum instead of silently accepting a migration", () => {
@@ -130,9 +142,11 @@ describe("applyMigrations", () => {
     const file = path.join(directory, "legacy.sqlite");
     const seed = openDb(file);
     seed.exec(
-      "DROP TABLE scan_issues; DROP TABLE scan_runs; " +
+      "DROP TABLE playlist_items; DROP TABLE playlists; " +
+        "DROP TABLE asset_tasks; DROP TABLE assets; " +
+        "DROP TABLE scan_issues; DROP TABLE scan_runs; " +
         "DROP TABLE fingerprints; DROP TABLE videos; " +
-        "DELETE FROM schema_migrations WHERE version = 2; " +
+        "DELETE FROM schema_migrations WHERE version >= 2; " +
         "DROP TABLE files",
     );
     seed.exec(`

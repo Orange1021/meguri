@@ -756,6 +756,7 @@ export default function Home() {
         onScan={() => void onScan()}
         onScanWithDeleted={() => void onScan(true)}
         onRebuild={() => void onRebuild()}
+        playlistFileIds={items.map((item) => item.id)}
         t={t}
       />
 

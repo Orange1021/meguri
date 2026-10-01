@@ -12,9 +12,11 @@ export const ja = {
   // ポータブルデータの復旧
   "recovery.title": "ポータブルデータの復旧",
   "recovery.loading": "データ状態を確認中…",
-  "recovery.needsInitialization": "このポータブルライブラリは初期化が必要です。",
+  "recovery.needsInitialization":
+    "このポータブルライブラリは初期化が必要です。",
   "recovery.migrationFailed": "データの移行に失敗しました。",
-  "recovery.restoreAvailable": "移行に失敗しました。バックアップから復元できます。",
+  "recovery.restoreAvailable":
+    "移行に失敗しました。バックアップから復元できます。",
   "recovery.dataDirectory": "データ保存先",
   "recovery.retry": "再試行",
   "recovery.initialize": "初期化して開始",
@@ -274,6 +276,12 @@ export const ja = {
   "media.thumbClear": "メインサムネを自動に戻す",
   "media.thumbApplying": "メインサムネを適用中…",
   "media.currentMainThumb": "現在のメインサムネ:",
+  "media.coverSet": "手動カバーを設定",
+  "media.coverRestore": "自動カバーに戻す",
+  "media.coverApplying": "カバーを更新中…",
+  "media.coverSetSuccess": "手動カバーを保存しました",
+  "media.coverRestored": "自動カバーに戻しました",
+  "media.coverFailed": "カバーを更新できませんでした",
 
   // プレイヤー操作
   "player.play": "再生",
@@ -620,6 +628,24 @@ export const ja = {
   // プレイリスト再生（自動再生）
   "sort.manual": "手動順",
   "playlist.start": "プレイリスト再生",
+  "savedPlaylist.title": "保存したプレイリスト",
+  "savedPlaylist.newStatic": "静的プレイリストを作成",
+  "savedPlaylist.newSmart": "スマートプレイリストを作成",
+  "savedPlaylist.namePrompt": "プレイリスト名",
+  "savedPlaylist.tagPrompt": "一致させるタグ",
+  "savedPlaylist.loading": "保存したプレイリストを読み込み中…",
+  "savedPlaylist.empty": "保存したプレイリストはありません",
+  "savedPlaylist.export": "M3U8 をエクスポート",
+  "savedPlaylist.delete": "削除",
+  "savedPlaylist.deleteConfirm": "「{name}」を削除しますか？",
+  "savedPlaylist.configurePlayer": "PotPlayer を設定",
+  "savedPlaylist.created": "「{name}」を保存しました",
+  "savedPlaylist.opened": "PotPlayer で「{name}」を開きました",
+  "savedPlaylist.openedWithSkipped":
+    "開きました（見つからないファイル {skipped} 件をスキップ）",
+  "savedPlaylist.exported": "{count} 件を {path} にエクスポートしました",
+  "savedPlaylist.failed": "プレイリスト操作に失敗しました",
+  "savedPlaylist.deleted": "「{name}」を削除しました",
   "playlist.inFolder": "「{path}」を再生しています",
   "playlist.play": "再生 (Space)",
   "playlist.pause": "一時停止 (Space)",

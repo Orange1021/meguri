@@ -26,9 +26,9 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 | 现有身份           | `files.id` 是 SQLite 整数；用户元数据绑定 `meta_key=content_hash` 或根内相对路径回退值                                                                                | 不满足稳定 UUID `video_id`；阶段 2 需要双轨迁移                             |
 | 移动/改名          | `syncFiles()` 用 `(content_hash,size)` 找候选并取第一个未见旧路径；同路径变化会更新原 `files` 行                                                                      | 不满足多候选冲突、不自动继承替换内容身份的要求                              |
 | 缺失/删除          | 扫描将未见文件标记 `deleted_at`；UI 另有从索引删除操作                                                                                                                | 需要 missing 状态、30 天保留、确认清理和问题记录                            |
-| 派生资产           | 每个 `files.id` 下保存单个 WebP 缩略图；支持手动帧偏移、内嵌封面和自动缩略图                                                                                          | 不满足 Cover/4×4 Sheet/manual asset source 与版本化队列                     |
-| 标签               | `tags` 有 namespace，`meta_tags.source` 区分 manual/auto-meta；自动标签可按规则集回填                                                                                 | 可复用字典和 FTS 同步；需要视频级标签、来源、批量和 AND/OR AST 设计         |
-| 播放列表           | 用户集合写入 `userData/config.json`，智能集合保存在 Renderer `localStorage` 的 `meguri.smartCollections.v1`；内置播放和系统外部打开已存在                             | 不满足持久化 static/smart playlist、M3U8、PotPlayer 配置                    |
+| 派生资产           | `assets`/`asset_tasks` 按稳定 `video_id` 保存 Cover、4×4 Sheet、manual-original；手动来源优先，自动任务可重试                         | 阶段 3 已实现；更丰富的封面源提取与资产垃圾回收仍可后续增强                 | 3 已实现  |
+| 标签               | `tags` 有 namespace，`meta_tags.source` 区分 manual/auto-meta；自动标签可按规则集回填                                                                                 | 现有标签字典与 FTS 保留；持久化播放列表已支持 tag/AND/OR/NOT 规则 AST       | 4 已实现  |
+| 播放列表           | 新增 SQLite `playlists`/`playlist_items`，支持静态、智能、排序、M3U8 与 PotPlayer 参数数组启动                                                     | 跨工作区统一播放列表仍留待 `video_files` 规范化                             | 5 已实现  |
 | 外部进程           | `electron/ipc/shell.ts` 使用 Electron `shell.openPath` 或平台默认打开，不拼接 shell 命令                                                                              | 安全边界可复用；PotPlayer 需新增参数数组适配器                              |
 | 打包               | `package.json` 已配置 `nsis`、`portable`、`appx`，并将 better-sqlite3/FFmpeg/ffprobe `asarUnpack`                                                                     | 构建基础可复用；运行时仍依赖 `userData`，便携数据尚未实现                   |
 
@@ -45,9 +45,9 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 | `quick-v1` fingerprint         | 已实现固定 4 MiB 采样、8 MiB 以下全哈希、媒体流签名和版本化 key                    | 作为当前身份候选证据；更强的内容验证和算法升级留待后续阶段                            | 2.1 已实现 |
 | 冲突队列                       | `scan_issues` 持久化多候选、弱证据、指纹失败和移动冲突；禁止静默取第一候选         | 人工处理界面和问题关闭策略留待后续阶段                                                | 2.1 已实现 |
 | 持久化扫描状态                 | `scan_runs` 保存阶段、完成/取消/失败状态和错误；`scan_issues` 保存单文件问题与冲突 | 断点恢复和缺失保留策略仍待后续阶段                                                    | 2.1 已实现 |
-| Cover/Sheet/manual 资产        | 单缩略图 `thumb_path`，无 source/generation version                                | 自动重建无法按来源保护人工资产，也没有 4×4 Sheet                                      | 3          |
-| 纯标签 AND/OR/NOT              | 当前是 tags 数组和可保存 SearchQuery；智能集合在 localStorage                      | 没有版本化 rule AST、SQLite 播放列表和跨重启统一数据                                  | 4          |
-| M3U8/PotPlayer                 | 只有内置/系统默认外部打开                                                          | 无当前盘符路径重新生成、播放器发现和顺序验证                                          | 5          |
+| Cover/Sheet/manual 资产        | 已新增 `assets`/`asset_tasks`、来源优先级、原子写入和 4×4 Sheet             | 更丰富的封面源提取与资产垃圾回收仍可后续增强                                            | 3 已实现   |
+| 纯标签 AND/OR/NOT              | 已新增受限、规范化的版本化规则 AST，并由 SQLite 参数化 SQL 评估                 | 跨工作区统一规则仍留待 `video_files` 规范化                                            | 4 已实现   |
+| M3U8/PotPlayer                 | 已新增当前绝对路径 M3U8、缺失跳过、播放器发现/配置和参数数组启动             | 更多外部播放器适配仍可后续增加                                                        | 5 已实现   |
 | 升级/回退演练                  | portable artifact 可构建，没有 App.new/App.previous 和 schema 兼容流程             | 发布无法保证 Data 不变、失败可回退                                                    | 6          |
 
 ## 需要修改和新增的模块
@@ -71,11 +71,13 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 - `electron/core/__tests__/portablePaths.test.ts`、`backups.test.ts`、`migrations.test.ts`：阶段 1 单元/集成测试。
 - `e2e/portable-data.spec.ts`：便携目录、Data 保留、重启和迁移失败 UI 流程。
 
-### 阶段 2.1 已实现与后续预留
+### 阶段 2.1–5 已实现与后续预留
 
 - 已实现：`electron/core/identity.ts`、`fingerprint.ts`、`scanService.ts`、`queries/identity.ts`，以及 `videos`、`fingerprints`、`scan_runs`、`scan_issues` 和 `files.video_id` 的 checksummed migration。
 - 已实现：扫描运行阶段记录、`quick-v1` 指纹、唯一强证据复用、多候选冲突队列、内容替换隔离、旧行首次收敛和重建后的逻辑身份恢复。
-- 阶段 3–5 仍预留：Cover/Sheet/manual 资产、表达式播放列表和 M3U8/PotPlayer 外部播放适配；本阶段不提前引入 `video_files` 大迁移。
+- 已实现：`assets`/`asset_tasks` 版本化 Cover/Sheet/manual 资产、来源优先级、原子写入、失败重试、手动封面 IPC 和媒体服务路由。
+- 已实现：`playlists`/`playlist_items` 持久化静态/智能播放列表、受限规则 AST、SQL 评估、M3U8 导出以及 PotPlayer 发现/配置/参数数组启动。
+- 后续预留：跨工作区统一 `video_files`、人工冲突处理界面、资产垃圾回收、更多播放器适配和第 6 阶段升级/回退演练。
 
 ## 迁移与兼容风险
 
@@ -105,6 +107,16 @@ Meguri 已经具备可复用的桌面媒体库骨架：Electron Main/Preload/Ren
 
 E2E 失败的 trace 已由 Playwright 保存在被忽略的 `test-results/workspace-Workspace-shows-workspace-path-in-header/trace.zip`，没有修改生产源码；构建和测试产物目录均被 `.gitignore` 忽略。本次新增的阶段 0 文档是审计交付物。
 
-## 阶段 1 进入条件
+## 历史：阶段 1 进入条件
 
 阶段 1 开始前需要确认本报告和设计说明；确认后按 `docs/superpowers/plans/2026-10-01-portable-video-library-v1.md` 中的 TDD 顺序执行。阶段 1 完成必须重新运行 typecheck、core、renderer、E2E、portable smoke，并提供迁移前后 Data 清单和恢复演练结果。
+
+## 阶段 3–5 验证记录
+
+本次在 Windows 11、Node `v24.15.0`、Electron `42.11.0` 环境验证：
+
+- `npm run typecheck`：通过。
+- `npm run test:core`：44 个文件，596 个测试通过，2 个跳过。
+- `npm run test:renderer`：92 个文件，1447 个测试通过。
+- `npm run test:e2e`：76/77 通过；唯一失败为 Discover 用例的 Playwright worker 异常退出（Windows code `3221226505`），同用例单独重跑通过。
+- 资产、规则、播放列表、M3U8、PotPlayer 和 Sheet 生成新增回归测试均通过。

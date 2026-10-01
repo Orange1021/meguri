@@ -7,7 +7,9 @@ import {
   FolderOpen,
   FolderPlus,
   FolderSearch,
+  ImagePlus,
   ImageDown,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -46,6 +48,9 @@ export function DetailActions({
   imageBgInverted,
   onToggleImageBg,
   onOpenExternal,
+  onSetManualCover,
+  onRestoreAutoCover,
+  coverPending,
   onDeleteFromIndex,
   onAddToCollection,
   onRemoveFromCollection,
@@ -63,6 +68,9 @@ export function DetailActions({
   imageBgInverted: boolean;
   onToggleImageBg: () => void;
   onOpenExternal: () => void;
+  onSetManualCover: () => void;
+  onRestoreAutoCover: () => void;
+  coverPending: boolean;
   onDeleteFromIndex: () => void;
   onAddToCollection: (c: CollectionRef) => void;
   onRemoveFromCollection: (c: CollectionRef) => void;
@@ -175,6 +183,23 @@ export function DetailActions({
               >
                 <Copy />
                 {t("media.copyFilePath")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="mx-0 my-0 bg-muted/35" />
+              <DropdownMenuItem
+                disabled={coverPending}
+                className="rounded-none px-3 py-2 text-xs"
+                onSelect={onSetManualCover}
+              >
+                <ImagePlus />
+                {coverPending ? t("media.coverApplying") : t("media.coverSet")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={coverPending}
+                className="rounded-none px-3 py-2 text-xs"
+                onSelect={onRestoreAutoCover}
+              >
+                <RotateCcw />
+                {t("media.coverRestore")}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="mx-0 my-0 bg-muted/35" />
               <DropdownMenuItem

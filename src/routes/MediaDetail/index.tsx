@@ -461,6 +461,9 @@ export default function MediaDetail() {
             imageBgInverted={imageBgInverted}
             onToggleImageBg={toggleImageBgInverted}
             onOpenExternal={actions.openExternal}
+            onSetManualCover={actions.setManualCover}
+            onRestoreAutoCover={actions.restoreAutoCover}
+            coverPending={actions.pending.cover}
             onDeleteFromIndex={() => void actions.deleteFromIndex()}
             onAddToCollection={actions.addToCollection}
             onRemoveFromCollection={actions.removeFromCollection}

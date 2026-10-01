@@ -85,7 +85,13 @@ describe("openDb / backfillColumns", () => {
       db
         .prepare("SELECT version FROM schema_migrations ORDER BY version")
         .all(),
-    ).toEqual([{ version: 0 }, { version: 1 }, { version: 2 }]);
+    ).toEqual([
+      { version: 0 },
+      { version: 1 },
+      { version: 2 },
+      { version: 3 },
+      { version: 4 },
+    ]);
     db.close();
   });
 });

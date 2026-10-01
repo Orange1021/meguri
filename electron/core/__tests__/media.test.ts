@@ -11,6 +11,7 @@ import {
   coverArtStreamIndex,
   exportFrame,
   extractMeta,
+  generateSheet,
   generateThumb,
 } from "../media.js";
 
@@ -395,5 +396,15 @@ describe("generateThumb (audio cover art)", () => {
     const dest = path.join(dir, "no-cover.webp");
     await expect(generateThumb(audio, "audio", dest)).resolves.toBe(false);
     expect(fs.existsSync(dest)).toBe(false);
+  });
+});
+
+describe("generateSheet", () => {
+  it("writes a 4x4 WebP contact sheet from the safe timeline window", async () => {
+    const dest = path.join(dir, "sheet.webp");
+    await expect(generateSheet(video, dest, 1)).resolves.toBe(true);
+    const buf = fs.readFileSync(dest);
+    expect(buf.subarray(0, 4).toString("latin1")).toBe("RIFF");
+    expect(buf.subarray(8, 12).toString("latin1")).toBe("WEBP");
   });
 });

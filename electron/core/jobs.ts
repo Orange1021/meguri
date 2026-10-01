@@ -13,6 +13,7 @@ import {
   type IdentityTarget,
 } from "./scan.js";
 import { coverArtStreamIndex, extractMeta, generateThumb } from "./media.js";
+import { processPendingAssetTasks, queueDerivedAssets } from "./assetService.js";
 import * as q from "./queries.js";
 import { syncFts } from "./tags.js";
 import {
@@ -377,6 +378,12 @@ export async function runScan(
       } else {
         q.setThumb(db, r.id, r.ok ? r.dest : null, r.ok ? "done" : "error");
       }
+      const identity = db
+        .prepare("SELECT video_id AS videoId FROM files WHERE id = ?")
+        .get(r.id) as { videoId: string | null } | undefined;
+      if (identity?.videoId) {
+        queueDerivedAssets(db, { videoId: identity.videoId, kind: r.kind });
+      }
       // Derive from what was just written, and before syncFts — which rebuilds
       // tags_text by re-reading meta_tags.
       applyAutoMetaTags(db, r.id, { kind: r.kind, ...r.meta });
@@ -687,6 +694,15 @@ export async function runScan(
             kind: row.kind,
             ...metadata,
           });
+          const identity = db
+            .prepare("SELECT video_id AS videoId FROM files WHERE id = ?")
+            .get(row.id) as { videoId: string | null } | undefined;
+          if (identity?.videoId) {
+            queueDerivedAssets(db, {
+              videoId: identity.videoId,
+              kind: row.kind as Kind,
+            });
+          }
           syncFts(db, row.id);
           identityStats.reconciled++;
           if (result.issueType) identityStats.issues++;
@@ -719,6 +735,22 @@ export async function runScan(
     // Reclaim durable metadata whose file row no longer exists (mainly post-rebuild orphans).
     // Skipped on abort to avoid purging metadata for files not yet re-indexed (especially after rebuild).
     if (!signal?.aborted) q.pruneOrphanMeta(db);
+
+    if (signal?.aborted) return finishAborted();
+
+    // Derived assets are durable, retryable work. Run a bounded drain here so
+    // a fresh scan produces useful Cover/Sheet files immediately; failed tasks
+    // remain in the queue for a later scan or an explicit retry.
+    setPhase("assets");
+    if (!signal?.aborted) {
+      for (;;) {
+        const assetRun = await processPendingAssetTasks(core, {
+          signal,
+          limit: 8,
+        });
+        if (assetRun.completed === 0 || signal?.aborted) break;
+      }
+    }
 
     if (signal?.aborted) return finishAborted();
 

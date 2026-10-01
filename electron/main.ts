@@ -631,6 +631,7 @@ void app.whenReady().then(async () => {
     positions,
     mainWindow: () => mainWindow,
     mediaBase: () => (mediaPort ? `http://127.0.0.1:${mediaPort}` : null),
+    dataDir: () => layout.dataDir,
     isDevMode,
     emit,
     scans: scanManager,

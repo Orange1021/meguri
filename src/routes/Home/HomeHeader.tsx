@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { PlaylistMenu } from "@/components/PlaylistMenu";
 import { cn } from "@/lib/utils";
 import type { TFunc } from "@/i18n/I18nProvider";
 import { WATCH_LATER_ID } from "@shared/workspaceIds";
@@ -57,6 +58,7 @@ export function HomeHeader({
   onScan,
   onScanWithDeleted,
   onRebuild,
+  playlistFileIds,
   t,
 }: {
   root: string | null | undefined;
@@ -79,6 +81,8 @@ export function HomeHeader({
   onScan: () => void;
   onScanWithDeleted: () => void;
   onRebuild: () => void;
+  /** File ids currently loaded in this workspace, used for new static playlists. */
+  playlistFileIds: number[];
   t: TFunc;
 }) {
   return (
@@ -159,6 +163,12 @@ export function HomeHeader({
         >
           <TagsIcon className="size-4" />
         </Link>
+        <PlaylistMenu
+          workspaceId={workspace?.id ?? null}
+          ready={ready}
+          fileIds={playlistFileIds}
+          t={t}
+        />
         <div className="flex items-center rounded-md border border-border">
           {(
             [

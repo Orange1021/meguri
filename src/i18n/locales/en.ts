@@ -13,7 +13,8 @@ export const en: Record<TranslationKey, string> = {
   // Portable data recovery
   "recovery.title": "Portable data recovery",
   "recovery.loading": "Checking data status…",
-  "recovery.needsInitialization": "This portable library needs to be initialized.",
+  "recovery.needsInitialization":
+    "This portable library needs to be initialized.",
   "recovery.migrationFailed": "The data migration failed.",
   "recovery.restoreAvailable": "Migration failed. You can restore a backup.",
   "recovery.dataDirectory": "Data directory",
@@ -275,6 +276,12 @@ export const en: Record<TranslationKey, string> = {
   "media.thumbClear": "Revert to auto thumbnail",
   "media.thumbApplying": "Applying main thumbnail…",
   "media.currentMainThumb": "Current main thumbnail:",
+  "media.coverSet": "Set manual cover",
+  "media.coverRestore": "Restore automatic cover",
+  "media.coverApplying": "Updating cover…",
+  "media.coverSetSuccess": "Manual cover saved",
+  "media.coverRestored": "Automatic cover restored",
+  "media.coverFailed": "Could not update the cover",
 
   // player controls
   "player.play": "Play",
@@ -616,6 +623,24 @@ export const en: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "Manual order",
   "playlist.start": "Play as playlist",
+  "savedPlaylist.title": "Saved playlists",
+  "savedPlaylist.newStatic": "New static playlist",
+  "savedPlaylist.newSmart": "New smart playlist",
+  "savedPlaylist.namePrompt": "Playlist name",
+  "savedPlaylist.tagPrompt": "Tag to match",
+  "savedPlaylist.loading": "Loading saved playlists…",
+  "savedPlaylist.empty": "No saved playlists",
+  "savedPlaylist.export": "Export M3U8",
+  "savedPlaylist.delete": "Delete",
+  "savedPlaylist.deleteConfirm": "Delete “{name}”?",
+  "savedPlaylist.configurePlayer": "Configure PotPlayer",
+  "savedPlaylist.created": "Saved playlist “{name}”",
+  "savedPlaylist.opened": "Opened “{name}” in PotPlayer",
+  "savedPlaylist.openedWithSkipped":
+    "Opened playlist; skipped {skipped} missing files",
+  "savedPlaylist.exported": "Exported {count} files to {path}",
+  "savedPlaylist.failed": "Saved playlist action failed",
+  "savedPlaylist.deleted": "Deleted “{name}”",
   "playlist.inFolder": "Playing “{path}”",
   "playlist.play": "Play (Space)",
   "playlist.pause": "Pause (Space)",

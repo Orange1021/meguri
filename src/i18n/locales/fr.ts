@@ -13,9 +13,11 @@ export const fr: Record<TranslationKey, string> = {
   // Récupération des données portables
   "recovery.title": "Récupération des données portables",
   "recovery.loading": "Vérification de l’état des données…",
-  "recovery.needsInitialization": "Cette bibliothèque portable doit être initialisée.",
+  "recovery.needsInitialization":
+    "Cette bibliothèque portable doit être initialisée.",
   "recovery.migrationFailed": "La migration des données a échoué.",
-  "recovery.restoreAvailable": "La migration a échoué. Vous pouvez restaurer une sauvegarde.",
+  "recovery.restoreAvailable":
+    "La migration a échoué. Vous pouvez restaurer une sauvegarde.",
   "recovery.dataDirectory": "Dossier de données",
   "recovery.retry": "Réessayer",
   "recovery.initialize": "Initialiser et démarrer",
@@ -281,6 +283,12 @@ export const fr: Record<TranslationKey, string> = {
   "media.thumbClear": "Revenir à la miniature automatique",
   "media.thumbApplying": "Application de la miniature principale…",
   "media.currentMainThumb": "Miniature principale actuelle :",
+  "media.coverSet": "Définir une couverture manuelle",
+  "media.coverRestore": "Restaurer la couverture automatique",
+  "media.coverApplying": "Mise à jour de la couverture…",
+  "media.coverSetSuccess": "Couverture manuelle enregistrée",
+  "media.coverRestored": "Couverture automatique restaurée",
+  "media.coverFailed": "Impossible de mettre à jour la couverture",
 
   // player controls
   "player.play": "Lecture",
@@ -635,6 +643,24 @@ export const fr: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "Ordre manuel",
   "playlist.start": "Lire comme une liste",
+  "savedPlaylist.title": "Listes enregistrées",
+  "savedPlaylist.newStatic": "Nouvelle liste statique",
+  "savedPlaylist.newSmart": "Nouvelle liste intelligente",
+  "savedPlaylist.namePrompt": "Nom de la liste",
+  "savedPlaylist.tagPrompt": "Tag à rechercher",
+  "savedPlaylist.loading": "Chargement des listes enregistrées…",
+  "savedPlaylist.empty": "Aucune liste enregistrée",
+  "savedPlaylist.export": "Exporter en M3U8",
+  "savedPlaylist.delete": "Supprimer",
+  "savedPlaylist.deleteConfirm": "Supprimer « {name} » ?",
+  "savedPlaylist.configurePlayer": "Configurer PotPlayer",
+  "savedPlaylist.created": "Liste « {name} » enregistrée",
+  "savedPlaylist.opened": "« {name} » ouverte dans PotPlayer",
+  "savedPlaylist.openedWithSkipped":
+    "Liste ouverte ; {skipped} fichiers absents ignorés",
+  "savedPlaylist.exported": "{count} fichiers exportés vers {path}",
+  "savedPlaylist.failed": "Échec de l’opération sur la liste",
+  "savedPlaylist.deleted": "« {name} » supprimée",
   "playlist.inFolder": "Lecture de « {path} »",
   "playlist.play": "Lire (Space)",
   "playlist.pause": "Pause (Space)",

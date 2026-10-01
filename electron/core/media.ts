@@ -287,6 +287,61 @@ export async function exportFrame(
   return runFfmpegFrameExport(src, dest, offsetSec, format, true, signal);
 }
 
+/** Generate a 4×4 WebP contact sheet from the safe middle 94% of a video. */
+export async function generateSheet(
+  src: string,
+  dest: string,
+  duration: number | null,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const safeDuration =
+    duration != null && Number.isFinite(duration) && duration > 0
+      ? duration
+      : null;
+  const start = safeDuration == null ? 0 : safeDuration * 0.03;
+  const window = safeDuration == null ? null : Math.max(0.1, safeDuration * 0.94);
+  const args: string[] = [
+    "-v",
+    "error",
+    "-y",
+    "-threads",
+    String(DECODE_FFMPEG_THREADS),
+  ];
+  if (start > 0) args.push("-ss", start.toFixed(3));
+  args.push("-i", src);
+  if (window != null) args.push("-t", window.toFixed(3));
+  const fps = window == null ? "fps=1" : `fps=16/${window.toFixed(3)}`;
+  args.push(
+    "-vf",
+    `${fps},scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:(ow-iw)/2:(oh-ih)/2:color=black,tile=4x4`,
+    "-frames:v",
+    "1",
+    "-c:v",
+    "libwebp",
+    "-quality",
+    "78",
+    dest,
+  );
+  try {
+    await execFileAsync(FFMPEG, args, { timeout: 120_000, signal });
+    const stat = await fsPromises.stat(dest).catch(() => null);
+    if (!stat || stat.size === 0) {
+      if (stat) await fsPromises.unlink(dest).catch(() => {});
+      return false;
+    }
+    return true;
+  } catch (err) {
+    if (!signal?.aborted) {
+      const stderr =
+        (err as { stderr?: string }).stderr ??
+        (err as Error).message ??
+        String(err);
+      log.warn(`ffmpeg sheet failed: ${stderr}`);
+    }
+    return false;
+  }
+}
+
 async function runFfmpegFrameExport(
   src: string,
   dest: string,

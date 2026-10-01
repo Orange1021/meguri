@@ -11,3 +11,5 @@ export * from "./queries/settings.js";
 export * from "./queries/folderRange.js";
 export * from "./queries/folders.js";
 export * from "./queries/identity.js";
+export * from "./queries/assets.js";
+export * from "./queries/playlists.js";

@@ -18,7 +18,8 @@ PortableVideoLibrary/
 │  ├─ config.json
 │  ├─ roots/<workspaceId>/
 │  │  ├─ db.sqlite   # this workspace's database (WAL mode)
-│  │  └─ thumbs/    # generated thumbnails (WebP)
+│  │  ├─ thumbs/    # generated thumbnails (WebP)
+│  │  └─ assets/    # versioned Cover/Sheet/manual assets
 │  ├─ assets/
 │  ├─ playlists/
 │  ├─ backups/
@@ -31,6 +32,9 @@ PortableVideoLibrary/
 root is `<checkout>/.portable-dev`; tests can inject a temporary root. The
 top-level [README](../README.md#where-data-is-stored) is the user-facing
 canonical description of the full storage tree.
+`Data/assets/` and `Data/playlists/` remain reserved layout directories for
+future shared artifacts; current workspace assets live beside the workspace
+database, and M3U8 exports are written to `Data/temp/`.
 
 ### Workspace identity and locators
 
@@ -77,6 +81,15 @@ The main tables:
 - `settings` — a key/value store, currently holding the derived-tag ruleset
   version (see [Derived tags](#derived-tags)).
 - `files_fts` — the FTS5 virtual table (see below).
+- `assets` — durable Cover, Sheet, and manual-original projections keyed by
+  stable `video_id`, with source priority, generation version, and lifecycle
+  status. A manual asset is never overwritten by automatic regeneration.
+- `asset_tasks` — retryable Cover/Sheet generation work with attempt count,
+  backoff, and error code.
+- `playlists` — persistent static and smart playlist definitions. Smart rules
+  are normalized JSON ASTs; static membership is stored by `video_id`.
+- `playlist_items` — ordered static playlist membership with foreign keys and
+  cascade cleanup when a playlist or logical video is removed.
 
 ## Versioned migrations and backups
 
@@ -97,6 +110,11 @@ The first registered step creates `portable_metadata` with the layout version,
 application version, and last backup ID. It does not rename or delete existing
 media tables. Indexes and compatibility backfills remain in `CORE_DDL` and
 `backfillColumns()` because they must also repair older databases.
+
+The current registry is append-only through version 4: v2 adds stable video
+identity/fingerprint/scan-run tables, v3 adds the asset pipeline, and v4 adds
+playlists. Existing phase-2 databases therefore open through the same checksum
+verified path and retain their old files and metadata.
 
 Indexes go in `CORE_DDL` too — `openDb()` re-executes it on every open, so
 `CREATE INDEX IF NOT EXISTS` reaches existing databases without any entry in
@@ -273,3 +291,15 @@ across `electron/core/queries/`:
 - `bookmarks.ts` — scene bookmark operations.
 - `thumbs.ts` — thumbnail-related queries.
 - `scanRoots.ts` — scan-root bookkeeping.
+- `assets.ts` — asset selection, lifecycle rows, and retryable task state.
+- `playlists.ts` — static/smart playlist CRUD, rule evaluation queries, and
+  ordered media resolution.
+
+## External playback
+
+M3U8 export resolves current absolute file paths at export time, skips files
+that no longer exist under the workspace root, and writes UTF-8 with CRLF line
+endings. The PotPlayer adapter discovers a configured or common Windows
+executable and launches it with an argument array; no shell command string is
+constructed. When the player is unavailable, in-app Chromium playback remains
+the fallback.

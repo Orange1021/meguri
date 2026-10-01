@@ -42,6 +42,7 @@ export class Core {
       options.workspaceId,
     );
     fs.mkdirSync(path.join(dataDir, "thumbs"), { recursive: true });
+    fs.mkdirSync(path.join(dataDir, "assets"), { recursive: true });
 
     const db = openDb(dbPathForDataDir(dataDir));
     const rootId = upsertScanRoot(db, root, pathHash(root));
@@ -51,6 +52,11 @@ export class Core {
 
   thumbsDir(): string {
     return path.join(this.dataDir, "thumbs");
+  }
+
+  /** Workspace-scoped asset root. The video UUID is the stable child path. */
+  assetsDir(): string {
+    return path.join(this.dataDir, "assets");
   }
 
   /** Close the DB handle. Needed before deleting the data directory (esp. on Windows). */

@@ -6,9 +6,59 @@
 import { z } from "zod";
 import { MAX_TAG_REF_NAME } from "../tags.js";
 import { MAX_FOLDER_PATH, isNormalizedFolderPath } from "../folderPath.js";
+import {
+  PlaylistKindSchema,
+  PlaylistRuleSchema,
+  PlaylistSortSchema,
+} from "../playlists.js";
+export {
+  PlaylistKindSchema,
+  PlaylistRuleSchema,
+  PlaylistSortSchema,
+} from "../playlists.js";
+export type {
+  PlaylistKind,
+  PlaylistRule,
+  PlaylistSort,
+} from "../playlists.js";
 
 export const KindSchema = z.enum(["video", "image", "audio"]);
 export type Kind = z.infer<typeof KindSchema>;
+
+export const AssetKindSchema = z.enum(["cover", "sheet", "manual-original"]);
+export type AssetKind = z.infer<typeof AssetKindSchema>;
+export const AssetSourceSchema = z.enum(["manual", "embedded", "sidecar", "auto"]);
+export type AssetSource = z.infer<typeof AssetSourceSchema>;
+export const AssetStatusSchema = z.enum([
+  "queued",
+  "generating",
+  "ready",
+  "failed",
+  "retired",
+]);
+export type AssetStatus = z.infer<typeof AssetStatusSchema>;
+export const AssetSummarySchema = z.object({
+  assetId: z.string(),
+  videoId: z.string(),
+  kind: AssetKindSchema,
+  source: AssetSourceSchema,
+  path: z.string(),
+  generationVersion: z.string(),
+  status: AssetStatusSchema,
+});
+export type AssetSummary = z.infer<typeof AssetSummarySchema>;
+
+export const PlaylistSummarySchema = z.object({
+  playlistId: z.string(),
+  kind: PlaylistKindSchema,
+  name: z.string(),
+  rule: PlaylistRuleSchema.nullable(),
+  sort: PlaylistSortSchema.nullable(),
+  itemCount: z.number().int().nonnegative(),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+});
+export type PlaylistSummary = z.infer<typeof PlaylistSummarySchema>;
 
 // App logo variants (window/tray/in-app icon). "dark" is the original
 // vermilion kanji icon, "light" the inverted unbleached-cotton one, and

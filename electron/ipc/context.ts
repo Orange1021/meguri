@@ -20,6 +20,8 @@ export interface IpcContext {
   /** Live values, read on each call: they change after registration. */
   mainWindow: () => BrowserWindow | null;
   mediaBase: () => string | null;
+  /** Resolved portable Data directory, when the app is running normally. */
+  dataDir?: () => string;
   isDevMode: () => boolean;
   /** Send an event to the renderer (no-op when the window is gone). */
   emit: (channel: string, payload: unknown) => void;

@@ -102,6 +102,63 @@ const VIDEO_IDENTITY_SQL = [
   "CREATE INDEX IF NOT EXISTS idx_files_video_id ON files(video_id);",
 ].join("\n");
 
+const ASSET_PIPELINE_SQL = [
+  "CREATE TABLE IF NOT EXISTS assets (",
+  "  asset_id TEXT PRIMARY KEY,",
+  "  video_id TEXT NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,",
+  "  kind TEXT NOT NULL CHECK (kind IN ('cover','sheet','manual-original')),",
+  "  source TEXT NOT NULL CHECK (source IN ('manual','embedded','sidecar','auto')),",
+  "  path TEXT NOT NULL,",
+  "  generation_version TEXT NOT NULL,",
+  "  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','generating','ready','failed','retired')),",
+  "  error_code TEXT,",
+  "  created_at INTEGER NOT NULL,",
+  "  updated_at INTEGER NOT NULL,",
+  "  UNIQUE (video_id, kind, source)",
+  ");",
+  "CREATE INDEX IF NOT EXISTS idx_assets_video_kind_status",
+  "  ON assets(video_id, kind, status);",
+  "CREATE TABLE IF NOT EXISTS asset_tasks (",
+  "  task_id TEXT PRIMARY KEY,",
+  "  video_id TEXT NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,",
+  "  kind TEXT NOT NULL CHECK (kind IN ('cover','sheet')),",
+  "  source TEXT NOT NULL CHECK (source IN ('embedded','sidecar','auto')),",
+  "  generation_version TEXT NOT NULL,",
+  "  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','completed','failed')),",
+  "  attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),",
+  "  next_attempt_at INTEGER NOT NULL,",
+  "  error_code TEXT,",
+  "  created_at INTEGER NOT NULL,",
+  "  updated_at INTEGER NOT NULL,",
+  "  UNIQUE (video_id, kind, source, generation_version)",
+  ");",
+  "CREATE INDEX IF NOT EXISTS idx_asset_tasks_ready",
+  "  ON asset_tasks(status, next_attempt_at);",
+].join("\n");
+
+const PLAYLIST_SQL = [
+  "CREATE TABLE IF NOT EXISTS playlists (",
+  "  playlist_id TEXT PRIMARY KEY,",
+  "  kind TEXT NOT NULL CHECK (kind IN ('static','smart')),",
+  "  name TEXT NOT NULL,",
+  "  rule_json TEXT,",
+  "  sort_json TEXT,",
+  "  created_at INTEGER NOT NULL,",
+  "  updated_at INTEGER NOT NULL,",
+  "  CHECK ((kind = 'static' AND rule_json IS NULL) OR (kind = 'smart' AND rule_json IS NOT NULL))",
+  ");",
+  "CREATE INDEX IF NOT EXISTS idx_playlists_updated ON playlists(updated_at DESC);",
+  "CREATE TABLE IF NOT EXISTS playlist_items (",
+  "  playlist_id TEXT NOT NULL REFERENCES playlists(playlist_id) ON DELETE CASCADE,",
+  "  video_id TEXT NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,",
+  "  position INTEGER NOT NULL CHECK (position >= 0),",
+  "  added_at INTEGER NOT NULL,",
+  "  PRIMARY KEY (playlist_id, video_id),",
+  "  UNIQUE (playlist_id, position)",
+  ");",
+  "CREATE INDEX IF NOT EXISTS idx_playlist_items_video ON playlist_items(video_id);",
+].join("\n");
+
 export const DEFAULT_MIGRATION_REGISTRY: MigrationRegistry = {
   baselineVersion: 0,
   steps: [
@@ -121,6 +178,22 @@ export const DEFAULT_MIGRATION_REGISTRY: MigrationRegistry = {
         ensureVideoIdColumn(db);
         db.exec(VIDEO_IDENTITY_SQL);
         backfillLegacyVideoIdentities(db, context.now());
+      },
+    },
+    {
+      version: 3,
+      name: "asset-pipeline-v1",
+      sql: ASSET_PIPELINE_SQL,
+      apply: (db) => {
+        db.exec(ASSET_PIPELINE_SQL);
+      },
+    },
+    {
+      version: 4,
+      name: "playlists-v1",
+      sql: PLAYLIST_SQL,
+      apply: (db) => {
+        db.exec(PLAYLIST_SQL);
       },
     },
   ],

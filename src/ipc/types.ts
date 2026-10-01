@@ -2,6 +2,7 @@
 // See shared/ipc/schema.ts for the canonical definitions.
 export type {
   AppStatus,
+  AssetSummary,
   DuplicateGroup,
   DuplicatesResult,
   FileDetail,
@@ -16,6 +17,9 @@ export type {
   HistoryQuery,
   Kind,
   PlayEntry,
+  PlaylistRule,
+  PlaylistSort,
+  PlaylistSummary,
   ScanDone,
   ScanProgress,
   SceneBookmark,

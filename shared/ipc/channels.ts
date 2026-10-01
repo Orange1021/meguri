@@ -22,6 +22,8 @@ import type {
   UserCollection,
   WorkspaceStats,
   WorkspacesList,
+  AssetSummary,
+  PlaylistSummary,
 } from "./schema.js";
 import {
   FolderPathSchema,
@@ -29,6 +31,9 @@ import {
   LogoIdSchema,
   SearchQuerySchema,
   TagRefSchema,
+  PlaylistKindSchema,
+  PlaylistRuleSchema,
+  PlaylistSortSchema,
 } from "./schema.js";
 import {
   EVENT_CHANNELS,
@@ -317,6 +322,32 @@ export const ChannelInputs = {
   bookmark_remove: FileTarget.extend({ bookmarkId: z.number() }),
   thumb_set_offset: FileTarget.extend({ sec: z.number().nullable() }),
   frame_export: FileTarget.extend({ sec: z.number().finite().min(0) }),
+  assets_list: FileTarget,
+  asset_set_manual_cover: FileTarget,
+  asset_restore_auto_cover: FileTarget,
+  playlist_list: z.void(),
+  playlist_create: z.object({
+    name: z.string().trim().min(1).max(200),
+    kind: PlaylistKindSchema,
+    rule: PlaylistRuleSchema.optional(),
+    sort: PlaylistSortSchema.nullable().optional(),
+  }),
+  playlist_update: z.object({
+    playlistId: z.string().min(1).max(100),
+    name: z.string().trim().min(1).max(200).optional(),
+    rule: PlaylistRuleSchema.optional(),
+    sort: PlaylistSortSchema.nullable().optional(),
+  }),
+  playlist_delete: z.object({ playlistId: z.string().min(1).max(100) }),
+  playlist_set_items: z.object({
+    playlistId: z.string().min(1).max(100),
+    fileIds: z.array(z.number().int().positive()).max(MAX_BULK_FILES),
+  }),
+  playlist_files: z.object({ playlistId: z.string().min(1).max(100) }),
+  playlist_export_m3u8: z.object({ playlistId: z.string().min(1).max(100) }),
+  playlist_open_potplayer: z.object({ playlistId: z.string().min(1).max(100) }),
+  player_discover: z.void(),
+  player_configure: z.void(),
   open_external: FileTarget,
   open_folder: FileTarget,
   // A folder of the folder view, opened in the OS file manager.
@@ -459,6 +490,24 @@ export interface ChannelOutputs {
   // saved=false means the user canceled the save dialog (not an error);
   // extraction failures reject instead.
   frame_export: { saved: boolean; path: string | null };
+  assets_list: AssetSummary[];
+  asset_set_manual_cover: AssetSummary | null;
+  asset_restore_auto_cover: void;
+  playlist_list: PlaylistSummary[];
+  playlist_create: PlaylistSummary;
+  playlist_update: PlaylistSummary;
+  playlist_delete: void;
+  playlist_set_items: void;
+  playlist_files: FileRow[];
+  playlist_export_m3u8: { path: string; included: number; skipped: number };
+  playlist_open_potplayer: {
+    playerPath: string;
+    playlistPath: string;
+    included: number;
+    skipped: number;
+  };
+  player_discover: { path: string | null; source: string | null };
+  player_configure: { path: string | null; source: string | null };
   open_external: void;
   open_folder: void;
   folder_open_in_file_manager: void;

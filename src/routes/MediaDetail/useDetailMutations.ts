@@ -35,6 +35,10 @@ export interface DetailActions {
   removeBookmark: (bookmarkId: number) => void;
   /** `null` reverts to the auto-extracted frame. */
   setMainThumb: (sec: number | null) => void;
+  /** Import a durable manual Cover through the native file picker. */
+  setManualCover: () => void;
+  /** Retire the manual Cover and regenerate the best automatic Cover. */
+  restoreAutoCover: () => void;
   exportFrame: (sec: number) => void;
   /** Asks first; resolves once the file is gone and the view has been told. */
   deleteFromIndex: () => Promise<void>;
@@ -43,6 +47,7 @@ export interface DetailActions {
     bookmark: boolean;
     export: boolean;
     mainThumb: boolean;
+    cover: boolean;
   };
   /**
    * The scene being applied as the main thumbnail (`null` = reverting to the
@@ -277,6 +282,36 @@ export function useDetailMutations({
     onError: () => toast.error(t("player.frameExportFailed")),
   });
 
+  const setManualCover = useMutation({
+    mutationFn: () => api.assetSetManualCover(fileId, wsId),
+    onSuccess: (asset) => {
+      // null means the native picker was canceled; it is not a failure.
+      if (!asset) return;
+      void qc.invalidateQueries({ queryKey: detailKey });
+      void qc.invalidateQueries({ queryKey: ["files_search"] });
+      void qc.invalidateQueries({ queryKey: ["files_random"] });
+      toast.success(t("media.coverSetSuccess"));
+    },
+    onError: (error) =>
+      toast.error(t("media.coverFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      }),
+  });
+
+  const restoreAutoCover = useMutation({
+    mutationFn: () => api.assetRestoreAutoCover(fileId, wsId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: detailKey });
+      void qc.invalidateQueries({ queryKey: ["files_search"] });
+      void qc.invalidateQueries({ queryKey: ["files_random"] });
+      toast.success(t("media.coverRestored"));
+    },
+    onError: (error) =>
+      toast.error(t("media.coverFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      }),
+  });
+
   // Single-argument wrappers, not the mutate functions themselves: mutate
   // takes options as a second argument, and a DOM handler wired straight to
   // it would pass the event there.
@@ -289,6 +324,8 @@ export function useDetailMutations({
     addBookmark: (sec) => addBookmark.mutate(sec),
     removeBookmark: (bookmarkId) => removeBookmark.mutate(bookmarkId),
     setMainThumb: (sec) => setMainThumb.mutate(sec),
+    setManualCover: () => setManualCover.mutate(),
+    restoreAutoCover: () => restoreAutoCover.mutate(),
     exportFrame: (sec) => exportFrame.mutate(sec),
     deleteFromIndex,
     openExternal,
@@ -296,6 +333,7 @@ export function useDetailMutations({
       bookmark: addBookmark.isPending || removeBookmark.isPending,
       export: exportFrame.isPending,
       mainThumb: setMainThumb.isPending,
+      cover: setManualCover.isPending || restoreAutoCover.isPending,
     },
     pendingThumbSec: setMainThumb.isPending
       ? (setMainThumb.variables ?? null)

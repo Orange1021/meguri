@@ -13,9 +13,11 @@ export const es: Record<TranslationKey, string> = {
   // Recuperación de datos portátiles
   "recovery.title": "Recuperación de datos portátiles",
   "recovery.loading": "Comprobando el estado de los datos…",
-  "recovery.needsInitialization": "Esta biblioteca portátil necesita inicializarse.",
+  "recovery.needsInitialization":
+    "Esta biblioteca portátil necesita inicializarse.",
   "recovery.migrationFailed": "La migración de datos ha fallado.",
-  "recovery.restoreAvailable": "La migración falló. Puedes restaurar una copia de seguridad.",
+  "recovery.restoreAvailable":
+    "La migración falló. Puedes restaurar una copia de seguridad.",
   "recovery.dataDirectory": "Directorio de datos",
   "recovery.retry": "Reintentar",
   "recovery.initialize": "Inicializar y comenzar",
@@ -280,6 +282,12 @@ export const es: Record<TranslationKey, string> = {
   "media.thumbClear": "Volver a la miniatura automática",
   "media.thumbApplying": "Aplicando miniatura principal…",
   "media.currentMainThumb": "Miniatura principal actual:",
+  "media.coverSet": "Establecer portada manual",
+  "media.coverRestore": "Restaurar portada automática",
+  "media.coverApplying": "Actualizando portada…",
+  "media.coverSetSuccess": "Portada manual guardada",
+  "media.coverRestored": "Portada automática restaurada",
+  "media.coverFailed": "No se pudo actualizar la portada",
 
   // player controls
   "player.play": "Reproducir",
@@ -633,6 +641,24 @@ export const es: Record<TranslationKey, string> = {
   // Playlist playback (auto-play)
   "sort.manual": "Orden manual",
   "playlist.start": "Reproducir como lista",
+  "savedPlaylist.title": "Listas guardadas",
+  "savedPlaylist.newStatic": "Nueva lista estática",
+  "savedPlaylist.newSmart": "Nueva lista inteligente",
+  "savedPlaylist.namePrompt": "Nombre de la lista",
+  "savedPlaylist.tagPrompt": "Etiqueta que debe coincidir",
+  "savedPlaylist.loading": "Cargando listas guardadas…",
+  "savedPlaylist.empty": "No hay listas guardadas",
+  "savedPlaylist.export": "Exportar M3U8",
+  "savedPlaylist.delete": "Eliminar",
+  "savedPlaylist.deleteConfirm": "¿Eliminar «{name}»?",
+  "savedPlaylist.configurePlayer": "Configurar PotPlayer",
+  "savedPlaylist.created": "Lista guardada «{name}»",
+  "savedPlaylist.opened": "«{name}» abierta en PotPlayer",
+  "savedPlaylist.openedWithSkipped":
+    "Lista abierta; se omitieron {skipped} archivos ausentes",
+  "savedPlaylist.exported": "Se exportaron {count} archivos a {path}",
+  "savedPlaylist.failed": "La operación de la lista falló",
+  "savedPlaylist.deleted": "«{name}» eliminada",
   "playlist.inFolder": "Reproduciendo «{path}»",
   "playlist.play": "Reproducir (Space)",
   "playlist.pause": "Pausar (Space)",

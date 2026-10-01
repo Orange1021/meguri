@@ -174,6 +174,35 @@ export const api = {
   /** Export the frame at `sec` as a still image via a native save dialog. */
   frameExport: (id: number, workspaceId: string, sec: number) =>
     invoke("frame_export", { id, workspaceId, sec }),
+  assetsList: (id: number, workspaceId: string) =>
+    invoke("assets_list", { id, workspaceId }),
+  assetSetManualCover: (id: number, workspaceId: string) =>
+    invoke("asset_set_manual_cover", { id, workspaceId }),
+  assetRestoreAutoCover: (id: number, workspaceId: string) =>
+    invoke("asset_restore_auto_cover", { id, workspaceId }),
+  playlistList: () => invoke("playlist_list"),
+  playlistCreate: (
+    name: string,
+    kind: ChannelInput<"playlist_create">["kind"],
+    rule?: ChannelInput<"playlist_create">["rule"],
+    sort?: ChannelInput<"playlist_create">["sort"],
+  ) => invoke("playlist_create", { name, kind, rule, sort }),
+  playlistUpdate: (
+    playlistId: string,
+    patch: Omit<ChannelInput<"playlist_update">, "playlistId">,
+  ) => invoke("playlist_update", { playlistId, ...patch }),
+  playlistDelete: (playlistId: string) =>
+    invoke("playlist_delete", { playlistId }),
+  playlistSetItems: (playlistId: string, fileIds: number[]) =>
+    invoke("playlist_set_items", { playlistId, fileIds }),
+  playlistFiles: (playlistId: string) =>
+    invoke("playlist_files", { playlistId }),
+  playlistExportM3u8: (playlistId: string) =>
+    invoke("playlist_export_m3u8", { playlistId }),
+  playlistOpenPotPlayer: (playlistId: string) =>
+    invoke("playlist_open_potplayer", { playlistId }),
+  playerDiscover: () => invoke("player_discover"),
+  playerConfigure: () => invoke("player_configure"),
   openExternal: (id: number, workspaceId: string) =>
     invoke("open_external", { id, workspaceId }),
   openFolder: (id: number, workspaceId: string) =>
