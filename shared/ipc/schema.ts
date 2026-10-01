@@ -60,13 +60,10 @@ export const PlaylistSummarySchema = z.object({
 });
 export type PlaylistSummary = z.infer<typeof PlaylistSummarySchema>;
 
-// App logo variants (window/tray/in-app icon). "dark" is the original
-// vermilion kanji icon, "light" the inverted unbleached-cotton one, and
-// "enso" a pictorial brush-circle-with-media-card mark on navy. Persisted in
-// main's config.json (the tray exists before any renderer), so the ids are a
-// stable API shared by config.json, IPC, and the bundled assets — do not
-// rename.
-export const LOGO_IDS = ["dark", "light", "enso"] as const;
+// The canonical application mark used by the window, tray, Dock, and renderer.
+// Legacy config values (dark/light/enso) are accepted only as migration input
+// and normalize to orange in appConfig.ts; they are not valid IPC choices.
+export const LOGO_IDS = ["orange"] as const;
 export const LogoIdSchema = z.enum(LOGO_IDS);
 export type LogoId = z.infer<typeof LogoIdSchema>;
 
