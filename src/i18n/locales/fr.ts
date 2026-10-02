@@ -294,6 +294,9 @@ export const fr: Record<TranslationKey, string> = {
   "media.coverSetSuccess": "Couverture manuelle enregistrée",
   "media.coverRestored": "Couverture automatique restaurée",
   "media.coverFailed": "Impossible de mettre à jour la couverture",
+  "media.coverView": "Voir la couverture",
+  "media.coverPreviewTitle": "Aperçu de la couverture : {name}",
+  "media.coverPreviewFailed": "Impossible de charger l’aperçu de la couverture",
 
   // player controls
   "player.play": "Lecture",

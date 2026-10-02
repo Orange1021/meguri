@@ -4,7 +4,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, fireEvent, screen } from "@testing-library/react";
 import "@/test/mockVirtualizer";
 import { MediaList } from "@/components/MediaList";
-import { defaultWorkspacesList, sampleFileRow, WS_ID } from "@/test/fixtures";
+import {
+  defaultWorkspacesList,
+  sampleAudioRow,
+  sampleFileRow,
+  WS_ID,
+} from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
 const mocks = vi.hoisted(() => ({
@@ -85,5 +90,29 @@ describe("MediaList by folder", () => {
   it("says a folder search found nothing", () => {
     renderList({ items: [], inFolder: true });
     expect(screen.getByText("Nothing in this folder matches")).toBeTruthy();
+  });
+
+  it("opens a versioned cover preview from a video row", async () => {
+    renderList({ thumbVersion: { [`${WS_ID}:1`]: 3 } });
+
+    const viewButton = await screen.findByRole("button", {
+      name: "View cover",
+    });
+    fireEvent.click(viewButton);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain("videos/sample.mp4");
+    expect(dialog.querySelector("img")?.getAttribute("src")).toBe(
+      `http://127.0.0.1:17345/ws/${WS_ID}/thumb/1?v=3`,
+    );
+  });
+
+  it("does not show a cover preview button without a video cover", async () => {
+    renderList({
+      items: [{ ...sampleFileRow, hasThumb: 0 }, sampleAudioRow],
+    });
+
+    await screen.findByText("sample.mp4");
+    expect(screen.queryByRole("button", { name: "View cover" })).toBeNull();
   });
 });

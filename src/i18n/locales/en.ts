@@ -287,6 +287,9 @@ export const en: Record<TranslationKey, string> = {
   "media.coverSetSuccess": "Manual cover saved",
   "media.coverRestored": "Automatic cover restored",
   "media.coverFailed": "Could not update the cover",
+  "media.coverView": "View cover",
+  "media.coverPreviewTitle": "Cover preview: {name}",
+  "media.coverPreviewFailed": "Could not load the cover preview",
 
   // player controls
   "player.play": "Play",

@@ -293,6 +293,9 @@ export const es: Record<TranslationKey, string> = {
   "media.coverSetSuccess": "Portada manual guardada",
   "media.coverRestored": "Portada automática restaurada",
   "media.coverFailed": "No se pudo actualizar la portada",
+  "media.coverView": "Ver portada",
+  "media.coverPreviewTitle": "Vista previa de portada: {name}",
+  "media.coverPreviewFailed": "No se pudo cargar la vista previa de la portada",
 
   // player controls
   "player.play": "Reproducir",

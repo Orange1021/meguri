@@ -278,6 +278,9 @@ export const zhCN: Record<TranslationKey, string> = {
   "media.coverSetSuccess": "手动封面已保存",
   "media.coverRestored": "自动封面已恢复",
   "media.coverFailed": "封面更新失败",
+  "media.coverView": "查看封面",
+  "media.coverPreviewTitle": "封面预览：{name}",
+  "media.coverPreviewFailed": "封面加载失败",
 
   // player controls
   "player.play": "播放",

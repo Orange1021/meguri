@@ -285,6 +285,9 @@ export const ko: Record<TranslationKey, string> = {
   "media.coverSetSuccess": "수동 표지를 저장했습니다",
   "media.coverRestored": "자동 표지로 복원했습니다",
   "media.coverFailed": "표지를 업데이트하지 못했습니다",
+  "media.coverView": "표지 보기",
+  "media.coverPreviewTitle": "표지 미리보기: {name}",
+  "media.coverPreviewFailed": "표지 미리보기를 불러오지 못했습니다",
 
   // player controls
   "player.play": "재생",

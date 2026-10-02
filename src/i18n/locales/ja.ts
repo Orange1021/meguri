@@ -288,6 +288,9 @@ export const ja = {
   "media.coverSetSuccess": "手動カバーを保存しました",
   "media.coverRestored": "自動カバーに戻しました",
   "media.coverFailed": "カバーを更新できませんでした",
+  "media.coverView": "カバーを見る",
+  "media.coverPreviewTitle": "カバープレビュー：{name}",
+  "media.coverPreviewFailed": "カバープレビューを読み込めませんでした",
 
   // プレイヤー操作
   "player.play": "再生",

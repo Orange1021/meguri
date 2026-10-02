@@ -34,6 +34,8 @@ import {
 } from "@/hooks/useWatchLater";
 import { RatingButton } from "@/components/RatingButton";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
+import { CoverPreviewButton } from "@/components/CoverPreviewButton";
+import { CoverPreviewDialog } from "@/components/CoverPreviewDialog";
 import { TagChips } from "@/components/TagChips";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -52,6 +54,7 @@ import { useGridKeyboardNav, useScrollToRow } from "@/hooks/useGridKeyboardNav";
 import { useWatchLaterHotkey } from "@/hooks/useWatchLaterHotkey";
 import { usePublishFocusedFile } from "@/hooks/useFocusedFile";
 import { useInfiniteScrollTrigger } from "@/hooks/useInfiniteScrollTrigger";
+import { hasThumbFile, thumbUrl } from "@/lib/thumbUrl";
 
 const ROW_ESTIMATE = 118; // initial row-height estimate (corrected by measurement)
 
@@ -109,6 +112,8 @@ interface Props {
 
 const noop = () => {};
 
+type CoverPreview = { url: string; title: string };
+
 // Memoized: Home re-renders on every thumbVersion flush and its other props are
 // referentially stable, so the list only re-renders when the data actually changes.
 export const MediaList = memo(function MediaList({
@@ -136,6 +141,7 @@ export const MediaList = memo(function MediaList({
   const watchLaterMembership = useWatchLater();
   const { listThumbSize } = usePreferences();
   const thumbWidth = THUMB_WIDTH[listThumbSize];
+  const [coverPreview, setCoverPreview] = useState<CoverPreview | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const setScrollRef = useCallback((node: HTMLDivElement | null) => {
@@ -252,67 +258,78 @@ export const MediaList = memo(function MediaList({
   }
 
   return (
-    <MediaReorderProvider items={items} reorder={reorder}>
-      <ScrollArea
-        className="page-scroll h-full"
-        viewportClassName="pt-4"
-        viewportRef={setScrollRef}
-      >
-        <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            position: "relative",
-            width: "100%",
-          }}
+    <>
+      <MediaReorderProvider items={items} reorder={reorder}>
+        <ScrollArea
+          className="page-scroll h-full"
+          viewportClassName="pt-4"
+          viewportRef={setScrollRef}
         >
-          {virtualRows.map((vr) => (
-            <div
-              key={vr.key}
-              ref={measureRow}
-              className="absolute left-0 top-0 w-full px-3 pb-0.5"
-              style={{ transform: `translateY(${vr.start}px)` }}
-            >
-              {(() => {
-                const entry = entries[vr.index];
-                const focused = vr.index === focusedIndex;
-                if (entry.kind === "folder") {
-                  return (
-                    <FolderRow
-                      entry={entry.folder}
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              position: "relative",
+              width: "100%",
+            }}
+          >
+            {virtualRows.map((vr) => (
+              <div
+                key={vr.key}
+                ref={measureRow}
+                className="absolute left-0 top-0 w-full px-3 pb-0.5"
+                style={{ transform: `translateY(${vr.start}px)` }}
+              >
+                {(() => {
+                  const entry = entries[vr.index];
+                  const focused = vr.index === focusedIndex;
+                  if (entry.kind === "folder") {
+                    return (
+                      <FolderRow
+                        entry={entry.folder}
+                        mediaBase={mediaBase}
+                        thumbVersion={thumbVersion}
+                        thumbWidth={thumbWidth}
+                        focused={focused}
+                        onOpen={onOpenFolder ?? noop}
+                      />
+                    );
+                  }
+                  const file = entry.file;
+                  const row = (
+                    <MediaRow
+                      file={file}
+                      index={entry.fileIndex}
+                      version={thumbVersion[mediaSortId(file)] ?? 0}
                       mediaBase={mediaBase}
-                      thumbVersion={thumbVersion}
                       thumbWidth={thumbWidth}
+                      onTagClick={onTagClick}
                       focused={focused}
-                      onOpen={onOpenFolder ?? noop}
+                      watchLater={watchLaterMembership}
+                      watchLaterRef={focused ? focusedWatchLaterRef : undefined}
+                      fileDraggable={!reorder}
+                      onViewCover={setCoverPreview}
                     />
                   );
-                }
-                const file = entry.file;
-                const row = (
-                  <MediaRow
-                    file={file}
-                    index={entry.fileIndex}
-                    version={thumbVersion[mediaSortId(file)] ?? 0}
-                    mediaBase={mediaBase}
-                    thumbWidth={thumbWidth}
-                    onTagClick={onTagClick}
-                    focused={focused}
-                    watchLater={watchLaterMembership}
-                    watchLaterRef={focused ? focusedWatchLaterRef : undefined}
-                    fileDraggable={!reorder}
-                  />
-                );
-                return reorder ? (
-                  <SortableMedia id={mediaSortId(file)}>{row}</SortableMedia>
-                ) : (
-                  row
-                );
-              })()}
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-    </MediaReorderProvider>
+                  return reorder ? (
+                    <SortableMedia id={mediaSortId(file)}>{row}</SortableMedia>
+                  ) : (
+                    row
+                  );
+                })()}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </MediaReorderProvider>
+      <CoverPreviewDialog
+        open={coverPreview !== null}
+        coverUrl={coverPreview?.url ?? null}
+        title={coverPreview?.title ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setCoverPreview(null);
+        }}
+      />
+    </>
   );
 });
 
@@ -328,6 +345,7 @@ const MediaRow = memo(function MediaRow({
   watchLater,
   watchLaterRef,
   fileDraggable,
+  onViewCover,
 }: {
   file: FileRow;
   /** Position in the loaded list — what a Shift-click ranges from. */
@@ -343,6 +361,7 @@ const MediaRow = memo(function MediaRow({
   watchLaterRef?: Ref<HTMLButtonElement>;
   /** Can be dragged onto a collection in the rail (off while reordering). */
   fileDraggable: boolean;
+  onViewCover: (preview: CoverPreview) => void;
 }) {
   // The row has two click regions so the click target controls whether the
   // detail view auto-plays. Thumbnail click → auto-play (default); anywhere
@@ -370,6 +389,10 @@ const MediaRow = memo(function MediaRow({
     isSet || focused
       ? undefined
       : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
+  const coverUrl =
+    file.kind === "video" && hasThumbFile(file)
+      ? thumbUrl(mediaBase, file.workspaceId, file.id, version)
+      : null;
   return (
     <div
       {...dragProps}
@@ -406,6 +429,12 @@ const MediaRow = memo(function MediaRow({
           index={index}
           className="absolute left-1.5 top-1.5 z-10"
         />
+        {coverUrl && (
+          <CoverPreviewButton
+            className="absolute right-1 top-1 z-20"
+            onClick={() => onViewCover({ url: coverUrl, title: file.relPath })}
+          />
+        )}
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
