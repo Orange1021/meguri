@@ -11,7 +11,7 @@ npm run dev        # development mode (electron-vite dev)
 npm run build      # build main / preload / renderer into out/
 npm run preview    # launch the built app (= npm start)
 npm run dist       # produce distributables (electron-builder)
-npm run dist -- --win portable  # produce the Windows portable package
+npm run dist:portable  # assemble the Windows portable folder
 npm run typecheck  # tsc --noEmit over both src and electron
 npm test           # core, renderer, and portable-upgrade regression tests
 npm run test:portable-upgrade  # App slot activation/rollback regression tests
@@ -25,9 +25,10 @@ launching, so Electron does not accidentally start in node mode.
 
 Development resolves its portable root to `<checkout>/.portable-dev`. Set
 `MEGURI_PORTABLE_ROOT` to isolate a run in a temporary directory. Packaged
-Windows builds keep `Data/` and `Media/` beside `App/`. A portable executable
-launched directly from the root also keeps them beside that exe; the runtime
-accepts both layouts. The explicit
+Windows builds keep `Data/` and `Media/` beside the executable. The
+`dist:portable` workflow assembles the final copyable directory at `橙映/` and
+removes its temporary staging directory after packaging. The runtime also
+accepts the legacy `App/` layout for existing installations. The explicit
 `PORTABLE_EXECUTABLE_DIR` input is available to launchers that know the App
 directory independently.
 
@@ -75,17 +76,23 @@ macOS (dmg / zip).
 
 ### Portable artifact checks
 
-After `npm run dist -- --win portable`, inspect the generated
-`release/橙映-<version>-win32-x64.exe`. A portable smoke check should verify:
+After `npm run dist:portable`, inspect the generated `橙映/` directory. It must
+contain only `橙映.exe`, `Data/`, and `Media/`; the version/platform-suffixed
+builder artifact exists only in the temporary `.portable-build/` directory.
+A portable smoke check should verify:
 
-1. the artifact launches with `App/` resources available;
-2. first launch creates `Data/` beside `App/`, not a database below Electron's
-   system `userData`;
-3. scanning a folder below `Media/` writes `Data/config.json` and
-   `Data/roots/<workspaceId>/db.sqlite`;
-4. replacing only `App/` leaves the configuration and database hashes unchanged;
-5. a copy with an equivalent `Media/` layout resolves the same portable-relative
+1. `橙映/橙映.exe` launches with its packaged resources available;
+2. first launch creates `橙映/Data/`, not a database below Electron's system
+   `userData`;
+3. scanning a folder below `橙映/Media/` writes `橙映/Data/config.json` and
+   `橙映/Data/roots/<workspaceId>/db.sqlite`;
+4. replacing only `橙映.exe` leaves the configuration and database hashes unchanged;
+5. a copy with an equivalent `橙映/Media/` layout resolves the same portable-relative
    workspace and reuses the same workspace database.
+
+The final `橙映/` directory is intentionally ignored by Git because it contains
+the user's database and media. Commit the build script and documentation, never
+the generated directory or its contents.
 
 The Windows unpacked directory also contains `portable-manifest.json`. It is
 the release operator's compatibility contract for an `App.new` candidate. To

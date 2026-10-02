@@ -268,7 +268,7 @@ the seed step with `MEGURI_SEED_SAMPLE_CONFIG=force`.
 ```bash
 npm run build      # build main / preload / renderer
 npm run dist       # generate AppImage / deb (electron-builder)
-npm run dist -- --win portable  # generate the Windows portable artifact
+npm run dist:portable  # generate the Windows portable folder
 ```
 
 ### Type checking
@@ -321,33 +321,34 @@ already run Electron apps locally.
 
 ## Where Data Is Stored
 
-The portable package keeps the application and its user data side by side. The
-root is resolved from the executable location; the development build uses
-`.portable-dev/`, and tests may inject another root.
+The Windows portable build is assembled into the `橙映/` directory. Copy that
+directory as a whole; it contains the executable, user data, and the optional
+portable media root. The build staging directory is temporary and is removed
+after packaging.
 
 ```text
 PortableVideoLibrary/
-├─ App/
-│  ├─ OrangeView.exe
-│  └─ resources/             # packaged application files
-├─ Data/
-│  ├─ config.json            # workspace locators and user collections
-│  ├─ roots/<workspaceId>/
-│  │  ├─ db.sqlite           # workspace index and metadata (WAL)
-│  │  └─ thumbs/             # generated thumbnails (WebP)
-│  ├─ assets/                # derived assets
-│  ├─ playlists/             # reserved for playlist exports
-│  ├─ backups/<backupId>/    # validated database/config snapshots
-│  ├─ logs/                  # rotated application log
-│  └─ temp/                  # crash-safe import and restore staging
-└─ Media/                    # the default portable media root
+├─ 橙映/
+│  ├─ 橙映.exe
+│  ├─ Data/
+│  │  ├─ config.json         # workspace locators and user collections
+│  │  ├─ roots/<workspaceId>/
+│  │  │  ├─ db.sqlite        # workspace index and metadata (WAL)
+│  │  │  └─ thumbs/          # generated thumbnails (WebP)
+│  │  ├─ assets/             # derived assets
+│  │  ├─ playlists/          # reserved for playlist exports
+│  │  ├─ backups/<backupId>/ # validated database/config snapshots
+│  │  ├─ logs/               # rotated application log
+│  │  └─ temp/               # crash-safe import and restore staging
+│  └─ Media/                 # the default portable media root
+└─ (source files)             # not needed for portable use
 ```
 
-Workspaces below `Media/` are stored as portable-relative locators. Their
+Workspaces below `橙映/Media/` are stored as portable-relative locators. Their
 persisted `workspaceId` names the database directory, so changing the drive
-letter or replacing only `App/` does not create a second database. A workspace
-outside `Media/` is retained as an explicit absolute locator and is therefore
-not portable across machines or drive layouts.
+letter or replacing only `橙映.exe` does not create a second database. A
+workspace outside `橙映/Media/` is retained as an explicit absolute locator and
+is therefore not portable across machines or drive layouts.
 
 On first launch, 橙映 creates the directory structure but does not silently
 create a database in Electron's system `userData`. If `Data/config.json` is
@@ -364,32 +365,17 @@ listed for restore only after its manifest and both snapshot hashes validate.
 
 Your media files themselves are never touched: 橙映 only ever **reads**
 the directories you register, and all of its own library data stays under
-`Data` above. The short-lived single-instance control file may still be placed
+`橙映/Data` above. The short-lived single-instance control file may still be placed
 under Electron's `userData`; it contains only a local control token and is
 removed when the app exits. Nothing 橙映 does can destroy or modify your
 videos and images.
 
-### Upgrade and rollback
+### Portable upgrades
 
-For a directory-layout portable release, stage the next program files as
-`App.new/` beside `App/`. Close 橙映, then run the release helper with an
-explicit root:
-
-```powershell
-node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --activate
-```
-
-The helper keeps the old program in `App.previous/`, never changes `Data/` or
-`Media/`, and can roll back the program slot if needed:
-
-```powershell
-node scripts/portable-upgrade.mjs --root D:\PortableVideoLibrary --rollback
-```
-
-The next launch performs the versioned, checksummed database migration. It
-creates a backup before writing; if compatibility or migration validation
-fails, use the recovery screen to restore the validated backup. An interrupted
-slot rename is recoverable with `--recover`.
+Close 橙映 and replace only `橙映/橙映.exe` with the newly built file. Keep
+`橙映/Data/` and `橙映/Media/` in place. Database migrations create a validated
+backup before writing; copying `Data/` separately before an upgrade is still
+recommended.
 
 ## Free, forever
 

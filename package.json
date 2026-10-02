@@ -36,6 +36,7 @@
     "test:e2e:install": "playwright install --with-deps",
     "postinstall": "electron-builder install-app-deps",
     "dist": "electron-vite build && electron-builder",
+    "dist:portable": "node scripts/build-portable.mjs",
     "install:local": "node scripts/install-local.mjs",
     "portable:activate": "node scripts/portable-upgrade.mjs",
     "portable:rollback": "node scripts/portable-upgrade.mjs"

@@ -7,6 +7,10 @@ dist-ssr
 # Electron build output
 /out
 /release
+/.portable-build
+
+# Final local portable package (contains user data and media)
+/橙映/
 
 # Portable development data
 /.portable-dev/
