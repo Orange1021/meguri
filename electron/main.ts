@@ -27,7 +27,10 @@ import {
   resolvePortableLayout,
   type PortableLayout,
 } from "./core/portablePaths.js";
-import { ORANGE_LOGO_DATA_URL } from "./core/logoAssets.js";
+import {
+  ORANGE_LOGO_DATA_URL,
+  ORANGE_TRAY_ICON_DATA_URL,
+} from "./core/logoAssets.js";
 import log, { configureLogDirectory, setupLogger } from "./core/logger.js";
 import { withTimeout } from "./core/concurrency.js";
 import {
@@ -367,7 +370,7 @@ function emit(channel: string, payload: unknown): void {
 // starts the initial one and aborts them all on quit.
 
 function trayImage(): Electron.NativeImage {
-  return nativeImage.createFromDataURL(ORANGE_LOGO_DATA_URL);
+  return nativeImage.createFromDataURL(ORANGE_TRAY_ICON_DATA_URL);
 }
 
 function windowImage(): Electron.NativeImage {

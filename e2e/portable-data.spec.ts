@@ -139,6 +139,12 @@ test.describe("Portable data recovery", () => {
     try {
       const page = await app.firstWindow();
       await page.waitForLoadState("domcontentloaded");
+      await expect(
+        page.getByRole("heading", { name: "便携数据恢复" }),
+      ).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.lang)).toBe(
+        "zh-CN",
+      );
       await page.evaluate(() => {
         window.localStorage.setItem("meguri.lang", "en");
       });

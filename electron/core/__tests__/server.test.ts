@@ -28,6 +28,8 @@ let badThumbId: number;
 let outsideMediaId: number;
 let symlinkMediaId: number;
 let remuxId: number;
+let wmvRemuxId: number;
+let aviRemuxId: number;
 let brokenRemuxId: number;
 let fifoSrc: string;
 /** One row per supported audio extension, so contentType() is covered for all of them. */
@@ -103,6 +105,49 @@ beforeAll(async () => {
   const brokenFile = path.join(root, "broken.mkv");
   fs.writeFileSync(brokenFile, "NOT A REAL MKV");
 
+  // WMV2/WMAV2 cannot be copied into an MP4 container. This fixture proves
+  // the server falls back to H.264/AAC instead of returning the generic
+  // external-player error to the renderer.
+  const wmvFile = path.join(root, "real.wmv");
+  execFileSync(FFMPEG, [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "testsrc=size=32x32:rate=10:duration=0.4",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=1000:sample_rate=44100:duration=0.4",
+    "-c:v",
+    "wmv2",
+    "-c:a",
+    "wmav2",
+    "-shortest",
+    wmvFile,
+  ]);
+
+  const aviFile = path.join(root, "real.avi");
+  execFileSync(FFMPEG, [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "testsrc=size=32x32:rate=10:duration=0.4",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=440:sample_rate=44100:duration=0.4",
+    "-c:v",
+    "mpeg4",
+    "-c:a",
+    "pcm_s16le",
+    "-shortest",
+    aviFile,
+  ]);
+
   // A longer mkv used as the byte source for the FIFO late-join test below
   // (more frames/keyframes so ffmpeg emits the init segment well before EOF).
   if (process.platform !== "win32") {
@@ -134,6 +179,8 @@ beforeAll(async () => {
   outsideMediaId = insert("c.mp4", outsideMedia, null, "pending");
   symlinkMediaId = insert("symlink/evil.mp4", symlinkMedia, null, "pending");
   remuxId = insert("real.mkv", remuxFile, null, "pending");
+  wmvRemuxId = insert("real.wmv", wmvFile, null, "pending", "video", "wmv");
+  aviRemuxId = insert("real.avi", aviFile, null, "pending", "video", "avi");
   brokenRemuxId = insert("broken.mkv", brokenFile, null, "pending");
 
   // Audio rows carry no thumbnail by design (thumb_status 'done', thumb_path NULL).
@@ -398,6 +445,30 @@ describe("media remux (ffmpeg path)", () => {
     const buf = Buffer.from(await res.arrayBuffer());
     // A valid fMP4 stream starts with an `ftyp` box; assert the magic so we know
     // real bytes were streamed (not an empty 200).
+    expect(buf.length).toBeGreaterThan(0);
+    expect(buf.subarray(4, 8).toString("latin1")).toBe("ftyp");
+  });
+
+  it("transcodes WMV when lossless remux cannot write an MP4 stream", async () => {
+    const res = await fetch(
+      `${base}/ws/${WS}/media/${wmvRemuxId}`,
+      authHeaders(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("video/mp4");
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.length).toBeGreaterThan(0);
+    expect(buf.subarray(4, 8).toString("latin1")).toBe("ftyp");
+  });
+
+  it("transcodes AVI when its source streams are not MP4-compatible", async () => {
+    const res = await fetch(
+      `${base}/ws/${WS}/media/${aviRemuxId}`,
+      authHeaders(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("video/mp4");
+    const buf = Buffer.from(await res.arrayBuffer());
     expect(buf.length).toBeGreaterThan(0);
     expect(buf.subarray(4, 8).toString("latin1")).toBe("ftyp");
   });

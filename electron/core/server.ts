@@ -3,8 +3,9 @@
 // Policy: Chromium's <video> can play MP4(H.264)/WebM etc. with Range seeking
 // (even with non-faststart where moov is at the end, it can read it via a Range request to the tail).
 // So these are served as raw files via Range to enable full seeking. Only containers Chromium
-// cannot demux (mkv/avi/wmv/flv/ts) are remuxed on the fly to fragmented MP4 with ffmpeg
-// and served, supporting time seeking via ?t=<seconds> (this path is a stream).
+// cannot demux (mkv/avi/wmv/flv/ts) are remuxed or transcoded on the fly to
+// fragmented MP4 with ffmpeg and served, supporting time seeking via ?t=<seconds>
+// (this path is a stream).
 //
 // URLs have the form /ws/<workspaceId>/<kind>/<fileId> (kind = thumb|media|frame).
 // Requests must include X-Api-Token; the Electron session injects it for in-app media loads.
@@ -27,7 +28,7 @@ import { scopedLog } from "./logger.js";
 
 const log = scopedLog("server");
 
-// Only containers Chromium cannot demux are remuxed with ffmpeg and served.
+// Only containers Chromium cannot demux are processed with ffmpeg and served.
 // Everything else (mp4/m4v/mov/webm) is served as a raw file via Range to enable full seeking.
 const REMUX_CONTAINERS = new Set(["mkv", "avi", "wmv", "flv", "ts"]);
 
@@ -39,8 +40,9 @@ const FFMPEG_REQUEST_TIMEOUT_MS = 60_000;
 const FFMPEG_KILL_SIGNAL = "SIGKILL" as const;
 // Decoding requests (frame grabs, image transcodes) take a slot from the
 // process-wide `videoDecodeSlots` pool shared with the scan pipeline
-// (mediaConcurrency.ts). Remux sessions are `-c copy` — no decode, little memory,
-// but they live as long as playback — so they get their own cap: one long
+// (mediaConcurrency.ts). Remux sessions usually start with `-c copy`; a
+// codec-incompatible input may fall back to H.264/AAC decoding, so they get
+// their own cap: one long
 // movie must not pin a decode slot for hours. The number is a count of
 // concurrent playback sessions (a single user rarely has more than a couple
 // open at once) rather than anything CPU-derived.
@@ -397,7 +399,7 @@ async function serveFile(
 const REMUX_HISTORY_MAX_BYTES = 16 * 1024 * 1024;
 
 type RemuxSession = {
-  child: ChildProcess;
+  child: ChildProcess | null;
   clients: Set<http.ServerResponse>;
   releaseSlot: () => void;
   ended: boolean;
@@ -452,7 +454,7 @@ function detachRemuxClient(
   session.clients.delete(res);
   session.blocked.delete(res);
   if (session.clients.size === 0) {
-    session.child.kill("SIGKILL");
+    session.child?.kill("SIGKILL");
     endRemuxSession(key, session);
   } else {
     resumeIfDrained(session);
@@ -473,7 +475,7 @@ function attachRemuxClient(
 
 function resumeIfDrained(session: RemuxSession) {
   if (session.blocked.size === 0 && !session.ended) {
-    session.child.stdout?.resume();
+    session.child?.stdout?.resume();
   }
 }
 
@@ -497,7 +499,7 @@ function writeRemuxChunk(
         resumeIfDrained(session);
       });
     }
-    session.child.stdout?.pause();
+    session.child?.stdout?.pause();
   }
 }
 
@@ -535,9 +537,11 @@ function startRemuxSession(
   res: http.ServerResponse,
   releaseSlot: () => void,
 ) {
-  const args = ["-v", "error"];
-  if (start != null && start > 0) args.push("-ss", start.toFixed(3));
-  args.push(
+  const copyArgs = ["-v", "error"];
+  if (start != null && start > 0) {
+    copyArgs.push("-ss", start.toFixed(3));
+  }
+  copyArgs.push(
     "-i",
     file,
     "-c",
@@ -549,9 +553,8 @@ function startRemuxSession(
     "pipe:1",
   );
 
-  const child = spawnFfmpegChild(args);
   const session: RemuxSession = {
-    child,
+    child: null,
     clients: new Set([res]),
     releaseSlot,
     ended: false,
@@ -563,19 +566,81 @@ function startRemuxSession(
   remuxInflight.set(key, session);
   res.on("close", () => detachRemuxClient(key, session, res));
 
-  let sawOutput = false;
-  child.stdout!.on("data", (chunk: Buffer) => {
-    sawOutput = true;
-    broadcastRemuxChunk(key, session, chunk);
-  });
-  child.on("error", () => {
-    finishRemuxClients(session, false);
-    endRemuxSession(key, session);
-  });
-  child.on("close", (code) => {
-    finishRemuxClients(session, code === 0 && sawOutput);
-    endRemuxSession(key, session);
-  });
+  const transcodeArgs = ["-v", "error"];
+  if (start != null && start > 0) {
+    transcodeArgs.push("-ss", start.toFixed(3));
+  }
+  transcodeArgs.push(
+    "-i",
+    file,
+    // Limit the output to streams that can be represented by the fMP4 player.
+    "-map",
+    "0:v:0?",
+    "-map",
+    "0:a:0?",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "192k",
+    "-movflags",
+    "frag_keyframe+empty_moov+default_base_moof",
+    "-f",
+    "mp4",
+    "pipe:1",
+  );
+
+  let fallbackStarted = false;
+  const startAttempt = (args: string[], canFallback: boolean): void => {
+    let child: ChildProcess;
+    try {
+      child = spawnFfmpegChild(args);
+    } catch (error) {
+      log.warn("ffmpeg remux attempt failed to start:", error);
+      finishRemuxClients(session, false);
+      endRemuxSession(key, session);
+      return;
+    }
+    session.child = child;
+    let sawOutput = false;
+
+    child.stdout!.on("data", (chunk: Buffer) => {
+      sawOutput = true;
+      broadcastRemuxChunk(key, session, chunk);
+    });
+
+    const retryWithTranscode = (): boolean => {
+      if (!canFallback || fallbackStarted || sawOutput || session.ended) {
+        return false;
+      }
+      fallbackStarted = true;
+      log.info(
+        "lossless media remux produced no output; retrying with H.264/AAC",
+      );
+      startAttempt(transcodeArgs, false);
+      return true;
+    };
+
+    child.on("error", () => {
+      if (session.child !== child) return;
+      if (retryWithTranscode()) return;
+      finishRemuxClients(session, false);
+      endRemuxSession(key, session);
+    });
+    child.on("close", (code) => {
+      if (session.child !== child) return;
+      if (code !== 0 && retryWithTranscode()) return;
+      finishRemuxClients(session, code === 0 && sawOutput);
+      endRemuxSession(key, session);
+    });
+  };
+
+  startAttempt(copyArgs, true);
 }
 
 /**
