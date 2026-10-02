@@ -387,6 +387,44 @@ describe("VideoPlayer", () => {
     expect(video.className).not.toContain("object-contain");
   });
 
+  it("keeps the display mode menu inside the player while fullscreen", () => {
+    const previousDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "fullscreenElement",
+    );
+    const { video } = renderPlayer();
+    const wrapper = video.parentElement!;
+
+    try {
+      Object.defineProperty(document, "fullscreenElement", {
+        configurable: true,
+        value: wrapper,
+      });
+      act(() => {
+        document.dispatchEvent(new Event("fullscreenchange"));
+      });
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "player.displayMode" }),
+      );
+
+      const menuItem = screen.getByRole("menuitem", {
+        name: "player.displayModeCover",
+      });
+      expect(wrapper.contains(menuItem)).toBe(true);
+    } finally {
+      if (previousDescriptor) {
+        Object.defineProperty(
+          document,
+          "fullscreenElement",
+          previousDescriptor,
+        );
+      } else {
+        delete (document as Document & { fullscreenElement?: Element })
+          .fullscreenElement;
+      }
+    }
+  });
+
   it("loads the saved display mode for each video independently", () => {
     writeVideoDisplayMode("ws1", "1", "cover");
     writeVideoDisplayMode("ws1", "2", "fill");

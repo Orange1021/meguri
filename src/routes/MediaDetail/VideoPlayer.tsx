@@ -1292,7 +1292,11 @@ export const VideoPlayer = forwardRef<
                     <Settings2 size={18} />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" align="end">
+                <DropdownMenuContent
+                  side="top"
+                  align="end"
+                  container={isFullscreen ? wrapRef.current : undefined}
+                >
                   <DropdownMenuGroup>
                     {(["contain", "cover", "fill"] as VideoDisplayMode[]).map(
                       (mode) => (
