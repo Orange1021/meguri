@@ -109,14 +109,17 @@ describe("MediaThumbnail", () => {
     expect(iconNames(container).some((n) => n.includes("music"))).toBe(true);
   });
 
-  it("still renders the image icon for an image row without a thumbnail", () => {
+  it("uses the original image when no generated thumbnail exists", () => {
     const { container } = renderThumb({
       ...sampleFileRow,
       kind: "image",
-      thumbStatus: "error",
+      relPath: "photos/picture.jpg",
+      thumbStatus: "done",
+      hasThumb: 0,
     });
-    const names = iconNames(container);
-    expect(names.some((n) => n.includes("image"))).toBe(true);
-    expect(names.some((n) => n.includes("music"))).toBe(false);
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(
+      `http://127.0.0.1:17345/ws/${sampleFileRow.workspaceId}/media/${sampleFileRow.id}?v=0`,
+    );
+    expect(iconNames(container).some((n) => n.includes("image"))).toBe(false);
   });
 });

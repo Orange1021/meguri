@@ -209,6 +209,20 @@ describe("DiscoverCard thumbnail fallback", () => {
     rerender(<Bumped />);
     expect(container.querySelector("img")).not.toBeNull();
   });
+
+  it("uses the original image when no generated thumbnail exists", () => {
+    const { container } = renderCard({
+      kind: "image",
+      relPath: "photos/picture.jpg",
+      thumbStatus: "done",
+      hasThumb: 0,
+    });
+    expect(
+      container
+        .querySelector('img[alt="photos/picture.jpg"]')
+        ?.getAttribute("src"),
+    ).toBe("http://127.0.0.1:1/ws/ws/media/7?v=0");
+  });
 });
 
 describe("DiscoverCard audio", () => {

@@ -33,5 +33,41 @@ export function thumbUrl(
   // Workspace ids are hex hashes today; encoded anyway so a future id shape
   // cannot break out of the path segment.
   const base = `${mediaBase}/ws/${encodeURIComponent(workspaceId)}/thumb/${fileId}`;
+  return withVersion(base, version);
+}
+
+/** URL of the original indexed file on the local media server. */
+export function mediaUrl(
+  mediaBase: string,
+  workspaceId: string,
+  fileId: number,
+  version?: number,
+): string | null {
+  if (!mediaBase || !workspaceId) return null;
+  const base = `${mediaBase}/ws/${encodeURIComponent(workspaceId)}/media/${fileId}`;
+  return withVersion(base, version);
+}
+
+/** URL used for a file's visual preview: original image or generated thumbnail. */
+export function mediaPreviewUrl(
+  mediaBase: string,
+  row: {
+    kind: string;
+    workspaceId: string;
+    id: number;
+    thumbStatus: string;
+    hasThumb: number;
+  },
+  version?: number,
+): string | null {
+  if (row.kind === "image") {
+    return mediaUrl(mediaBase, row.workspaceId, row.id, version);
+  }
+  return hasThumbFile(row)
+    ? thumbUrl(mediaBase, row.workspaceId, row.id, version)
+    : null;
+}
+
+function withVersion(base: string, version?: number): string {
   return version == null ? base : `${base}?v=${version}`;
 }

@@ -1,7 +1,7 @@
 import { createElement, useState } from "react";
 import { Play } from "lucide-react";
 import { kindIcon } from "@/lib/mediaKind";
-import { hasThumbFile, thumbUrl } from "@/lib/thumbUrl";
+import { mediaPreviewUrl } from "@/lib/thumbUrl";
 import type { FileRow } from "@/ipc/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHoverFramePreview } from "@/hooks/useHoverFramePreview";
@@ -76,15 +76,12 @@ export function MediaThumbnail({
   scrubPreview = true,
   showProgress = true,
 }: Props) {
-  // Keys on whether a thumbnail file actually exists, not on kind: audio is
-  // marked thumb_status 'done' whether or not it embeds cover art, so status
-  // alone would build a URL that 404s for the cover-less ones. Audio *with* a
-  // cover renders it like any other thumbnail.
-  const src = hasThumbFile(file)
-    ? (thumbUrl(mediaBase, file.workspaceId, file.id, version) ?? undefined)
-    : undefined;
+  // Images use their original file as the preview; videos and audio use the
+  // generated thumbnail slot. Audio can be marked done without a cover file,
+  // so the shared helper still checks both status and on-disk presence there.
+  const src = mediaPreviewUrl(mediaBase, file, version) ?? undefined;
   // Also false until the media origin is known, so nothing tries to load early.
-  const hasThumb = src !== undefined;
+  const hasPreview = src !== undefined;
   const [imgLoaded, setImgLoaded] = useState(false);
   // Holds the URL that failed rather than a bare flag: this component is reused
   // across rows by the virtualizer, so a sticky `true` would hide a perfectly
@@ -94,7 +91,7 @@ export function MediaThumbnail({
   const { previewSrc, scrubFraction, onMouseEnter, onMouseMove, onMouseLeave } =
     useHoverFramePreview({
       enabled: Boolean(
-        scrubPreview && hoverPreview && hasThumb && file.kind === "video",
+        scrubPreview && hoverPreview && hasPreview && file.kind === "video",
       ),
       frameUrl: (t) =>
         `${mediaBase}/ws/${file.workspaceId}/frame/${file.id}?t=${t}`,

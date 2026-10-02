@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AudioLines, ExternalLink, ImageIcon, Pause, Play } from "lucide-react";
 import { kindIcon } from "@/lib/mediaKind";
 import { fileHref } from "@/lib/fileHref";
-import { hasThumbFile, thumbUrl } from "@/lib/thumbUrl";
+import { mediaPreviewUrl } from "@/lib/thumbUrl";
 import { useAudioActions, useAudioPlayer } from "@/audio/useAudioPlayer";
 import { AudioSpectrum } from "@/audio/AudioSpectrum";
 import { useSpectrumPattern } from "@/audio/useSpectrumPattern";
@@ -76,9 +76,7 @@ export function DiscoverCard({
   // Discover stays a browsing surface; seeking and volume wait for the bar.
   const audio = useAudioPlayer();
   const wsId = file.workspaceId;
-  const coverUrl = hasThumbFile(file)
-    ? (thumbUrl(mediaBase, wsId, file.id, thumbVersion) ?? undefined)
-    : undefined;
+  const coverUrl = mediaPreviewUrl(mediaBase, file, thumbVersion) ?? undefined;
   // Same recovery as MediaThumbnail: a recorded thumbnail whose file has gone
   // missing 404s, and without a fallback the card would show broken artwork.
   // Keyed on the URL rather than a flag so a later version bump (or a different
