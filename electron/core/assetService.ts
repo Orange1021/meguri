@@ -176,6 +176,7 @@ export function queueDerivedAssets(
   db: DB,
   input: { videoId: string; kind: Kind; now?: number },
 ): void {
+  if (input.kind !== "video") return;
   const now = input.now ?? nowUnix();
   enqueueAssetTask(db, {
     videoId: input.videoId,
@@ -231,7 +232,7 @@ async function generateTask(
   file: AssetFileRow,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (task.kind === "sheet" && file.kind !== "video") return;
+  if (file.kind !== "video") return;
   const sidecar = task.kind === "cover" ? sidecarFor(file) : null;
   if (sidecar) {
     const extension = path.extname(sidecar).slice(1).toLowerCase();
