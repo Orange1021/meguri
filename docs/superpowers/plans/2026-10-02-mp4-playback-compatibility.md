@@ -88,4 +88,4 @@ Expected: the new no-frame test passes and existing event-bridge/player tests re
 - [x] **Step 2: Run the full E2E suite after a fresh production build.**
 - [x] **Step 3: Build `--win portable` and inspect the unpacked/package boundary.**
 - [x] **Step 4: Launch the packaged app with tray enabled and temporary Portable Data; verify normal H.264 playback path and a transcoded MPEG-4 fixture produce video frames.**
-- [ ] **Step 5: Confirm `Data` is not staged, commit only scoped source/tests/docs, push `feat/portable-video-library-v2`, and verify local and remote SHAs match.**
+- [x] **Step 5: Confirm `Data` is not staged, commit only scoped source/tests/docs, push `feat/portable-video-library-v2`, and verify local and remote SHAs match.**
