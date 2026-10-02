@@ -23,6 +23,15 @@ function samePath(left: string, right: string): boolean {
   return left === right;
 }
 
+/** Generated cache entries are the only thumbnail paths that may be rebased. */
+function isGeneratedThumbnailPath(filePath: string, fileId: number): boolean {
+  const resolved = path.resolve(filePath);
+  return (
+    path.basename(path.dirname(resolved)).toLowerCase() === "thumbs" &&
+    samePath(path.basename(resolved), `${fileId}.webp`)
+  );
+}
+
 /**
  * Remove thumbnail references for media that is not a video.
  *
@@ -85,6 +94,15 @@ export function repairThumbnailPaths(db: DB, thumbsDir: string): void {
   db.transaction(() => {
     for (const row of rows) {
       const currentPath = path.join(thumbsDir, `${row.id}.webp`);
+      // A manual cover is stored under Data/assets and is the user's selected
+      // thumbnail, not a stale cache path. Preserve it across restarts even
+      // when the old automatically generated thumbnail is still present.
+      if (
+        !isGeneratedThumbnailPath(row.thumbPath, row.id) &&
+        isRegularFile(row.thumbPath)
+      ) {
+        continue;
+      }
       if (isRegularFile(currentPath)) {
         if (path.resolve(row.thumbPath) !== path.resolve(currentPath)) {
           rebase.run(currentPath, row.id);

@@ -76,6 +76,34 @@ describe("portable thumbnail paths", () => {
     ).toEqual({ thumb_path: currentPath });
   });
 
+  it("preserves a manual cover asset when an old generated thumbnail remains", async () => {
+    const { core, dataDir } = await setup();
+    const id = await insertThumbRow(
+      core,
+      path.join(core.dataDir, "assets", "video-id", "cover.jpg"),
+    );
+    const manualPath = path.join(
+      core.dataDir,
+      "assets",
+      "video-id",
+      "cover.jpg",
+    );
+    await fsp.mkdir(path.dirname(manualPath), { recursive: true });
+    await fsp.writeFile(manualPath, "manual cover");
+    const generatedPath = path.join(core.thumbsDir(), `${id}.webp`);
+    await fsp.writeFile(generatedPath, "old automatic cover");
+    core.close();
+
+    const reopened = Core.init(core.root, { dataDir });
+    openCores.push(reopened);
+
+    expect(
+      reopened.db
+        .prepare("SELECT thumb_path AS thumbPath FROM files WHERE id = ?")
+        .get(id),
+    ).toEqual({ thumbPath: manualPath });
+  });
+
   it("marks a thumbnail for regeneration when both paths are missing", async () => {
     const { core, dataDir } = await setup();
     const oldPath = path.join(core.dataDir, "old-release", "thumbs", "1.webp");
