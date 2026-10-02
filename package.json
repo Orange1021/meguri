@@ -34,6 +34,7 @@
     "test:e2e": "npm run build && playwright test",
     "test:e2e:headless": "npm run build && MEGURI_FORCE_X11=1 xvfb-run -a -s \"-screen 0 1280x960x24\" -- playwright test",
     "test:e2e:install": "playwright install --with-deps",
+    "test:portable-smoke": "node scripts/portable-smoke.mjs",
     "postinstall": "electron-builder install-app-deps",
     "dist": "electron-vite build && electron-builder",
     "dist:portable": "node scripts/build-portable.mjs",

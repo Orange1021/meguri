@@ -15,6 +15,7 @@ npm run dist:portable  # assemble the Windows portable folder
 npm run typecheck  # tsc --noEmit over both src and electron
 npm test           # core, renderer, and portable-upgrade regression tests
 npm run test:portable-upgrade  # App slot activation/rollback regression tests
+npm run test:portable-smoke    # launch, replace EXE, and verify portable Data
 npm run install:local  # install into the local environment
 ```
 
@@ -63,6 +64,26 @@ to `.ts`.
 With no native dependency it runs under plain Node; it is kept separate because
 the jsdom worker does not start under Electron's experimental loader.
 
+### Coverage boundaries
+
+The test layers intentionally cover different failure classes:
+
+- Core tests validate SQL, scanning, asset selection, and reopening the same
+  portable database. They do not exercise Chromium's media decoder.
+- Renderer tests use jsdom, where `HTMLMediaElement` is a stub. A moving
+  progress value in a renderer unit test is not evidence that a real MP4 has
+  decoded video frames.
+- Electron E2E tests use real files. The video case asserts decoded dimensions
+  and a changing playback clock, not only that the player dialog opened.
+- The Windows packaged smoke test runs the self-extracting portable artifact,
+  waits for a real database under `Data/`, replaces only the EXE, and verifies
+  that the same portable data remains usable.
+
+This leaves codec-specific coverage as an explicit follow-up: add one small
+fixture per supported compatibility class (for example AVI, WMV, and MOV) when
+we need to protect a particular decoder or transcoding path. A single MP4
+fixture protects the common path without making every test run large.
+
 ## Packaging
 
 `npm run dist` runs `electron-vite build` then `electron-builder`. The builder's
@@ -86,13 +107,28 @@ A portable smoke check should verify:
    `userData`;
 3. scanning a folder below `橙映/Media/` writes `橙映/Data/config.json` and
    `橙映/Data/roots/<workspaceId>/db.sqlite`;
-4. replacing only `橙映.exe` leaves the configuration and database hashes unchanged;
-5. a copy with an equivalent `橙映/Media/` layout resolves the same portable-relative
-   workspace and reuses the same workspace database.
+4. replacing only `橙映.exe` leaves the configuration hash and indexed media
+   record unchanged;
+5. a copy with an equivalent `橙映/Media/` layout resolves the same
+   portable-relative workspace and reuses the same workspace database.
 
 The final `橙映/` directory is intentionally ignored by Git because it contains
 the user's database and media. Commit the build script and documentation, never
 the generated directory or its contents.
+
+Run the Windows-only packaged smoke test after building the directory:
+
+```powershell
+npm run dist:portable
+npm run test:portable-smoke
+```
+
+The smoke test copies the packaged EXE into an isolated temporary portable root,
+seeds a minimal valid `Data/config.json`, indexes the checked-in short MP4
+fixture, launches the real packaged program, replaces only the EXE, and launches
+it again. It then verifies that the portable log, configuration, marker file,
+and indexed database remain under the same `Data/` directory. On non-Windows
+hosts the command reports that it was skipped.
 
 The Windows unpacked directory also contains `portable-manifest.json`. It is
 the release operator's compatibility contract for an `App.new` candidate. To
@@ -115,6 +151,11 @@ The repository E2E smoke test uses `MEGURI_PORTABLE_ROOT` to exercise the same
 startup boundary without mutating the developer's checkout. A physical second
 drive is not required for that test; if a release is manually moved to another
 drive, record that verification separately.
+
+The E2E suite also contains a real playback case using
+`e2e/fixtures/video-media/flower.mp4`. It waits for decoded dimensions and a
+changing playback clock, so a test can no longer pass merely because the
+progress bar moved while the video renderer failed to decode frames.
 
 ### macOS code signing
 

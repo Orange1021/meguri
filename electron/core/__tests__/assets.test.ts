@@ -8,6 +8,7 @@ import type { DB } from "../db.js";
 import { newDb } from "./helpers.js";
 import {
   ASSET_GENERATION_VERSIONS,
+  assetAbsolutePath,
   assetRelativePath,
   choosePreferredAsset,
   isSafeAssetRelativePath,
@@ -16,6 +17,7 @@ import {
 import * as assetService from "../assetService.js";
 import {
   atomicWriteAsset,
+  importManualCover,
   processPendingAssetTasks,
   queueDerivedAssets,
   readAssetFile,
@@ -26,6 +28,7 @@ import {
   enqueueAssetTask,
   recoverRunningAssetTasks,
 } from "../queries/assets.js";
+import { setThumb } from "../queries.js";
 
 vi.mock("../media.js", () => ({
   generateThumb: vi.fn(
@@ -333,5 +336,58 @@ describe("atomic asset storage", () => {
       Buffer.from("webp"),
     );
     expect(fs.readdirSync(path.join(root, "video-id"))).toEqual(["cover.webp"]);
+  });
+
+  it("keeps an imported manual cover selected after reopening the portable database", async () => {
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-manual-cover-root-"),
+    );
+    const dataRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-manual-cover-data-"),
+    );
+    dirs.push(root, dataRoot);
+    const core = Core.init(root, { dataDir: dataRoot });
+    cores.push(core);
+
+    const sourceVideo = path.join(root, "clip.mp4");
+    const selectedCover = path.join(root, "selected.jpg");
+    await fsp.writeFile(sourceVideo, "video bytes");
+    await fsp.writeFile(selectedCover, "selected cover");
+
+    const videoId = "5e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f7e";
+    addVideo(core.db, videoId, "video");
+    const fileId = Number(
+      core.db
+        .prepare(
+          `INSERT INTO files
+            (root_id, rel_path, abs_path, kind, ext, size, video_id, thumb_status, created_at)
+           VALUES (?, 'clip.mp4', ?, 'video', 'mp4', 11, ?, 'done', 0)`,
+        )
+        .run(core.rootId, sourceVideo, videoId).lastInsertRowid,
+    );
+    await fsp.mkdir(core.thumbsDir(), { recursive: true });
+    await fsp.writeFile(
+      path.join(core.thumbsDir(), `${fileId}.webp`),
+      "old automatic cover",
+    );
+
+    const manual = await importManualCover(core, videoId, selectedCover, 1);
+    const manualPath = assetAbsolutePath(core.assetsDir(), manual.path);
+    expect(manualPath).not.toBeNull();
+    setThumb(core.db, fileId, manualPath, "done");
+
+    cores.splice(cores.indexOf(core), 1);
+    core.close();
+    const reopened = Core.init(root, { dataDir: dataRoot });
+    cores.push(reopened);
+
+    expect(
+      reopened.db
+        .prepare("SELECT thumb_path AS thumbPath FROM files WHERE id = ?")
+        .get(fileId),
+    ).toEqual({ thumbPath: manualPath });
+    await expect(fsp.readFile(manualPath!)).resolves.toEqual(
+      Buffer.from("selected cover"),
+    );
   });
 });

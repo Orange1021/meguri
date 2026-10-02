@@ -51,3 +51,31 @@ jobs:
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           npm run test:e2e:headless
+
+  windows-portable:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          npm_config_arch: x64
+          npm_config_target_arch: x64
+
+      - name: Run the unit suite on Windows
+        run: npm test
+
+      - name: Type check on Windows
+        run: npm run typecheck
+
+      - name: Build the copyable portable directory
+        run: npm run dist:portable
+
+      - name: Launch and replace the packaged EXE
+        run: npm run test:portable-smoke

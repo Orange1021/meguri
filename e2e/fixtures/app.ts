@@ -13,17 +13,18 @@ import {
   mainScript,
 } from "../../scripts/electron-launch.cjs";
 
-const mediaRoot = path.join(process.cwd(), "e2e/fixtures/media");
-
 export interface MeguriFixtures {
   app: ElectronApplication;
   window: Page;
   /** Same window after the fixture media appears in the list. */
   ready: Page;
+  /** Root directory used as the library's indexed media source. */
+  mediaRoot: string;
 }
 
 export const test = base.extend<MeguriFixtures>({
-  app: async ({}, use) => {
+  mediaRoot: [path.join(process.cwd(), "e2e/fixtures/media"), { option: true }],
+  app: async ({ mediaRoot }, use) => {
     if (!fs.existsSync(mainScript)) {
       throw new Error(
         "Built main script not found. Run `npm run build` before E2E tests.",
