@@ -2,8 +2,7 @@ import { dialog } from "electron";
 import { handle } from "../core/ipcHandler.js";
 import {
   importManualCover,
-  processPendingAssetTasks,
-  restoreAutomaticCover,
+  restoreAutomaticCoverAndProcess,
 } from "../core/assetService.js";
 import { assetAbsolutePath } from "../core/assets.js";
 import { listAssets, preferredAsset } from "../core/queries/assets.js";
@@ -73,8 +72,7 @@ export function registerAssetHandlers(ctx: IpcContext): void {
     // Do not let the old manual thumb become the source of the regenerated
     // automatic cover. It is cleared before the retryable task is claimed.
     q.setThumb(core.db, id, null, "pending");
-    restoreAutomaticCover(core.db, videoId);
-    await processPendingAssetTasks(core, { limit: 2 });
+    await restoreAutomaticCoverAndProcess(core, videoId, { limit: 2 });
     const asset = preferredAsset(core.db, videoId, "cover");
     const assetPath = asset
       ? assetAbsolutePath(core.assetsDir(), asset.path)

@@ -87,27 +87,25 @@ describe("runScan identity integration", () => {
     expect(events.at(-1)).toMatchObject({ type: "done", jobId: "job-1" });
   });
 
-  it("reports the derived-assets phase after tagging completes", async () => {
+  it("completes the scan without draining derived-asset work", async () => {
     const events: JobEvent[] = [];
 
     await runScan(core, "job-assets", (event) => events.push(event));
 
-    const tagsIndex = events.findIndex(
-      (event) => event.type === "progress" && event.phase === "tags",
-    );
-    const assetsIndex = events.findIndex(
-      (event) => event.type === "progress" && event.phase === "assets",
-    );
-
-    expect(tagsIndex).toBeGreaterThanOrEqual(0);
-    expect(assetsIndex).toBeGreaterThan(tagsIndex);
-    expect(events[assetsIndex]).toMatchObject({
-      type: "progress",
+    expect(events.at(-1)).toMatchObject({
+      type: "done",
       jobId: "job-assets",
-      phase: "assets",
-      done: 0,
-      total: 0,
     });
+    expect(db.prepare("SELECT status FROM scan_runs").get()).toEqual({
+      status: "completed",
+    });
+    expect(
+      db
+        .prepare(
+          "SELECT status, COUNT(*) AS count FROM asset_tasks GROUP BY status",
+        )
+        .all(),
+    ).toEqual([{ status: "queued", count: 2 }]);
   });
 
   it("indexes images without generating a thumbnail", async () => {

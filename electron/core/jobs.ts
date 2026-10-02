@@ -13,10 +13,7 @@ import {
   type IdentityTarget,
 } from "./scan.js";
 import { extractMeta, generateThumb } from "./media.js";
-import {
-  processPendingAssetTasks,
-  queueDerivedAssets,
-} from "./assetService.js";
+import { queueDerivedAssets } from "./assetService.js";
 import * as q from "./queries.js";
 import { syncFts } from "./tags.js";
 import {
@@ -755,30 +752,6 @@ export async function runScan(
     if (!signal?.aborted) q.pruneOrphanMeta(db);
 
     if (signal?.aborted) return finishAborted();
-
-    // Derived assets are durable, retryable work. Run a bounded drain here so
-    // a fresh scan produces useful Cover/Sheet files immediately; failed tasks
-    // remain in the queue for a later scan or an explicit retry.
-    setPhase("assets");
-    // Asset generation can be much slower than indexing (especially for large
-    // sheets). Publish the phase before starting the drain so the renderer does
-    // not leave the completed tags percentage on screen while this work runs.
-    onEvent({
-      type: "progress",
-      jobId,
-      phase: "assets",
-      done: 0,
-      total: 0,
-    });
-    if (!signal?.aborted) {
-      for (;;) {
-        const assetRun = await processPendingAssetTasks(core, {
-          signal,
-          limit: 8,
-        });
-        if (assetRun.completed === 0 || signal?.aborted) break;
-      }
-    }
 
     if (signal?.aborted) return finishAborted();
 

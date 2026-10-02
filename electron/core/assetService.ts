@@ -15,6 +15,7 @@ import {
   enqueueAssetTask,
   failAssetTask,
   preferredAsset,
+  recoverRunningAssetTasks as recoverRunningAssetTasksQuery,
   retireAsset,
   upsertAsset,
   type AssetRow,
@@ -24,6 +25,28 @@ import type { Kind } from "./types.js";
 
 const MAX_MANUAL_ASSET_BYTES = 100 * 1024 * 1024;
 const IMAGE_EXTENSIONS = new Set([".webp", ".png", ".jpg", ".jpeg"]);
+const assetTaskLocks = new WeakMap<object, Promise<void>>();
+
+async function withAssetTaskLock<T>(
+  db: DB,
+  work: () => Promise<T>,
+): Promise<T> {
+  const previous = assetTaskLocks.get(db) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => current);
+  assetTaskLocks.set(db, tail);
+
+  await previous.catch(() => undefined);
+  try {
+    return await work();
+  } finally {
+    release();
+    if (assetTaskLocks.get(db) === tail) assetTaskLocks.delete(db);
+  }
+}
 
 /** Create an FFmpeg temporary path while retaining its output extension. */
 export function assetTemporaryPath(destination: string): string {
@@ -194,6 +217,21 @@ export function queueDerivedAssets(
   }
 }
 
+/** Requeue asset work left in progress by an interrupted process. */
+export function recoverRunningAssetTasks(db: DB, now = nowUnix()): number {
+  return recoverRunningAssetTasksQuery(db, now);
+}
+
+/** Recover interrupted work without racing another asset processor on this DB. */
+export async function recoverRunningAssetTasksSafely(
+  db: DB,
+  now = nowUnix(),
+): Promise<number> {
+  return withAssetTaskLock(db, async () =>
+    recoverRunningAssetTasksQuery(db, now),
+  );
+}
+
 interface AssetFileRow {
   videoId: string;
   absPath: string;
@@ -304,6 +342,16 @@ export async function processPendingAssetTasks(
   core: Core,
   options: { signal?: AbortSignal; limit?: number; now?: number } = {},
 ): Promise<{ completed: number; failed: number }> {
+  return withAssetTaskLock(core.db, () =>
+    processPendingAssetTasksUnlocked(core, options),
+  );
+}
+
+/** Process a claimed batch while the caller already owns the per-DB lock. */
+async function processPendingAssetTasksUnlocked(
+  core: Core,
+  options: { signal?: AbortSignal; limit?: number; now?: number } = {},
+): Promise<{ completed: number; failed: number }> {
   const now = options.now ?? nowUnix();
   const tasks = claimAssetTasks(core.db, now, options.limit ?? 4);
   let completed = 0;
@@ -332,6 +380,18 @@ export async function processPendingAssetTasks(
     }
   }
   return { completed, failed };
+}
+
+/** Restore an automatic cover and process it without racing the background worker. */
+export async function restoreAutomaticCoverAndProcess(
+  core: Core,
+  videoId: string,
+  options: { limit?: number } = {},
+): Promise<void> {
+  await withAssetTaskLock(core.db, async () => {
+    restoreAutomaticCover(core.db, videoId);
+    await processPendingAssetTasksUnlocked(core, options);
+  });
 }
 
 function dbTransaction(db: DB, work: () => void): void {

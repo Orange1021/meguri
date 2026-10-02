@@ -39,7 +39,12 @@ function asAssetKind(value: string): AssetKind {
 }
 
 function asAssetSource(value: string): AssetSource {
-  if (value === "manual" || value === "embedded" || value === "sidecar" || value === "auto") {
+  if (
+    value === "manual" ||
+    value === "embedded" ||
+    value === "sidecar" ||
+    value === "auto"
+  ) {
     return value;
   }
   throw new Error(`unknown asset source: ${value}`);
@@ -65,9 +70,19 @@ export function listAssets(
   videoId: string,
   kind?: AssetKind,
 ): AssetRow[] {
-  const rows = (kind
-    ? db.prepare(`${ASSET_SELECT} WHERE video_id = ? AND kind = ? ORDER BY updated_at DESC`).all(videoId, kind)
-    : db.prepare(`${ASSET_SELECT} WHERE video_id = ? ORDER BY kind, updated_at DESC`).all(videoId)) as Array<Record<string, unknown>>;
+  const rows = (
+    kind
+      ? db
+          .prepare(
+            `${ASSET_SELECT} WHERE video_id = ? AND kind = ? ORDER BY updated_at DESC`,
+          )
+          .all(videoId, kind)
+      : db
+          .prepare(
+            `${ASSET_SELECT} WHERE video_id = ? ORDER BY kind, updated_at DESC`,
+          )
+          .all(videoId)
+  ) as Array<Record<string, unknown>>;
   return rows.map(mapAsset);
 }
 
@@ -78,7 +93,9 @@ export function preferredAsset(
 ): AssetRow | null {
   const assets = listAssets(db, videoId, kind);
   const selected = choosePreferredAsset(assets);
-  return selected ? assets.find((asset) => asset.assetId === selected.assetId) ?? null : null;
+  return selected
+    ? (assets.find((asset) => asset.assetId === selected.assetId) ?? null)
+    : null;
 }
 
 export function upsertAsset(
@@ -122,7 +139,8 @@ export function upsertAsset(
   );
   const row = db
     .prepare(`${ASSET_SELECT} WHERE video_id = ? AND kind = ? AND source = ?`)
-    .get(input.videoId, input.kind, input.source) as Record<string, unknown> | undefined;
+    .get(input.videoId, input.kind, input.source) as
+    Record<string, unknown> | undefined;
   if (!row) throw new Error("asset write did not produce a row");
   return mapAsset(row);
 }
@@ -156,10 +174,22 @@ export function enqueueAssetTask(
       (task_id, video_id, kind, source, generation_version, status, attempts, next_attempt_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?, ?)
      ON CONFLICT(video_id, kind, source, generation_version) DO UPDATE SET
-       status = 'queued',
-       next_attempt_at = excluded.next_attempt_at,
-       error_code = NULL,
-       updated_at = excluded.updated_at`,
+       status = CASE
+         WHEN asset_tasks.status = 'running' THEN asset_tasks.status
+         ELSE excluded.status
+       END,
+       next_attempt_at = CASE
+         WHEN asset_tasks.status = 'running' THEN asset_tasks.next_attempt_at
+         ELSE excluded.next_attempt_at
+       END,
+       error_code = CASE
+         WHEN asset_tasks.status = 'running' THEN asset_tasks.error_code
+         ELSE NULL
+       END,
+       updated_at = CASE
+         WHEN asset_tasks.status = 'running' THEN asset_tasks.updated_at
+         ELSE excluded.updated_at
+       END`,
   ).run(
     randomUUID(),
     input.videoId,
@@ -197,10 +227,20 @@ export function claimAssetTasks(
   db.transaction(() => {
     for (const row of rows) {
       const result = mark.run(now, row.taskId);
-      if (result.changes > 0) claimed.push({ ...row, status: "running", attempts: row.attempts + 1 });
+      if (result.changes > 0)
+        claimed.push({ ...row, status: "running", attempts: row.attempts + 1 });
     }
   })();
   return claimed;
+}
+
+/** Requeue work left in `running` when the owning worker was interrupted. */
+export function recoverRunningAssetTasks(db: DB, now: number): number {
+  return db
+    .prepare(
+      "UPDATE asset_tasks SET status = 'queued', next_attempt_at = ?, updated_at = ?, error_code = NULL WHERE status = 'running'",
+    )
+    .run(now, now).changes;
 }
 
 export function completeAssetTask(db: DB, taskId: string, now: number): void {

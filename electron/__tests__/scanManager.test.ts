@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runScan = vi.hoisted(() => vi.fn());
+const processPendingAssetTasks = vi.hoisted(() => vi.fn());
+const recoverRunningAssetTasksSafely = vi.hoisted(() => vi.fn());
 vi.mock("../core/jobs.js", () => ({ runScan }));
+vi.mock("../core/assetService.js", () => ({
+  processPendingAssetTasks,
+  recoverRunningAssetTasksSafely,
+}));
 vi.mock("../core/queries.js", () => ({ clearExcludedFiles: vi.fn() }));
 vi.mock("../core/logger.js", () => ({
   default: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
@@ -68,6 +74,9 @@ function makeDeps(
 describe("ScanManager", () => {
   beforeEach(() => {
     runScan.mockReset();
+    processPendingAssetTasks.mockReset();
+    recoverRunningAssetTasksSafely.mockReset();
+    processPendingAssetTasks.mockResolvedValue({ completed: 0, failed: 0 });
   });
 
   it("does not start a second scan of a workspace already being scanned", async () => {
@@ -134,5 +143,110 @@ describe("ScanManager", () => {
     );
     pendingScan();
     expect(scans.start()).not.toBe("");
+  });
+
+  it("starts one bounded asset worker after a completed scan", async () => {
+    runScan.mockImplementation(
+      async (
+        _core: unknown,
+        jobId: string,
+        report: (event: unknown) => void,
+      ) => {
+        report({ type: "done", jobId, stats: {}, aborted: false });
+      },
+    );
+    const scans = new ScanManager(makeDeps());
+
+    scans.start();
+    await vi.waitFor(() => expect(processPendingAssetTasks).toHaveBeenCalled());
+
+    expect(recoverRunningAssetTasksSafely).toHaveBeenCalledTimes(1);
+    expect(processPendingAssetTasks).toHaveBeenCalledWith(
+      expect.objectContaining({ rootId: 1 }),
+      { signal: expect.any(AbortSignal), limit: 8 },
+    );
+    await scans.abortAll();
+  });
+
+  it("waits for an existing asset worker instead of starting a second one", async () => {
+    let releaseAssets!: () => void;
+    processPendingAssetTasks.mockImplementation(
+      (_core: unknown, options: { signal: AbortSignal }) =>
+        new Promise<{ completed: number; failed: number }>((resolve) => {
+          const finish = () => resolve({ completed: 0, failed: 0 });
+          releaseAssets = finish;
+          options.signal.addEventListener("abort", finish, { once: true });
+        }),
+    );
+    runScan.mockImplementation(
+      async (
+        _core: unknown,
+        jobId: string,
+        report: (event: unknown) => void,
+      ) => {
+        report({ type: "done", jobId, stats: {}, aborted: false });
+      },
+    );
+    const scans = new ScanManager(makeDeps());
+
+    scans.start();
+    await vi.waitFor(() => expect(processPendingAssetTasks).toHaveBeenCalled());
+    expect(scans.start()).toMatch(/^job-/);
+    expect(runScan).toHaveBeenCalledTimes(1);
+
+    releaseAssets();
+    await scans.abortAll();
+  });
+
+  it("recovers asset tasks when the background worker is aborted", async () => {
+    processPendingAssetTasks.mockImplementation(
+      (_core: unknown, options: { signal: AbortSignal }) =>
+        new Promise<{ completed: number; failed: number }>((resolve) => {
+          options.signal.addEventListener(
+            "abort",
+            () => resolve({ completed: 0, failed: 0 }),
+            { once: true },
+          );
+        }),
+    );
+    runScan.mockImplementation(
+      async (
+        _core: unknown,
+        jobId: string,
+        report: (event: unknown) => void,
+      ) => {
+        report({ type: "done", jobId, stats: {}, aborted: false });
+      },
+    );
+    const scans = new ScanManager(makeDeps());
+
+    scans.start();
+    await vi.waitFor(() => expect(processPendingAssetTasks).toHaveBeenCalled());
+    await scans.abortAll();
+
+    expect(recoverRunningAssetTasksSafely).toHaveBeenCalledTimes(2);
+  });
+
+  it("continues queued work after a wholly failed asset batch", async () => {
+    processPendingAssetTasks
+      .mockResolvedValueOnce({ completed: 0, failed: 1 })
+      .mockResolvedValueOnce({ completed: 1, failed: 0 })
+      .mockResolvedValueOnce({ completed: 0, failed: 0 });
+    runScan.mockImplementation(
+      async (
+        _core: unknown,
+        jobId: string,
+        report: (event: unknown) => void,
+      ) => {
+        report({ type: "done", jobId, stats: {}, aborted: false });
+      },
+    );
+    const scans = new ScanManager(makeDeps());
+
+    scans.start();
+    await vi.waitFor(() =>
+      expect(processPendingAssetTasks).toHaveBeenCalledTimes(3),
+    );
+    await scans.abortAll();
   });
 });
