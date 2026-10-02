@@ -54,7 +54,7 @@ export function CoverPreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[min(92vw,72rem)] border-border/70 bg-black/95 p-3 sm:rounded-xl"
+        className="max-w-[min(92vw,64rem)] border-border/70 bg-black/95 p-3 sm:rounded-xl"
         aria-describedby="cover-preview-description"
       >
         <DialogHeader className="sr-only">
@@ -66,7 +66,8 @@ export function CoverPreviewDialog({
           </DialogDescription>
         </DialogHeader>
         <div
-          className="flex max-h-[82vh] min-h-40 items-center justify-center overflow-hidden rounded-lg bg-black"
+          data-testid="cover-preview-viewport"
+          className="flex h-[min(78vh,42rem)] min-h-64 w-full items-center justify-center overflow-hidden rounded-lg bg-black"
           onWheel={handleCoverWheel}
         >
           {failed ? (
@@ -80,7 +81,7 @@ export function CoverPreviewDialog({
             <img
               src={coverUrl}
               alt={title}
-              className="max-h-[82vh] max-w-full object-contain will-change-transform"
+              className="h-full w-full object-contain will-change-transform"
               style={{ transform: `scale(${zoom})` }}
               onError={() => setFailedUrl(coverUrl)}
             />

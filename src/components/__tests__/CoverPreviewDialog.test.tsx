@@ -23,6 +23,24 @@ describe("CoverPreviewDialog", () => {
     expect(screen.getByText("Could not load the cover preview")).toBeTruthy();
   });
 
+  it("uses a bounded viewing canvas instead of rendering the thumbnail at native size", () => {
+    renderWithProviders(
+      <CoverPreviewDialog
+        open
+        coverUrl="http://127.0.0.1:17345/ws/ws-test-abc123/thumb/1?v=2"
+        title="videos/sample.mp4"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    const viewport = screen.getByTestId("cover-preview-viewport");
+    const image = screen.getByRole("img", { name: "videos/sample.mp4" });
+
+    expect(viewport.className).toContain("h-[min(78vh,42rem)]");
+    expect(image.className).toContain("h-full");
+    expect(image.className).toContain("w-full");
+  });
+
   it("zooms the cover without bubbling pinch zoom to the main window", () => {
     const onWindowWheel = vi.fn();
     window.addEventListener("wheel", onWindowWheel);
