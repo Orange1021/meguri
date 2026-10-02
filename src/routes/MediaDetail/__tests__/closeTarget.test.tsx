@@ -188,14 +188,14 @@ describe("MediaDetail close target", () => {
     // The player's pass is parked on the file we arrived with; walking off it
     // and then handing playback back would resume somewhere the user is not.
     await openDetail(`/file/1?ws=${WS_ID}&from=player`);
-    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    fireEvent.click(screen.getByTitle("Next file"));
     await waitFor(() => expect(at()).toContain("/file/2"));
     expect(at()).not.toContain("from=player");
   });
 
   it("keeps carrying the Discovery origin across paging", async () => {
     await openDetail(`/file/1?ws=${WS_ID}&from=discover`);
-    fireEvent.click(screen.getByRole("button", { name: "Next file" }));
+    fireEvent.click(screen.getByTitle("Next file"));
     await waitFor(() => expect(at()).toContain("/file/2"));
     expect(at()).toContain("from=discover");
   });

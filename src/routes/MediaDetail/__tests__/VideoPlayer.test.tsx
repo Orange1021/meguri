@@ -16,6 +16,10 @@ import {
   type PlayerHandle,
 } from "@/routes/MediaDetail/VideoPlayer";
 import { announceVideoHandOff, resetVideoHandOff } from "@/video/videoHandOff";
+import {
+  VIDEO_DISPLAY_MODE_STORAGE_KEY,
+  writeVideoDisplayMode,
+} from "@/video/videoDisplayMode";
 
 const fileRecordPlay = vi.fn().mockResolvedValue(undefined);
 const fileSavePosition = vi
@@ -80,11 +84,23 @@ function renderPlayer(
     </Providers>,
   );
 
+  const rerenderPlayer = (
+    nextOverrides: Partial<Parameters<typeof VideoPlayer>[0]>,
+  ) => {
+    Object.assign(props, nextOverrides);
+    view.rerender(
+      <Providers>
+        <VideoPlayer ref={ref} {...props} />
+      </Providers>,
+    );
+  };
+
   const video = document.querySelector("video") as HTMLVideoElement;
   return {
     video,
     ref,
     view,
+    rerenderPlayer,
     onAddBookmark,
     onRemoveBookmark,
     onExportFrame,
@@ -120,6 +136,7 @@ describe("VideoPlayer", () => {
   beforeEach(() => {
     fileRecordPlay.mockClear();
     localStorage.setItem("meguri.lang", "en");
+    localStorage.removeItem(VIDEO_DISPLAY_MODE_STORAGE_KEY);
   });
   afterEach(() => {
     resetVideoHandOff();
@@ -312,6 +329,102 @@ describe("VideoPlayer", () => {
 
     ref.current?.seek(42);
     expect(video.currentTime).toBe(42);
+  });
+
+  it("uses the bottom controls to navigate to the previous and next video", () => {
+    const onPrev = vi.fn();
+    const onNext = vi.fn();
+    const { video } = renderPlayer({
+      onPrev,
+      onNext,
+      canPrev: true,
+      canNext: true,
+    });
+    loadVideo(video);
+
+    const previous = screen.getByRole("button", { name: "media.prev" });
+    const next = screen.getByRole("button", { name: "media.next" });
+    fireEvent.click(previous);
+    fireEvent.click(next);
+
+    expect(onPrev).toHaveBeenCalledTimes(1);
+    expect(onNext).toHaveBeenCalledTimes(1);
+    expect(video.currentTime).toBe(0);
+  });
+
+  it("disables unavailable bottom navigation directions", () => {
+    const { video } = renderPlayer({
+      onPrev: vi.fn(),
+      onNext: vi.fn(),
+      canPrev: false,
+      canNext: true,
+    });
+    loadVideo(video);
+
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "media.prev" })
+        .disabled,
+    ).toBe(true);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "media.next" })
+        .disabled,
+    ).toBe(false);
+  });
+
+  it("changes the video display mode from the player menu", () => {
+    const { video } = renderPlayer();
+    loadVideo(video);
+
+    expect(video.className).toContain("object-contain");
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "player.displayMode" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "player.displayModeCover" }),
+    );
+
+    expect(video.className).toContain("object-cover");
+    expect(video.className).not.toContain("object-contain");
+  });
+
+  it("loads the saved display mode for each video independently", () => {
+    writeVideoDisplayMode("ws1", "1", "cover");
+    writeVideoDisplayMode("ws1", "2", "fill");
+    const { video, rerenderPlayer } = renderPlayer({ id: 1 });
+    loadVideo(video);
+
+    expect(video.className).toContain("object-cover");
+    rerenderPlayer({
+      id: 2,
+      src: "http://127.0.0.1:17345/ws/ws1/media/2",
+    });
+
+    expect(video.className).toContain("object-fill");
+    expect(video.className).not.toContain("object-cover");
+  });
+
+  it("uses the player wrapper as the fullscreen target", () => {
+    const externalTarget = document.createElement("div");
+    const externalRequestFullscreen = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(externalTarget, "requestFullscreen", {
+      configurable: true,
+      value: externalRequestFullscreen,
+    });
+    const { video } = renderPlayer({
+      fullscreenTargetRef: { current: externalTarget },
+    });
+    loadVideo(video);
+    const wrapper = video.parentElement!;
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(wrapper, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreen,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "player.fullscreen" }));
+
+    expect(requestFullscreen).toHaveBeenCalledTimes(1);
+    expect(externalRequestFullscreen).not.toHaveBeenCalled();
   });
 
   describe("holding a seek key", () => {

@@ -3,7 +3,7 @@
 // player on top, title/controls right below, then meta, tags, scenes, and history stacked as cards.
 //
 // This file composes the route. The pieces live beside it: where closing lands
-// (useCloseTarget), modal / side peek / full screen (useDetailPresentation),
+// (useCloseTarget), modal / side peek (useDetailPresentation),
 // every write to the file (useDetailMutations), audio in the bottom bar
 // (useAudioDetail), prev/next (usePrevNextNavigation), and the title row,
 // rating/tags card and play history as components.
@@ -22,7 +22,6 @@ import { useWatchLaterHotkey } from "@/hooks/useWatchLaterHotkey";
 import { useRecordImageView } from "@/hooks/useRecordImageView";
 import { useSpectrumPatternHotkey } from "@/audio/useSpectrumPatternHotkey";
 import { useI18n } from "@/i18n/I18nProvider";
-import { formatChords } from "@/settings/keybindings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useResumeStart } from "@/hooks/useResumeStart";
 import { ResumeNotice } from "@/components/ResumeNotice";
@@ -145,8 +144,7 @@ export default function MediaDetail() {
     setPresentation,
     isPeek,
     modalRef,
-    isFullscreen,
-  } = useDetailPresentation({ kind });
+  } = useDetailPresentation();
   // Viewing an image counts as a play (images have no player to fire onPlay),
   // so it shows up in the play history like videos do.
   useRecordImageView({
@@ -337,37 +335,26 @@ export default function MediaDetail() {
       onClose={onClose}
       size={modalSize}
       presentation={presentation}
-      fullscreen={isFullscreen}
       containerRef={modalRef}
       t={t}
     >
-      {!isFullscreen && (
-        <TopBar
-          onClose={onClose}
-          title={basename}
-          onPrev={goPrev}
-          onNext={goNext}
-          canPrev={canPrev}
-          canNext={canNext}
-          prevHint={formatChords(navBinding.prev)}
-          nextHint={formatChords(navBinding.next)}
-          onOpenPlaylist={hasList ? openPlaylist : undefined}
-          canOpenPlaylist={canOpenPlaylist}
-          size={modalSize}
-          onToggleSize={toggleModalSize}
-          presentation={presentation}
-          onSetPresentation={setPresentation}
-          t={t}
-        />
-      )}
+      <TopBar
+        onClose={onClose}
+        title={basename}
+        onOpenPlaylist={hasList ? openPlaylist : undefined}
+        canOpenPlaylist={canOpenPlaylist}
+        size={modalSize}
+        onToggleSize={toggleModalSize}
+        presentation={presentation}
+        onSetPresentation={setPresentation}
+        t={t}
+      />
 
       <ScrollArea className="page-scroll min-h-0 flex-1">
         <div className="flex w-full flex-col gap-4 px-4 py-4">
           {/* Player / viewer */}
           {d.kind === "video" ? (
-            // In fullscreen, cancel the surrounding padding so the video is
-            // edge-to-edge for the first screenful (the rest scrolls below).
-            <div className={isFullscreen ? "-mx-4 -mt-4" : "contents"}>
+            <div className="contents">
               <VideoPlayer
                 ref={playerRef}
                 id={fileId}
@@ -380,7 +367,10 @@ export default function MediaDetail() {
                 startAt={startAt}
                 autoplay={autoplay}
                 navKeys={navBinding}
-                fullscreenTargetRef={modalRef}
+                onPrev={goPrev}
+                onNext={goNext}
+                canPrev={canPrev}
+                canNext={canNext}
                 bookmarks={d.bookmarks}
                 bookmarkPending={actions.pending.bookmark}
                 onAddBookmark={actions.addBookmark}

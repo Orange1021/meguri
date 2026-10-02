@@ -94,7 +94,7 @@ describe("Watch Later auto-removal vs prev/next", () => {
       expect(screen.getByRole("heading", { name: "sample.mp4" })).toBeTruthy();
     });
 
-    const next = screen.getByRole("button", { name: "Next file" });
+    const next = screen.getByTitle("Next file");
     expect(next.hasAttribute("disabled")).toBe(false);
   });
 
@@ -110,7 +110,7 @@ describe("Watch Later auto-removal vs prev/next", () => {
       expect(screen.getByRole("heading", { name: "sample.mp4" })).toBeTruthy();
     });
 
-    const next = screen.getByRole("button", { name: "Next file" });
+    const next = screen.getByTitle("Next file");
     expect(next.hasAttribute("disabled")).toBe(true);
   });
 });

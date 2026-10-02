@@ -92,22 +92,17 @@ describe("detail view reached from the player", () => {
     });
     await screen.findByRole("heading", { name: "deep.mp4" });
     await waitFor(() =>
-      expect(
-        screen
-          .getByRole("button", { name: "Next file" })
-          .hasAttribute("disabled"),
-      ).toBe(false),
+      expect(screen.getByTitle("Next file").hasAttribute("disabled")).toBe(
+        false,
+      ),
     );
+    expect(screen.queryByTitle(/Next file \(\]\)/)).toBeNull();
   });
 
   it("steps through the list when opened from it", async () => {
     renderWithProviders(<Detail />, { route: `/file/5?ws=${WS_ID}` });
     await screen.findByRole("heading", { name: "deep.mp4" });
     // Not in the list shown: nowhere to step to.
-    expect(
-      screen
-        .getByRole("button", { name: "Next file" })
-        .hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.getByTitle("Next file").hasAttribute("disabled")).toBe(true);
   });
 });

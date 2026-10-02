@@ -16,6 +16,7 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Settings2,
   SkipBack,
   SkipForward,
   Volume2,
@@ -40,6 +41,19 @@ import { matchAny, type NavBinding } from "@/settings/keybindings";
 import type { TFunc } from "@/i18n/I18nProvider";
 import { VideoElement } from "@/video/VideoElement";
 import { isSameSource } from "@/video/videoHandOff";
+import {
+  DEFAULT_VIDEO_DISPLAY_MODE,
+  readVideoDisplayMode,
+  type VideoDisplayMode,
+  writeVideoDisplayMode,
+} from "@/video/videoDisplayMode";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { streamOffsetOf, withStreamSeek } from "@/lib/mediaSrc";
 import {
   isFatalMediaError,
@@ -118,11 +132,16 @@ export const VideoPlayer = forwardRef<
     autoplay?: boolean;
     /** Active paging chords; the player yields these keys so they don't also seek. */
     navKeys: NavBinding;
-    /**
-     * Element to fullscreen instead of the player itself (e.g. the whole modal,
-     * YouTube-style: the video fills the screen and the rest scrolls below it).
-     */
+    /** Optional fullscreen host used by the chromeless playlist stage. */
     fullscreenTargetRef?: React.RefObject<HTMLDivElement | null>;
+    /** Navigate to the previous video in the current navigation context. */
+    onPrev?: () => void;
+    /** Navigate to the next video in the current navigation context. */
+    onNext?: () => void;
+    /** Whether a previous video exists in the current navigation context. */
+    canPrev?: boolean;
+    /** Whether a next video exists in the current navigation context. */
+    canNext?: boolean;
     /**
      * User-curated bookmarks for this file (drives the toggle button state).
      * Omitted by the playlist player, which shows no editing affordances; the
@@ -186,6 +205,10 @@ export const VideoPlayer = forwardRef<
     autoplay = true,
     navKeys,
     fullscreenTargetRef,
+    onPrev,
+    onNext,
+    canPrev = false,
+    canNext = false,
     bookmarks,
     bookmarkPending,
     onAddBookmark,
@@ -216,6 +239,9 @@ export const VideoPlayer = forwardRef<
   const [loaded, setLoaded] = useState(false);
   // Whether this player is currently the fullscreen element (used to drop the max-height cap).
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [displayMode, setDisplayMode] = useState<VideoDisplayMode>(() =>
+    readVideoDisplayMode(wsId, String(id)),
+  );
   // Volume lives outside this component so the playlist chrome and the detail
   // view stay in step (see hooks/useVolume.ts).
   const { volume, muted } = useVolume();
@@ -230,6 +256,24 @@ export const VideoPlayer = forwardRef<
   const total = duration && duration > 0 ? duration : (nativeDur ?? undefined);
   // Display position (scrub while dragging).
   const displayPos = scrub ?? position;
+
+  // The display preference belongs to this file, not to the player instance:
+  // the same player component is retained while detail navigation changes the
+  // route from one file to another.
+  useEffect(() => {
+    // Prop identity changed, so synchronise the visible mode with the newly
+    // selected file's persisted preference.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDisplayMode(readVideoDisplayMode(wsId, String(id)));
+  }, [id, wsId]);
+
+  const selectDisplayMode = useCallback(
+    (next: VideoDisplayMode) => {
+      setDisplayMode(next);
+      writeVideoDisplayMode(wsId, String(id), next);
+    },
+    [id, wsId],
+  );
 
   /**
    * The second the current run of seek presses has reached, before the element
@@ -507,6 +551,18 @@ export const VideoPlayer = forwardRef<
     [],
   );
 
+  useEffect(
+    () => () => {
+      const fullscreenTarget = chromeless
+        ? (fullscreenTargetRef?.current ?? wrapRef.current)
+        : wrapRef.current;
+      if (document.fullscreenElement === fullscreenTarget) {
+        void document.exitFullscreen().catch(() => {});
+      }
+    },
+    [chromeless, fullscreenTargetRef],
+  );
+
   // Seek operation. Use currentTime if the target falls within a seekable range,
   // otherwise re-stream via ?t. Remuxed containers (mkv/avi/wmv/flv/ts) are piped
   // without Range support, so seekable only covers the buffered portion — checking
@@ -691,24 +747,35 @@ export const VideoPlayer = forwardRef<
   };
 
   const toggleFullscreen = () => {
-    const el = fullscreenTargetRef?.current ?? wrapRef.current;
+    const el = chromeless
+      ? (fullscreenTargetRef?.current ?? wrapRef.current)
+      : wrapRef.current;
     if (!el) return;
     if (document.fullscreenElement) void document.exitFullscreen();
     else void el.requestFullscreen().catch(() => {});
   };
 
+  const skipRef = useRef(skip);
+  useEffect(() => {
+    skipRef.current = skip;
+  });
+  const toggleFullscreenRef = useRef(toggleFullscreen);
+  useEffect(() => {
+    toggleFullscreenRef.current = toggleFullscreen;
+  });
+
   // Track fullscreen state so the video can fill the screen (the default max-h cap would otherwise leave black bars).
-  // The fullscreen element may be an ancestor (fullscreenTargetRef), so containment is the check.
   useEffect(() => {
     const onFsChange = () => {
       const fs = document.fullscreenElement;
-      setIsFullscreen(
-        fs != null && wrapRef.current != null && fs.contains(wrapRef.current),
-      );
+      const fullscreenTarget = chromeless
+        ? (fullscreenTargetRef?.current ?? wrapRef.current)
+        : wrapRef.current;
+      setIsFullscreen(fs != null && fs === fullscreenTarget);
     };
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
-  }, []);
+  }, [chromeless, fullscreenTargetRef]);
 
   // Keep paging chords fresh for the keydown closure (registered once).
   const navKeysRef = useRef(navKeys);
@@ -741,24 +808,24 @@ export const VideoPlayer = forwardRef<
           break;
         case "ArrowRight":
           e.preventDefault();
-          skip(5);
+          skipRef.current(5);
           break;
         case "ArrowLeft":
           e.preventDefault();
-          skip(-5);
+          skipRef.current(-5);
           break;
         case "KeyL":
           e.preventDefault();
-          skip(10);
+          skipRef.current(10);
           break;
         case "KeyJ":
           e.preventDefault();
-          skip(-10);
+          skipRef.current(-10);
           break;
         case "KeyF":
           // Chromeless means the caller owns the frame, its fullscreen control
           // and therefore this key too; acting here as well would cancel it out.
-          if (!chromeless) toggleFullscreen();
+          if (!chromeless) toggleFullscreenRef.current();
           break;
         case "KeyM":
           toggleMuted();
@@ -912,6 +979,18 @@ export const VideoPlayer = forwardRef<
   // whole screen: the playlist player hands it the entire stage, and letterboxing
   // is the blurred backdrop's job, not a gap in the layout.
   const fillsParent = chromeless || isFullscreen;
+  const videoDisplayClass =
+    displayMode === DEFAULT_VIDEO_DISPLAY_MODE
+      ? "object-contain"
+      : displayMode === "cover"
+        ? "object-cover"
+        : "object-fill";
+  const displayModeLabelKeys = {
+    contain: "player.displayModeContain",
+    cover: "player.displayModeCover",
+    fill: "player.displayModeFill",
+  } as const;
+  const displayModeLabel = t(displayModeLabelKeys[displayMode]);
 
   return (
     <div
@@ -942,7 +1021,7 @@ export const VideoPlayer = forwardRef<
         onAttach={onAttach}
         src={src}
         autoPlay={autoplay}
-        className={`h-full w-full object-contain transition-opacity ${
+        className={`h-full w-full ${videoDisplayClass} transition-opacity ${
           chromeless
             ? "max-h-full"
             : isFullscreen
@@ -1123,7 +1202,11 @@ export const VideoPlayer = forwardRef<
 
           {/* Controls row. */}
           <div className="flex items-center gap-1 text-xs">
-            <CtrlButton onClick={() => skip(-10)} title={t("player.back10")}>
+            <CtrlButton
+              onClick={() => onPrev?.()}
+              disabled={!onPrev || !canPrev}
+              title={t("media.prev")}
+            >
               <SkipBack size={18} />
             </CtrlButton>
             <CtrlButton
@@ -1132,7 +1215,11 @@ export const VideoPlayer = forwardRef<
             >
               {playing ? <Pause size={20} /> : <Play size={20} />}
             </CtrlButton>
-            <CtrlButton onClick={() => skip(10)} title={t("player.forward10")}>
+            <CtrlButton
+              onClick={() => onNext?.()}
+              disabled={!onNext || !canNext}
+              title={t("media.next")}
+            >
               <SkipForward size={18} />
             </CtrlButton>
             {showBookmarkButton && (
@@ -1194,6 +1281,38 @@ export const VideoPlayer = forwardRef<
                   title={t("player.volume")}
                 />
               </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={t("player.displayMode")}
+                    title={`${t("player.displayMode")}: ${displayModeLabel}`}
+                    className="flex items-center justify-center rounded-full p-1.5 text-white/90 transition hover:bg-white/20 hover:text-white"
+                  >
+                    <Settings2 size={18} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="end">
+                  <DropdownMenuGroup>
+                    {(["contain", "cover", "fill"] as VideoDisplayMode[]).map(
+                      (mode) => (
+                        <DropdownMenuItem
+                          key={mode}
+                          onSelect={() => selectDisplayMode(mode)}
+                          className={
+                            displayMode === mode ? "bg-accent/60" : undefined
+                          }
+                        >
+                          <span className="w-4" aria-hidden="true">
+                            {displayMode === mode ? "✓" : ""}
+                          </span>
+                          {t(displayModeLabelKeys[mode])}
+                        </DropdownMenuItem>
+                      ),
+                    )}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <CtrlButton
                 onClick={toggleFullscreen}
                 title={t("player.fullscreen")}
@@ -1224,6 +1343,7 @@ function CtrlButton({
       type="button"
       onClick={onClick}
       title={title}
+      aria-label={title}
       disabled={disabled}
       className="flex items-center justify-center rounded-full p-1.5 text-white/90 transition hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-white/90"
     >

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
-import { useIsFullscreen } from "@/hooks/useIsFullscreen";
+import { useCallback, useRef } from "react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
   MODAL_SIZE_KEY,
@@ -9,21 +8,14 @@ import {
 } from "./MediaModal";
 
 /**
- * How the detail view is shown: modal or side peek, the modal's size, and
- * whether its panel is full screen.
+ * How the detail view is shown: modal or side peek, plus its remembered modal
+ * size.
  *
  * Both the presentation and the modal size are remembered, so the view
  * reopens the way it was last left, and going peek → modal lands on the modal
- * size that was last chosen. The modal panel is the fullscreen target
- * (YouTube-style: video fills the screen, the rest of the detail content
- * scrolls below it).
+ * size that was last chosen. Fullscreen is owned by the video player itself.
  */
-export function useDetailPresentation({
-  kind,
-}: {
-  /** The file's kind once known; leaving full screen keys on it. */
-  kind: string | undefined;
-}) {
+export function useDetailPresentation() {
   const [modalSize, setModalSize] = useLocalStorage<ModalSize>(
     MODAL_SIZE_KEY,
     "large",
@@ -40,21 +32,6 @@ export function useDetailPresentation({
   );
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const isFullscreen = useIsFullscreen(modalRef);
-  // Exit fullscreen when prev/next lands on anything but a video: only the
-  // video player has a fullscreen toggle, so staying fullscreen on an image or
-  // an audio track would strand the user (Esc only). Keyed on the resolved
-  // kind, not on !video alone, so the transient undefined while the next file
-  // loads doesn't drop video→video fullscreen.
-  useEffect(() => {
-    if (
-      kind != null &&
-      kind !== "video" &&
-      document.fullscreenElement === modalRef.current
-    ) {
-      void document.exitFullscreen().catch(() => {});
-    }
-  }, [kind]);
 
   return {
     modalSize,
@@ -63,6 +40,5 @@ export function useDetailPresentation({
     setPresentation,
     isPeek: presentation === "peek",
     modalRef,
-    isFullscreen,
   };
 }

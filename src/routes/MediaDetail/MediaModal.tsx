@@ -8,8 +8,6 @@ import {
 } from "react";
 import {
   AppWindow,
-  ChevronLeft,
-  ChevronRight,
   EllipsisVertical,
   Maximize2,
   Minimize2,
@@ -41,15 +39,12 @@ export const PRESENTATION_KEY = "meguri.media.detail.presentation";
 // near-fullscreen layout ("large") and a centered compact panel ("small");
 // `presentation: "peek"` renders the side sheet instead: an in-flow sibling
 // of Home's list that takes its width from the row, so the list narrows and
-// every part of it stays reachable. `containerRef` exposes the inner panel so
-// the player can request fullscreen on the whole frame (YouTube-style);
-// `fullscreen` drops the frame decorations while that element is the
-// fullscreen element.
+// every part of it stays reachable. `containerRef` exposes the inner panel for
+// close-target and presentation measurements.
 export function MediaModal({
   onClose,
   size = "large",
   presentation = "modal",
-  fullscreen = false,
   containerRef,
   t,
   children,
@@ -57,7 +52,6 @@ export function MediaModal({
   onClose: () => void;
   size?: ModalSize;
   presentation?: Presentation;
-  fullscreen?: boolean;
   containerRef?: Ref<HTMLDivElement>;
   t: TFunc;
   children: ReactNode;
@@ -81,7 +75,7 @@ export function MediaModal({
   }, [onClose]);
 
   const isPeek = presentation === "peek";
-  const docked = isPeek && !fullscreen;
+  const docked = isPeek;
 
   // The panel element, for measuring and for live-resizing during a drag
   // without a render per pointer move (the parent's ref is served too).
@@ -112,22 +106,17 @@ export function MediaModal({
     // No backdrop: the list stays interactive beside the sheet, which takes
     // its share of the row so the list narrows rather than being covered. A
     // plain rule marks the edge (a shadow would be re-rasterised on every
-    // frame of a resize drag). While fullscreen only the decorations go: the
-    // UA stylesheet sizes the fullscreen element itself.
-    innerClass = `${innerBase} relative shrink-0${
-      fullscreen ? "" : " border-r border-border"
-    }`;
+    // frame of a resize drag).
+    innerClass = `${innerBase} relative shrink-0 border-r border-border`;
   } else {
     const outerBase = "fixed inset-0 z-50 flex bg-black/70 backdrop-blur-sm";
     outerClass =
       size === "small"
         ? `${outerBase} justify-center p-4 sm:p-6 md:p-10`
         : `${outerBase} p-2 sm:p-4 md:p-6`;
-    innerClass = fullscreen
-      ? `${innerBase} relative w-full overflow-hidden`
-      : `${innerBase} relative w-full overflow-hidden rounded-xl border border-border shadow-2xl${
-          size === "small" ? " max-w-4xl" : ""
-        }`;
+    innerClass = `${innerBase} relative w-full overflow-hidden rounded-xl border border-border shadow-2xl${
+      size === "small" ? " max-w-4xl" : ""
+    }`;
   }
 
   return (
@@ -188,12 +177,6 @@ export function MediaModal({
 export function TopBar({
   onClose,
   title,
-  onPrev,
-  onNext,
-  canPrev,
-  canNext,
-  prevHint,
-  nextHint,
   onOpenPlaylist,
   canOpenPlaylist = true,
   size,
@@ -204,12 +187,6 @@ export function TopBar({
 }: {
   onClose: () => void;
   title?: string;
-  onPrev?: () => void;
-  onNext?: () => void;
-  canPrev?: boolean;
-  canNext?: boolean;
-  prevHint?: string;
-  nextHint?: string;
   /** Play the list from this file in the playlist player. Absent when there
    *  is no list to play. */
   onOpenPlaylist?: () => void;
@@ -228,36 +205,6 @@ export function TopBar({
     : t("media.modalMinimize");
   return (
     <header className="flex items-center gap-2 border-b border-border bg-bg px-3 py-2.5">
-      {(onPrev || onNext) && (
-        <div className="flex items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={onPrev}
-            disabled={!canPrev}
-            aria-label={t("media.prev")}
-            title={
-              prevHint ? `${t("media.prev")} (${prevHint})` : t("media.prev")
-            }
-          >
-            <ChevronLeft />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={onNext}
-            disabled={!canNext}
-            aria-label={t("media.next")}
-            title={
-              nextHint ? `${t("media.next")} (${nextHint})` : t("media.next")
-            }
-          >
-            <ChevronRight />
-          </Button>
-        </div>
-      )}
       {title && (
         <span
           className="select-text truncate text-sm font-medium text-fg"
