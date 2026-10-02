@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ORANGE_LOGO_DATA_URL,
@@ -26,5 +28,17 @@ describe("main-process logo asset", () => {
     );
     expect(png.readUInt32BE(16)).toBe(32);
     expect(png.readUInt32BE(20)).toBe(32);
+  });
+
+  it("embeds the reviewable orange tray PNG without stale bytes", () => {
+    const expected = fs.readFileSync(
+      path.resolve(process.cwd(), "logo", "tray-32.png"),
+    );
+    const actual = Buffer.from(
+      ORANGE_TRAY_ICON_DATA_URL.split(",", 2)[1],
+      "base64",
+    );
+
+    expect(actual).toEqual(expected);
   });
 });
