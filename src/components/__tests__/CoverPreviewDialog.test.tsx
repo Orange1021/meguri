@@ -23,6 +23,32 @@ describe("CoverPreviewDialog", () => {
     expect(screen.getByText("Could not load the cover preview")).toBeTruthy();
   });
 
+  it("zooms the cover without bubbling pinch zoom to the main window", () => {
+    const onWindowWheel = vi.fn();
+    window.addEventListener("wheel", onWindowWheel);
+
+    try {
+      renderWithProviders(
+        <CoverPreviewDialog
+          open
+          coverUrl="http://127.0.0.1:17345/ws/ws-test-abc123/thumb/1?v=2"
+          title="videos/sample.mp4"
+          onOpenChange={vi.fn()}
+        />,
+      );
+
+      const image = screen.getByRole("img", { name: "videos/sample.mp4" });
+      fireEvent.wheel(image, { ctrlKey: true, deltaY: -100 });
+
+      expect(image.style.transform).toBe("scale(1.1)");
+      fireEvent.wheel(image, { ctrlKey: true, deltaY: 100 });
+      expect(image.style.transform).toBe("scale(1)");
+      expect(onWindowWheel).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("wheel", onWindowWheel);
+    }
+  });
+
   it("notifies the owner when Escape closes the preview", () => {
     const onOpenChange = vi.fn();
     renderWithProviders(
@@ -53,5 +79,25 @@ describe("CoverPreviewDialog", () => {
     view.rerender(<CoverPreviewDialog open {...props} />);
 
     expect(screen.getByRole("img", { name: props.title })).toBeTruthy();
+  });
+
+  it("resets the cover zoom when the preview reopens", () => {
+    const props = {
+      coverUrl: "http://127.0.0.1:17345/ws/ws-test-abc123/thumb/1?v=2",
+      title: "videos/sample.mp4",
+      onOpenChange: vi.fn(),
+    };
+    const view = renderWithProviders(<CoverPreviewDialog open {...props} />);
+    const image = screen.getByRole("img", { name: props.title });
+
+    fireEvent.wheel(image, { ctrlKey: true, deltaY: -100 });
+    expect(image.style.transform).toBe("scale(1.1)");
+
+    view.rerender(<CoverPreviewDialog open={false} {...props} />);
+    view.rerender(<CoverPreviewDialog open {...props} />);
+
+    expect(screen.getByRole("img", { name: props.title }).style.transform).toBe(
+      "scale(1)",
+    );
   });
 });

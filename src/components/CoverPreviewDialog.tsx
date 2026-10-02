@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type WheelEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,6 +7,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
+
+const COVER_ZOOM_MIN = 0.5;
+const COVER_ZOOM_MAX = 4;
+const COVER_ZOOM_STEP = 1.1;
+
+function clampCoverZoom(value: number): number {
+  return Math.min(COVER_ZOOM_MAX, Math.max(COVER_ZOOM_MIN, value));
+}
 
 export function CoverPreviewDialog({
   open,
@@ -21,10 +29,26 @@ export function CoverPreviewDialog({
 }) {
   const { t } = useI18n();
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     setFailedUrl(null);
+    setZoom(1);
   }, [coverUrl, open]);
+
+  const handleCoverWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey) return;
+    // The app's global content zoom also listens for Ctrl+wheel on window.
+    // Keep pinch zoom inside the preview so the page behind the dialog stays
+    // completely unchanged.
+    event.preventDefault();
+    event.stopPropagation();
+    setZoom((current) =>
+      clampCoverZoom(
+        current * (event.deltaY < 0 ? COVER_ZOOM_STEP : 1 / COVER_ZOOM_STEP),
+      ),
+    );
+  };
 
   const failed = !coverUrl || failedUrl === coverUrl;
   return (
@@ -41,7 +65,10 @@ export function CoverPreviewDialog({
             {title}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex max-h-[82vh] min-h-40 items-center justify-center overflow-hidden rounded-lg bg-black">
+        <div
+          className="flex max-h-[82vh] min-h-40 items-center justify-center overflow-hidden rounded-lg bg-black"
+          onWheel={handleCoverWheel}
+        >
           {failed ? (
             <div
               role="status"
@@ -53,7 +80,8 @@ export function CoverPreviewDialog({
             <img
               src={coverUrl}
               alt={title}
-              className="max-h-[82vh] max-w-full object-contain"
+              className="max-h-[82vh] max-w-full object-contain will-change-transform"
+              style={{ transform: `scale(${zoom})` }}
               onError={() => setFailedUrl(coverUrl)}
             />
           )}
