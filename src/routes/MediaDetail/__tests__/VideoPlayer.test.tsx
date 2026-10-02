@@ -419,8 +419,7 @@ describe("VideoPlayer", () => {
           previousDescriptor,
         );
       } else {
-        delete (document as Document & { fullscreenElement?: Element })
-          .fullscreenElement;
+        Reflect.deleteProperty(document, "fullscreenElement");
       }
     }
   });
