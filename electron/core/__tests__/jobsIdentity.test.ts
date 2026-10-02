@@ -87,6 +87,40 @@ describe("runScan identity integration", () => {
     expect(events.at(-1)).toMatchObject({ type: "done", jobId: "job-1" });
   });
 
+  it("indexes images without generating a thumbnail", async () => {
+    const media = await import("../media.js");
+    const imagePath = path.join(root, "picture.jpg");
+    await fsp.writeFile(imagePath, "image bytes");
+    vi.mocked(media.generateThumb).mockClear();
+
+    await runScan(core, "job-image", () => {});
+
+    const row = db
+      .prepare(
+        "SELECT kind, thumb_status AS thumbStatus, thumb_path AS thumbPath FROM files WHERE rel_path = ?",
+      )
+      .get("picture.jpg") as {
+      kind: string;
+      thumbStatus: string;
+      thumbPath: string | null;
+    };
+    expect(row).toEqual({
+      kind: "image",
+      thumbStatus: "done",
+      thumbPath: null,
+    });
+    expect(
+      vi
+        .mocked(media.generateThumb)
+        .mock.calls.some(([source]) => source === imagePath),
+    ).toBe(false);
+    expect(
+      vi
+        .mocked(media.generateThumb)
+        .mock.calls.some(([source]) => source === path.join(root, "clip.mp4")),
+    ).toBe(true);
+  });
+
   it("marks an aborted run and does not soft-delete unseen files", async () => {
     const controller = new AbortController();
     controller.abort();

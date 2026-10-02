@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Core } from "../index.js";
+import { clearNonVideoThumbnailPaths } from "../thumbnailPaths.js";
 
 const roots: string[] = [];
 const dataDirs: string[] = [];
@@ -90,5 +91,50 @@ describe("portable thumbnail paths", () => {
         )
         .get(id),
     ).toEqual({ thumbPath: null, status: "pending" });
+  });
+
+  it("clears generated thumbnails for image rows without deleting the source", async () => {
+    const { core, root } = await setup();
+    const imagePath = path.join(root, "picture.jpg");
+    await fsp.writeFile(imagePath, "image bytes");
+    const thumbPath = path.join(core.thumbsDir(), "1.webp");
+    const id = await insertThumbRow(core, thumbPath);
+    core.db.prepare("UPDATE files SET kind = 'image' WHERE id = ?").run(id);
+    await fsp.writeFile(thumbPath, "thumbnail");
+
+    await clearNonVideoThumbnailPaths(core.db, core.thumbsDir());
+
+    expect(
+      core.db
+        .prepare(
+          "SELECT thumb_path AS thumbPath, thumb_status AS status FROM files WHERE id = ?",
+        )
+        .get(id),
+    ).toEqual({ thumbPath: null, status: "done" });
+    expect((await fsp.stat(imagePath)).isFile()).toBe(true);
+    await expect(fsp.stat(thumbPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("clears a stale non-video path without deleting a file outside Data", async () => {
+    const { core } = await setup();
+    const outsideDir = await fsp.mkdtemp(
+      path.join(os.tmpdir(), "meguri-old-thumb-"),
+    );
+    dataDirs.push(outsideDir);
+    const oldPath = path.join(outsideDir, "1.webp");
+    await fsp.writeFile(oldPath, "thumbnail");
+    const id = await insertThumbRow(core, oldPath);
+    core.db.prepare("UPDATE files SET kind = 'image' WHERE id = ?").run(id);
+
+    await clearNonVideoThumbnailPaths(core.db, core.thumbsDir());
+
+    expect(
+      core.db
+        .prepare(
+          "SELECT thumb_path AS thumbPath, thumb_status AS status FROM files WHERE id = ?",
+        )
+        .get(id),
+    ).toEqual({ thumbPath: null, status: "done" });
+    expect((await fsp.stat(oldPath)).isFile()).toBe(true);
   });
 });

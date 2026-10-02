@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import path from "node:path";
 import type { DB } from "./db.js";
 
@@ -13,6 +14,53 @@ function isRegularFile(filePath: string): boolean {
   } catch {
     return false;
   }
+}
+
+function samePath(left: string, right: string): boolean {
+  if (process.platform === "win32") {
+    return left.toLowerCase() === right.toLowerCase();
+  }
+  return left === right;
+}
+
+/**
+ * Remove thumbnail references for media that is not a video.
+ *
+ * Only the generated <id>.webp cache in the current workspace is removed from
+ * disk. A stale path from an older portable location is cleared from SQLite,
+ * but is never treated as a deletion target.
+ */
+export async function clearNonVideoThumbnailPaths(
+  db: DB,
+  thumbsDir: string,
+): Promise<void> {
+  const rows = db
+    .prepare(
+      "SELECT id, thumb_path AS thumbPath FROM files WHERE deleted_at IS NULL AND kind != 'video' AND thumb_path IS NOT NULL",
+    )
+    .all() as ThumbnailPathRow[];
+  const clear = db.prepare(
+    "UPDATE files SET thumb_path = NULL, thumb_status = 'done' WHERE id = ?",
+  );
+  const generatedPaths = rows
+    .map((row) => ({
+      row,
+      expected: path.resolve(thumbsDir, `${row.id}.webp`),
+    }))
+    .filter(({ row, expected }) =>
+      samePath(path.resolve(row.thumbPath), expected),
+    )
+    .map(({ expected }) => expected);
+
+  db.transaction(() => {
+    for (const row of rows) clear.run(row.id);
+  })();
+
+  await Promise.all(
+    generatedPaths.map((filePath) =>
+      fsp.rm(filePath, { force: true }).catch(() => undefined),
+    ),
+  );
 }
 
 /**

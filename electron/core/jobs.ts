@@ -12,7 +12,7 @@ import {
   type ScanStats,
   type IdentityTarget,
 } from "./scan.js";
-import { coverArtStreamIndex, extractMeta, generateThumb } from "./media.js";
+import { extractMeta, generateThumb } from "./media.js";
 import {
   processPendingAssetTasks,
   queueDerivedAssets,
@@ -25,11 +25,7 @@ import {
   needsAutoMetaBackfill,
 } from "./autoMetaTags.js";
 import { pool } from "./concurrency.js";
-import {
-  LARGE_IMAGE_PIXELS,
-  SCAN_POOL_WIDTH,
-  withScanDecodeSlot,
-} from "./mediaConcurrency.js";
+import { SCAN_POOL_WIDTH, withScanDecodeSlot } from "./mediaConcurrency.js";
 import { scopedLog } from "./logger.js";
 import type { Kind } from "./types.js";
 import {
@@ -39,6 +35,7 @@ import {
   type PreparedIdentity,
 } from "./scanService.js";
 import type { ExtractedMeta } from "./media.js";
+import { clearNonVideoThumbnailPaths } from "./thumbnailPaths.js";
 
 const log = scopedLog("scan");
 
@@ -306,6 +303,8 @@ export async function runScan(
 
     // --- thumbnail/meta (parallel) ---
     setPhase("thumbnail");
+    await clearNonVideoThumbnailPaths(db, core.thumbsDir());
+    if (signal?.aborted) return finishAborted();
     const pending = q.filesNeedingThumb(db, core.rootId);
     const total = pending.length;
     let processed = 0;
@@ -331,14 +330,9 @@ export async function runScan(
       identityError?: IdentityError;
       metadataError?: string;
       thumbnailError?: string;
-      /** Set for audio files that carry no embedded cover art, which is a normal
-       *  state rather than a failure. Such rows still need their metadata persisted
-       *  (duration drives the UI), but must land on thumb_status 'done' with a null
-       *  path — not 'error', which would misreport a file that is perfectly fine,
-       *  and not left 'pending', which would keep them in filesNeedingThumb forever
-       *  and inflate every later scan's progress total. Adding art to such a file
-       *  later is still picked up: writing the tag changes size/mtime, which
-       *  syncFiles() resets back to 'pending'. */
+      /** Set for media that intentionally has no generated thumbnail. Such rows
+       *  still need their metadata persisted, but must land on thumb_status 'done'
+       *  with a null path rather than staying pending forever. */
       skipThumb?: boolean;
     };
     const THUMB_FLUSH_EVERY = 32;
@@ -466,9 +460,9 @@ export async function runScan(
     // left 'pending' for the next scan. Failures are counted so a tool that is
     // broken outright (every file failing) still surfaces as a scan error.
     let failed = 0;
-    // Audio without cover art never attempts a thumbnail, so it counts towards
-    // neither success nor failure of the tooling — it is taken out of the
-    // denominator of the all-failed check below.
+    // Media without a generated thumbnail (images and successfully probed
+    // audio) counts towards neither success nor failure of the tooling — it is
+    // taken out of the denominator of the all-failed check below.
     let skipped = 0;
     const processOne = async (f: (typeof pending)[number]): Promise<void> => {
       if (signal?.aborted) return;
@@ -500,12 +494,12 @@ export async function runScan(
           identityError = describeIdentityError(err);
         }
 
-        // Audio always needs its metadata (duration), and gets a thumbnail only
-        // when the file embeds cover art.
+        // Audio always needs its metadata (duration), but never gets a generated
+        // thumbnail. A failed probe remains an error so it can be retried.
         if (kind === "audio") {
           if (signal?.aborted) return;
           // A failed probe (timeout, transient IO error, unparseable output)
-          // yields `raw: null`, so whether the file has cover art is unknown.
+          // yields `raw: null`, so the audio metadata is unknown.
           // Record it as 'error' — the same terminal state a video whose probe
           // failed lands in — rather than leaving it 'pending': a pending row is
           // re-probed on every scan (up to the 60 s ffprobe timeout each time)
@@ -526,66 +520,41 @@ export async function runScan(
             if (buffer.length >= THUMB_FLUSH_EVERY) flush();
             return;
           }
-          const coverIndex = coverArtStreamIndex(meta.raw);
-          if (coverIndex == null) {
-            skipped++;
-            buffer.push({
-              id: f.id,
-              kind,
-              dest,
-              ok: false,
-              meta,
-              preparedIdentity,
-              identityError,
-              skipThumb: true,
-            });
-            if (buffer.length >= THUMB_FLUSH_EVERY) flush();
-            return;
-          }
-          // Embedded artwork has no size limit (multi-megapixel scans are
-          // common), so it takes a decode slot like any other expensive decode
-          // instead of adding a pool's worth of ffmpeg processes on top.
-          const coverOk = await withScanDecodeSlot(
-            () =>
-              generateThumb(
-                f.abs_path,
-                kind,
-                dest,
-                signal,
-                undefined,
-                coverIndex,
-                (detail) => {
-                  thumbnailError = detail;
-                },
-              ),
-            signal,
-          );
-          if (signal?.aborted) return;
-          // Extraction failure here is a real error (the probe said a picture is
-          // present), so let it record as 'error' like the video/image path.
-          if (!coverOk) failed++;
+          skipped++;
           buffer.push({
             id: f.id,
             kind,
             dest,
-            ok: coverOk,
+            ok: false,
             meta,
             preparedIdentity,
             identityError,
             metadataError,
-            thumbnailError: coverOk
-              ? undefined
-              : (thumbnailError ?? "ffmpeg cover extraction failed"),
+            skipThumb: true,
           });
           if (buffer.length >= THUMB_FLUSH_EVERY) flush();
           return;
         }
 
-        // Honour a user-chosen thumbnail frame if one was set previously. Ignored for images.
-        const offsetSec =
-          kind === "video"
-            ? (q.thumbOffsetOf(db, f.id) ?? undefined)
-            : undefined;
+        if (kind === "image") {
+          skipped++;
+          buffer.push({
+            id: f.id,
+            kind,
+            dest,
+            ok: false,
+            meta,
+            preparedIdentity,
+            identityError,
+            metadataError,
+            skipThumb: true,
+          });
+          if (buffer.length >= THUMB_FLUSH_EVERY) flush();
+          return;
+        }
+
+        // Honour a user-chosen thumbnail frame if one was set previously.
+        const offsetSec = q.thumbOffsetOf(db, f.id) ?? undefined;
         const thumb = () =>
           generateThumb(
             f.abs_path,
@@ -598,18 +567,9 @@ export async function runScan(
               thumbnailError = detail;
             },
           );
-        // Only the expensive decodes take a slot: every video, and images big
-        // enough to cost hundreds of MB — or of unknown size (ffprobe failed, or
-        // a tiled HEIF/AVIF that extractMeta leaves unsized), which are treated
-        // as big. Everything else runs at pool width.
-        const pixels =
-          meta.width != null && meta.height != null
-            ? meta.width * meta.height
-            : Infinity;
-        const expensive = kind === "video" || pixels >= LARGE_IMAGE_PIXELS;
-        const ok = expensive
-          ? await withScanDecodeSlot(thumb, signal)
-          : await thumb();
+        // Video decodes are bounded process-wide together with the media
+        // server's decodes. Images do not reach this branch.
+        const ok = await withScanDecodeSlot(thumb, signal);
 
         // If aborted mid-flight, ffprobe/ffmpeg were killed and returned partial/empty
         // results. Don't persist them or mark the file 'error' (which filesNeedingThumb
@@ -648,12 +608,11 @@ export async function runScan(
         });
       }
     };
-    // Images and videos run in separate pools (mediaConcurrency.ts has the
-    // width and the reasoning): a run of videos must not block the cheap image
-    // side, and the expensive decodes are bounded process-wide inside
-    // processOne, together with the media server's. Both pools are awaited to
-    // completion regardless of failure, and whatever completed is persisted
-    // before any failure propagates.
+    // Metadata-only media and videos run in separate pools: a run of videos
+    // must not block the image/audio metadata side, and video decodes are
+    // bounded process-wide inside processOne together with the media server's.
+    // Both pools are awaited to completion regardless of failure, and whatever
+    // completed is persisted before any failure propagates.
     const images = pending.filter((f) => f.kind !== "video");
     const videos = pending.filter((f) => f.kind === "video");
     try {
