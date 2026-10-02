@@ -348,6 +348,7 @@ export const ja = {
   "scan.phaseIndex": "インデックス作成",
   "scan.phaseThumbnail": "サムネイル生成",
   "scan.phaseTags": "タグ付与",
+  "scan.phaseAssets": "補助アセット処理中",
   "scan.cancel": "スキャンをキャンセル",
 
   // タグ編集

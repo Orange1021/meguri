@@ -20,6 +20,7 @@ const PHASE_KEY: Record<string, TranslationKey> = {
   index: "scan.phaseIndex",
   thumbnail: "scan.phaseThumbnail",
   tags: "scan.phaseTags",
+  assets: "scan.phaseAssets",
 };
 
 interface ProgressState {

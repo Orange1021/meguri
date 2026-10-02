@@ -760,6 +760,16 @@ export async function runScan(
     // a fresh scan produces useful Cover/Sheet files immediately; failed tasks
     // remain in the queue for a later scan or an explicit retry.
     setPhase("assets");
+    // Asset generation can be much slower than indexing (especially for large
+    // sheets). Publish the phase before starting the drain so the renderer does
+    // not leave the completed tags percentage on screen while this work runs.
+    onEvent({
+      type: "progress",
+      jobId,
+      phase: "assets",
+      done: 0,
+      total: 0,
+    });
     if (!signal?.aborted) {
       for (;;) {
         const assetRun = await processPendingAssetTasks(core, {

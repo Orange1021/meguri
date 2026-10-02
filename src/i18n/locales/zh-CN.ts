@@ -336,6 +336,7 @@ export const zhCN: Record<TranslationKey, string> = {
   "scan.phaseIndex": "正在建立索引",
   "scan.phaseThumbnail": "正在生成缩略图",
   "scan.phaseTags": "正在添加标签",
+  "scan.phaseAssets": "正在处理辅助资源",
   "scan.cancel": "取消扫描",
 
   // tag editor

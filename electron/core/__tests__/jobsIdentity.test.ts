@@ -87,6 +87,29 @@ describe("runScan identity integration", () => {
     expect(events.at(-1)).toMatchObject({ type: "done", jobId: "job-1" });
   });
 
+  it("reports the derived-assets phase after tagging completes", async () => {
+    const events: JobEvent[] = [];
+
+    await runScan(core, "job-assets", (event) => events.push(event));
+
+    const tagsIndex = events.findIndex(
+      (event) => event.type === "progress" && event.phase === "tags",
+    );
+    const assetsIndex = events.findIndex(
+      (event) => event.type === "progress" && event.phase === "assets",
+    );
+
+    expect(tagsIndex).toBeGreaterThanOrEqual(0);
+    expect(assetsIndex).toBeGreaterThan(tagsIndex);
+    expect(events[assetsIndex]).toMatchObject({
+      type: "progress",
+      jobId: "job-assets",
+      phase: "assets",
+      done: 0,
+      total: 0,
+    });
+  });
+
   it("indexes images without generating a thumbnail", async () => {
     const media = await import("../media.js");
     const imagePath = path.join(root, "picture.jpg");

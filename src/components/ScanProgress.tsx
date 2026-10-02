@@ -1,4 +1,4 @@
-// Scan progress bar. Subscribes to scan IPC events and shows the walk/thumbnail phases.
+// Scan progress bar. Subscribes to scan IPC events and shows the scan phases.
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { api, events, ALL_ID } from "@/ipc/client";
@@ -19,6 +19,7 @@ const PHASE_KEY: Record<string, TranslationKey> = {
   index: "scan.phaseIndex",
   thumbnail: "scan.phaseThumbnail",
   tags: "scan.phaseTags",
+  assets: "scan.phaseAssets",
 };
 
 export function ScanProgress({

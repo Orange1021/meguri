@@ -354,6 +354,7 @@ export const fr: Record<TranslationKey, string> = {
   "scan.phaseIndex": "Création de l'index",
   "scan.phaseThumbnail": "Génération des miniatures",
   "scan.phaseTags": "Étiquetage",
+  "scan.phaseAssets": "Préparation des ressources",
   "scan.cancel": "Annuler le scan",
 
   // tag editor
