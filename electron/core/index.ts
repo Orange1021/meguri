@@ -5,6 +5,7 @@ import { openDb, type DB } from "./db.js";
 import { dataDirForRoot, dbPathForDataDir, pathHash } from "./paths.js";
 import type { PortableLayout } from "./portablePaths.js";
 import { upsertScanRoot } from "./queries.js";
+import { repairThumbnailPaths } from "./thumbnailPaths.js";
 
 export interface CoreInitOptions {
   layout?: PortableLayout;
@@ -46,6 +47,7 @@ export class Core {
 
     const db = openDb(dbPathForDataDir(dataDir));
     const rootId = upsertScanRoot(db, root, pathHash(root));
+    repairThumbnailPaths(db, path.join(dataDir, "thumbs"));
 
     return new Core(db, root, rootId, dataDir);
   }

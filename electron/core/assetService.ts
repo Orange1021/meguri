@@ -25,6 +25,11 @@ import type { Kind } from "./types.js";
 const MAX_MANUAL_ASSET_BYTES = 100 * 1024 * 1024;
 const IMAGE_EXTENSIONS = new Set([".webp", ".png", ".jpg", ".jpeg"]);
 
+/** Create an FFmpeg temporary path while retaining its output extension. */
+export function assetTemporaryPath(destination: string): string {
+  return `${destination}.${randomUUID()}.tmp${path.extname(destination)}`;
+}
+
 /** Write an asset beside its final path and publish it with a rename. */
 export async function atomicWriteAsset(
   assetRoot: string,
@@ -248,7 +253,7 @@ async function generateTask(
   const relative = assetRelativePath(file.videoId, kind, extension);
   const destination = assetAbsolutePath(core.assetsDir(), relative);
   if (!destination) throw new Error("unsafe generated asset path");
-  const temporary = `${destination}.${randomUUID()}.tmp`;
+  const temporary = assetTemporaryPath(destination);
   await fsPromises.mkdir(path.dirname(destination), { recursive: true });
   let ok = false;
   if (task.kind === "cover" && file.thumbPath) {

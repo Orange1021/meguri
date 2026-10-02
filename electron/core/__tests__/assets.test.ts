@@ -9,16 +9,21 @@ import {
   isSafeAssetRelativePath,
   type AssetCandidate,
 } from "../assets.js";
+import * as assetService from "../assetService.js";
 import { atomicWriteAsset, readAssetFile } from "../assetService.js";
 
 const dirs: string[] = [];
 
 afterEach(() => {
-  for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  for (const dir of dirs.splice(0))
+    fs.rmSync(dir, { recursive: true, force: true });
 });
 
 describe("asset source policy", () => {
-  const candidate = (source: AssetCandidate["source"], pathName: string): AssetCandidate => ({
+  const candidate = (
+    source: AssetCandidate["source"],
+    pathName: string,
+  ): AssetCandidate => ({
     assetId: `${source}-id`,
     videoId: "5e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f7e",
     kind: "cover",
@@ -56,9 +61,13 @@ describe("asset source policy", () => {
   });
 
   it("creates stable, path-safe relative names", () => {
-    expect(assetRelativePath("5e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f7e", "cover", "webp")).toBe(
-      "5e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f7e/cover.webp",
-    );
+    expect(
+      assetRelativePath(
+        "5e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f7e",
+        "cover",
+        "webp",
+      ),
+    ).toBe("5e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f7e/cover.webp");
     expect(ASSET_GENERATION_VERSIONS.sheet).toBe("sheet-v1");
     expect(isSafeAssetRelativePath("a/cover.webp")).toBe(true);
     expect(isSafeAssetRelativePath("../outside.webp")).toBe(false);
@@ -67,6 +76,13 @@ describe("asset source policy", () => {
 });
 
 describe("atomic asset storage", () => {
+  it("exposes an FFmpeg temporary path with the destination extension", () => {
+    const temporary = assetService.assetTemporaryPath(
+      path.join("assets", "cover.webp"),
+    );
+    expect(path.extname(temporary)).toBe(".webp");
+  });
+
   it("writes and reads a completed asset without exposing a partial file", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "meguri-assets-"));
     dirs.push(root);
