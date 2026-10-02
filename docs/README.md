@@ -19,7 +19,7 @@ For what the app is, how to install it, and how to use it, see the top-level
   thumbnails/metadata) and the local HTTP media server (Range streaming,
   on-the-fly remux, frame previews).
 - [Renderer](renderer.md) — the React app: routing, providers, data fetching,
-  internationalization, theming, and content zoom.
+  internationalization, theming, content zoom, and cover preview interaction.
 - [Build and CI](build-and-ci.md) — npm scripts, the electron-vite build, the
   two-project test setup, packaging, CI, and Docker-based development.
 

@@ -2,7 +2,7 @@
 
 The renderer is a React + TypeScript app under `src/`, talking to the main
 process over `window.api`. This document covers its routing, provider stack, data
-fetching, internationalization, theming, and content zoom.
+fetching, internationalization, theming, content zoom, and media cover preview.
 
 ## Routing
 
@@ -135,6 +135,17 @@ endpoint (`src/hooks/useHoverFramePreview.ts`, shared by `MediaThumbnail` and
 the Discover main media); the `hoverPreview` preference in
 `PreferencesProvider` toggles it.
 
+Video rows with a current cover also render `CoverPreviewButton` as a sibling of
+the playback link. `MediaList` owns the selected cover and passes it to one
+controlled `CoverPreviewDialog`, so the button can open a cover without
+starting playback while every other row target keeps its existing behavior.
+The dialog renders the image with `object-contain`, isolates its Ctrl+wheel
+zoom from the window-level content zoom, and owns bounded pan state. Once the
+cover is zoomed, pointer capture keeps left-button dragging continuous even if
+the pointer leaves the viewport; pointer-capture loss, pointer cancellation,
+and returning to 1× all clear the drag state. The focused viewport also accepts
+`+`/`-`/`0` for zoom and the arrow keys for panning.
+
 Styling is Tailwind CSS v4 (`@tailwindcss/vite`). `@/*` is an alias for `src/*`.
 
 ## Internationalization
@@ -151,6 +162,12 @@ primarily in `src/i18n/locales/ja.ts`. When adding a key, sync **all** locales.
 UI primitives are in `src/components/ui/` (Radix plus class-variance-authority,
 in the shadcn style). Confirmation dialogs use `ConfirmProvider` / `useConfirm`
 (`src/components/ConfirmDialog.tsx`).
+
+`CoverPreviewDialog` is a feature-level dialog rather than a generic UI
+primitive. It resets its failed-image, zoom, and pan state for each open cover
+session; it does not persist a user's pan or zoom between files. Its tests use
+pointer events and mocked dimensions to cover drag direction, viewport bounds,
+pointer-capture loss, keyboard panning, and reset behavior.
 
 ## Theming
 
@@ -181,3 +198,9 @@ the UI fails there instead of shipping.
 Zoom uses `webFrame.setZoomFactor` rather than CSS zoom, so coordinate math is
 not affected. It is driven via `preload` through
 `src/hooks/useContentZoom.ts`.
+
+This is separate from cover-preview zoom. The global content zoom changes the
+whole renderer and is controlled by `Ctrl` + wheel / `Ctrl` + `+` / `-` / `0`.
+When the cover dialog is focused, its Ctrl+wheel handler stops propagation and
+zooms only the cover image; its pointer and keyboard handlers then move that
+image inside the bounded preview viewport.

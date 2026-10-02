@@ -23,22 +23,20 @@ file keeps its identity (and therefore its metadata — see
 
 ### Metadata and thumbnails
 
-`electron/core/media.ts` extracts metadata with ffprobe and generates thumbnails
-with ffmpeg, written as WebP.
+`electron/core/media.ts` extracts metadata with ffprobe. Only videos enter the
+thumbnail decode path and receive a generated WebP index image through ffmpeg.
+Images keep their own original file as the renderer preview; scanning still
+records their dimensions, identity, tags, and other metadata, but does not
+create a second image just to use as a thumbnail. Audio keeps its playback
+metadata and is not part of the generated video-thumbnail queue.
 
-For audio the thumbnail is the file's embedded cover art (ID3v2 `APIC`, MP4
-`covr`, FLAC `METADATA_BLOCK_PICTURE`). `coverArtStreamIndex()` finds it in the
-already-probed ffprobe JSON via each stream's `disposition.attached_pic` flag,
-rather than assuming that any video stream in an audio file is artwork — a
-mis-tagged file could carry a real one. It returns the stream's absolute index
-(not a boolean) because a file can hold both a real video stream and a cover, in
-which case ffmpeg's `-map 0:v:0` would encode a frame of the movie as the
-thumbnail. Audio without a cover is recorded as
-`thumb_status = 'done'` with a NULL `thumb_path`: a normal state, not a failure.
-That keeps the row out of `filesNeedingThumb()`, so it is not re-probed on every
-scan. Embedding artwork later still gets picked up, because writing the tag
-changes the file's size/mtime and `syncFiles()` resets such rows to `'pending'`;
-a full index rebuild has the same effect.
+Before pending work is read, `runScan()` clears old non-video thumbnail
+references and removes only generated `<id>.webp` files inside the current
+workspace's `thumbs/` directory. Stale paths from an old portable location are
+cleared from SQLite but are never used as deletion targets. Images and audio
+are stored as `thumb_status = 'done'` with a NULL `thumb_path`: this is a
+deliberate absence, not a failure, and keeps them out of
+`filesNeedingThumb()`.
 
 `FileRow.hasThumb` (derived from `thumb_path IS NOT NULL`) is what the renderer
 keys on, since `thumb_status` alone cannot distinguish a produced thumbnail from
@@ -52,16 +50,13 @@ against concurrent scans of the same workspace with its `scanning` set, which
 avoids chunked-transaction conflicts.
 
 ffmpeg processes that decode video are capped process-wide by the
-`videoDecodeSlots` semaphore in `electron/core/mediaConcurrency.ts`, shared between
-the scan pipeline (video thumbnails) and the media server (frame grabs, image
-transcodes, user-triggered thumbnail regeneration and frame export). Running
-scans together hold at most all-but-one or -two of those slots so interactive
-requests are never queued behind a thumbnail backlog. Scans run images and
-videos in separate pools; only the expensive decodes inside (every video, and
-images above `LARGE_IMAGE_PIXELS` or whose dimensions ffprobe could not
-report) take a slot, so ffprobe and small-image thumbnails keep the full pool
-width. Remux sessions (`-c copy`, no decode) have
-a separate cap in `server.ts`.
+`videoDecodeSlots` semaphore in `electron/core/mediaConcurrency.ts`, shared
+between the scan pipeline (video thumbnails) and the media server (frame grabs,
+image transcodes, user-triggered thumbnail regeneration and frame export).
+Running scans hold at most all-but-one or -two of those slots so interactive
+requests are never queued behind a thumbnail backlog. Image and audio metadata
+work does not enter this video decode queue. Remux sessions (`-c copy`, no
+decode) have a separate cap in `server.ts`.
 
 ## Media server
 

@@ -12,7 +12,7 @@ npm run build      # build main / preload / renderer into out/
 npm run preview    # launch the built app (= npm start)
 npm run dist       # produce distributables (electron-builder)
 npm run dist:portable  # assemble the Windows portable folder
-npm run typecheck  # tsc --noEmit over both src and electron
+npm run typecheck  # tsc --noEmit over src, electron, and e2e configs
 npm test           # core, renderer, and portable-upgrade regression tests
 npm run test:portable-upgrade  # App slot activation/rollback regression tests
 npm run test:portable-smoke    # launch, replace EXE, and verify portable Data
@@ -100,6 +100,9 @@ macOS (dmg / zip).
 After `npm run dist:portable`, inspect the generated `橙映/` directory. It must
 contain only `橙映.exe`, `Data/`, and `Media/`; the version/platform-suffixed
 builder artifact exists only in the temporary `.portable-build/` directory.
+The script copies the final builder output to the exact `橙映/橙映.exe` name,
+then removes `.portable-build/`, so the directory can be copied directly to a
+mobile hard drive without renaming or rearranging files.
 A portable smoke check should verify:
 
 1. `橙映/橙映.exe` launches with its packaged resources available;
@@ -114,7 +117,9 @@ A portable smoke check should verify:
 
 The final `橙映/` directory is intentionally ignored by Git because it contains
 the user's database and media. Commit the build script and documentation, never
-the generated directory or its contents.
+the generated directory or its contents. A normal `git push` therefore sends
+source, tests, and documentation only; it does not send `Data/`, `Media/`, or
+the locally generated EXE.
 
 Run the Windows-only packaged smoke test after building the directory:
 
