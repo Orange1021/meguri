@@ -1,10 +1,12 @@
 import type { Kind } from "./types.js";
 
 const MP4_FAMILY_EXTENSIONS = new Set(["mp4", "m4v", "mov"]);
+const REMUX_CONTAINER_EXTENSIONS = new Set(["mkv", "avi", "wmv", "flv", "ts"]);
 const BASELINE_H264_PIXEL_FORMATS = new Set(["yuv420p", "yuvj420p"]);
 
 interface RawStream {
   codec_type?: unknown;
+  codec_name?: unknown;
   pix_fmt?: unknown;
 }
 
@@ -29,15 +31,29 @@ export function shouldTranscodeForPlayback(
   codec: string | null,
   raw: unknown,
 ): boolean {
-  if (kind !== "video" || !isMp4FamilyExtension(fileExt) || !codec) {
+  const normalizedExt = fileExt.toLowerCase();
+  if (
+    kind !== "video" ||
+    (!isMp4FamilyExtension(normalizedExt) &&
+      !REMUX_CONTAINER_EXTENSIONS.has(normalizedExt)) ||
+    !codec
+  ) {
     return false;
   }
   if (codec.toLowerCase() !== "h264") return true;
 
   const pixFmt = firstVideoStream(raw)?.pix_fmt;
-  return (
+  if (
     typeof pixFmt === "string" &&
     !BASELINE_H264_PIXEL_FORMATS.has(pixFmt.toLowerCase())
+  ) {
+    return true;
+  }
+
+  const audio = firstAudioStream(raw);
+  return (
+    typeof audio?.codec_name === "string" &&
+    audio.codec_name.toLowerCase() !== "aac"
   );
 }
 
@@ -49,6 +65,18 @@ function firstVideoStream(raw: unknown): RawStream | null {
       typeof candidate === "object" &&
       candidate !== null &&
       (candidate as RawStream).codec_type === "video",
+  );
+  return stream ?? null;
+}
+
+function firstAudioStream(raw: unknown): RawStream | null {
+  const streams = (raw as RawProbe | null)?.streams;
+  if (!Array.isArray(streams)) return null;
+  const stream = streams.find(
+    (candidate): candidate is RawStream =>
+      typeof candidate === "object" &&
+      candidate !== null &&
+      (candidate as RawStream).codec_type === "audio",
   );
   return stream ?? null;
 }

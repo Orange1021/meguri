@@ -28,8 +28,8 @@ let badThumbId: number;
 let outsideMediaId: number;
 let symlinkMediaId: number;
 let remuxId: number;
-let wmvRemuxId: number;
-let aviRemuxId: number;
+  let wmvRemuxId: number;
+  let aviRemuxId: number;
 let mp4TranscodeId: number;
 let brokenRemuxId: number;
 let fifoSrc: string;
@@ -145,7 +145,7 @@ beforeAll(async () => {
     "-c:v",
     "mpeg4",
     "-c:a",
-    "pcm_s16le",
+    "ac3",
     "-shortest",
     aviFile,
   ]);
@@ -215,7 +215,15 @@ beforeAll(async () => {
   symlinkMediaId = insert("symlink/evil.mp4", symlinkMedia, null, "pending");
   remuxId = insert("real.mkv", remuxFile, null, "pending");
   wmvRemuxId = insert("real.wmv", wmvFile, null, "pending", "video", "wmv");
-  aviRemuxId = insert("real.avi", aviFile, null, "pending", "video", "avi");
+  aviRemuxId = insert(
+    "real.avi",
+    aviFile,
+    null,
+    "pending",
+    "video",
+    "avi",
+    "mpeg4",
+  );
   mp4TranscodeId = insert(
     "real-mpeg4.mp4",
     mpeg4Mp4File,
@@ -541,6 +549,10 @@ describe("media remux (ffmpeg path)", () => {
     const buf = Buffer.from(await res.arrayBuffer());
     expect(buf.length).toBeGreaterThan(0);
     expect(buf.subarray(4, 8).toString("latin1")).toBe("ftyp");
+    expect(probeCodecs(buf, "served-avi-transcoded.mp4")).toMatchObject({
+      video: "h264",
+      audio: "aac",
+    });
   });
 
   it("transcodes an MP4 whose video codec cannot produce Chromium frames", async () => {

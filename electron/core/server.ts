@@ -290,7 +290,12 @@ async function handle(
     // Unsupported containers and known-incompatible MP4-family codecs are
     // served via ffmpeg (time seek via ?t).
     if (REMUX_CONTAINERS.has(ext(abs))) {
-      serveRemux(res, abs, start);
+      serveRemux(
+        res,
+        abs,
+        start,
+        shouldTranscodeForPlayback(ext(abs), media.kind, media.codec, media.raw),
+      );
       return;
     }
     if (
