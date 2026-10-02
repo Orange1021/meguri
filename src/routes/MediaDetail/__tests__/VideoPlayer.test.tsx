@@ -525,6 +525,23 @@ describe("VideoPlayer", () => {
     expect(document.querySelector("video")).not.toBeNull();
   });
 
+  it("surfaces a decode error when loaded data has no video frame", () => {
+    const { video } = renderPlayer();
+    loadVideo(video);
+    Object.defineProperty(video, "videoWidth", {
+      configurable: true,
+      value: 0,
+    });
+    Object.defineProperty(video, "videoHeight", {
+      configurable: true,
+      value: 0,
+    });
+
+    fireEvent.loadedData(video);
+
+    expect(screen.queryByText("player.playFailed")).not.toBeNull();
+  });
+
   it("auto-reloads once on MEDIA_ERR_NETWORK before metadata, then surfaces the error", () => {
     vi.useFakeTimers();
     try {

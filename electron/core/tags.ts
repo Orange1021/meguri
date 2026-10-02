@@ -2,7 +2,7 @@
 // Tags are keyed by the stable meta_key (resolved from a file id) rather than files.id,
 // so they survive rebuilding the files table.
 import { resyncFtsForKeys, type DB } from "./db.js";
-import type { TagInfo } from "./types.js";
+import type { Kind, TagInfo } from "./types.js";
 import { RESERVED_TAG_ERROR, isReservedTagName } from "../../shared/tags.js";
 
 /** Resolve a file id to its stable meta_key (null if the file row is gone). */
@@ -249,6 +249,43 @@ export function absPathOf(db: DB, fileId: number): string | null {
     .prepare("SELECT abs_path FROM files WHERE id = ? AND deleted_at IS NULL")
     .get(fileId) as { abs_path: string } | undefined;
   return row?.abs_path ?? null;
+}
+
+export interface MediaPlaybackInfo {
+  absPath: string;
+  kind: Kind;
+  codec: string | null;
+  raw: unknown;
+}
+
+/** Resolve all metadata needed to choose the browser media serving path. */
+export function mediaPlaybackInfoOf(
+  db: DB,
+  fileId: number,
+): MediaPlaybackInfo | null {
+  const row = db
+    .prepare(
+      "SELECT abs_path, kind, codec, meta FROM files WHERE id = ? AND deleted_at IS NULL",
+    )
+    .get(fileId) as
+    | {
+        abs_path: string;
+        kind: Kind;
+        codec: string | null;
+        meta: string | null;
+      }
+    | undefined;
+  if (!row) return null;
+
+  let raw: unknown = null;
+  if (row.meta != null) {
+    try {
+      raw = JSON.parse(row.meta);
+    } catch {
+      raw = null;
+    }
+  }
+  return { absPath: row.abs_path, kind: row.kind, codec: row.codec, raw };
 }
 
 export function thumbPathIfDone(db: DB, fileId: number): string | null {

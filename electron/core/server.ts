@@ -2,10 +2,10 @@
 //
 // Policy: Chromium's <video> can play MP4(H.264)/WebM etc. with Range seeking
 // (even with non-faststart where moov is at the end, it can read it via a Range request to the tail).
-// So these are served as raw files via Range to enable full seeking. Only containers Chromium
-// cannot demux (mkv/avi/wmv/flv/ts) are remuxed or transcoded on the fly to
-// fragmented MP4 with ffmpeg and served, supporting time seeking via ?t=<seconds>
-// (this path is a stream).
+// So these are served as raw files via Range to enable full seeking. Containers Chromium
+// cannot demux (mkv/avi/wmv/flv/ts), and MP4-family files with a known incompatible
+// video codec, are remuxed or transcoded on the fly to fragmented MP4 with ffmpeg
+// and served, supporting time seeking via ?t=<seconds> (this path is a stream).
 //
 // URLs have the form /ws/<workspaceId>/<kind>/<fileId> (kind = thumb|media|frame).
 // Requests must include X-Api-Token; the Electron session injects it for in-app media loads.
@@ -17,7 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { Core } from "./index.js";
-import { absPathOf, thumbPathIfDone } from "./tags.js";
+import { mediaPlaybackInfoOf, thumbPathIfDone } from "./tags.js";
 import { isInsideRoot } from "./paths.js";
 import { assetAbsolutePath } from "./assets.js";
 import { preferredAsset } from "./queries/assets.js";
@@ -25,11 +25,14 @@ import { FFMPEG } from "./ffmpeg-paths.js";
 import { QueueFullError, Semaphore } from "./concurrency.js";
 import { DECODE_FFMPEG_THREADS, videoDecodeSlots } from "./mediaConcurrency.js";
 import { scopedLog } from "./logger.js";
+import { shouldTranscodeForPlayback } from "./mediaPlayback.js";
 
 const log = scopedLog("server");
 
-// Only containers Chromium cannot demux are processed with ffmpeg and served.
-// Everything else (mp4/m4v/mov/webm) is served as a raw file via Range to enable full seeking.
+// Containers Chromium cannot demux are always processed with ffmpeg. MP4-family
+// files are additionally checked by mediaPlayback.ts so incompatible codecs are
+// transcoded instead of being copied into a stream with no decodable video frames.
+// Baseline MP4/M4V/MOV and all WebM files remain on the raw Range path.
 const REMUX_CONTAINERS = new Set(["mkv", "avi", "wmv", "flv", "ts"]);
 
 // Hard cap on ffmpeg streaming/transcoding requests. Without this a corrupt
@@ -260,11 +263,12 @@ async function handle(
       return;
     }
 
-    const abs = absPathOf(core.db, id);
-    if (!abs) {
+    const media = mediaPlaybackInfoOf(core.db, id);
+    if (!media) {
       res.writeHead(404).end();
       return;
     }
+    const abs = media.absPath;
     if (!isInsideRoot(abs, core.root)) {
       res.writeHead(403).end();
       return;
@@ -280,11 +284,19 @@ async function handle(
 
     // kind === "media"
     const startT = url.searchParams.get("t");
-    // Only Chromium-unsupported containers are served via remux (time seek via ?t).
+    const parsedStart = startT != null ? Number(startT) : NaN;
+    const start =
+      Number.isFinite(parsedStart) && parsedStart >= 0 ? parsedStart : null;
+    // Unsupported containers and known-incompatible MP4-family codecs are
+    // served via ffmpeg (time seek via ?t).
     if (REMUX_CONTAINERS.has(ext(abs))) {
-      const parsed = startT != null ? Number(startT) : NaN;
-      const start = Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
       serveRemux(res, abs, start);
+      return;
+    }
+    if (
+      shouldTranscodeForPlayback(ext(abs), media.kind, media.codec, media.raw)
+    ) {
+      serveRemux(res, abs, start, true);
       return;
     }
     // Chromium-unsupported image formats (heic/heif/tiff) are transcoded to JPEG.
@@ -413,8 +425,12 @@ type RemuxSession = {
 
 const remuxInflight = new Map<string, RemuxSession>();
 
-function remuxKey(file: string, start: number | null): string {
-  return `${file}\0${start ?? ""}`;
+function remuxKey(
+  file: string,
+  start: number | null,
+  forceTranscode: boolean,
+): string {
+  return `${file}\0${start ?? ""}\0${forceTranscode ? "transcode" : "copy"}`;
 }
 
 function spawnFfmpegChild(args: string[]): ChildProcess {
@@ -536,6 +552,7 @@ function startRemuxSession(
   start: number | null,
   res: http.ServerResponse,
   releaseSlot: () => void,
+  forceTranscode: boolean,
 ) {
   const copyArgs = ["-v", "error"];
   if (start != null && start > 0) {
@@ -640,7 +657,12 @@ function startRemuxSession(
     });
   };
 
-  startAttempt(copyArgs, true);
+  if (forceTranscode) {
+    log.info("transcoding browser-incompatible video stream", file);
+    startAttempt(transcodeArgs, false);
+  } else {
+    startAttempt(copyArgs, true);
+  }
 }
 
 /**
@@ -749,8 +771,9 @@ function serveRemux(
   res: http.ServerResponse,
   file: string,
   start: number | null,
+  forceTranscode = false,
 ) {
-  const key = remuxKey(file, start);
+  const key = remuxKey(file, start, forceTranscode);
   const existing = remuxInflight.get(key);
   if (existing) {
     attachRemuxClient(key, existing, res);
@@ -769,7 +792,7 @@ function serveRemux(
     }
 
     try {
-      startRemuxSession(key, file, start, res, releaseSlot);
+      startRemuxSession(key, file, start, res, releaseSlot, forceTranscode);
     } catch (e) {
       // spawn() can throw synchronously; the slot would otherwise never be
       // released (it only reaches the session on success).

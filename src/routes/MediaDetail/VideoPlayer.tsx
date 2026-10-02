@@ -1006,6 +1006,17 @@ export const VideoPlayer = forwardRef<
             seekRef.current(deferred);
           }
         }}
+        onLoadedData={() => {
+          const v = ref.current;
+          if (!v || (v.videoWidth > 0 && v.videoHeight > 0)) return;
+          log.error("video loaded without a decoded frame", {
+            src,
+            currentSrc: v.currentSrc,
+            readyState: v.readyState,
+            currentTime: v.currentTime,
+          });
+          setError(t("player.errDecode"));
+        }}
         onTimeUpdate={() => {
           const v = ref.current;
           if (!v) return;

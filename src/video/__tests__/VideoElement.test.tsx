@@ -318,4 +318,27 @@ describe("VideoElement", () => {
     });
     expect(seen).toEqual([video]);
   });
+
+  it("delivers loadeddata to the latest handler", () => {
+    const seen = vi.fn();
+    function ReportingHost() {
+      const ref = useRef<HTMLVideoElement | null>(null);
+      return (
+        <VideoElement
+          videoRef={ref}
+          src={SRC_A}
+          autoPlay
+          className="h-full"
+          onLoadedData={seen}
+        />
+      );
+    }
+
+    render(<ReportingHost />);
+    const video = videos()[0];
+    act(() => {
+      video.dispatchEvent(new Event("loadeddata"));
+    });
+    expect(seen).toHaveBeenCalledTimes(1);
+  });
 });

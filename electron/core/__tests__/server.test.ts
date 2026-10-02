@@ -2,7 +2,7 @@
 // path-confinement guards, and the ffmpeg remux path (status-code behaviour only).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { FFMPEG } from "../ffmpeg-paths.js";
+import { FFMPEG, FFPROBE } from "../ffmpeg-paths.js";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -30,6 +30,7 @@ let symlinkMediaId: number;
 let remuxId: number;
 let wmvRemuxId: number;
 let aviRemuxId: number;
+let mp4TranscodeId: number;
 let brokenRemuxId: number;
 let fifoSrc: string;
 /** One row per supported audio extension, so contentType() is covered for all of them. */
@@ -42,13 +43,14 @@ function insert(
   thumbStatus: string,
   kind: string = "video",
   ext: string = "mp4",
+  codec: string | null = null,
 ): number {
   const info = db
     .prepare(
-      `INSERT INTO files (root_id, rel_path, abs_path, kind, ext, thumb_path, thumb_status, created_at)
-       VALUES ((SELECT id FROM scan_roots LIMIT 1), ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO files (root_id, rel_path, abs_path, kind, ext, codec, thumb_path, thumb_status, created_at)
+       VALUES ((SELECT id FROM scan_roots LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(rel, absPath, kind, ext, thumbPath, thumbStatus, nowUnix());
+    .run(rel, absPath, kind, ext, codec, thumbPath, thumbStatus, nowUnix());
   return Number(info.lastInsertRowid);
 }
 
@@ -148,6 +150,39 @@ beforeAll(async () => {
     aviFile,
   ]);
 
+  // MPEG-4 Part 2 inside MP4 is the regression input: Chromium can advance the
+  // audio timeline while exposing no video dimensions or MediaError. The
+  // server must force H.264/AAC transcoding instead of copying this stream.
+  const mpeg4Mp4File = path.join(root, "real-mpeg4.mp4");
+  execFileSync(FFMPEG, [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "testsrc2=size=32x32:rate=10:duration=0.4",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=440:sample_rate=44100:duration=0.4",
+    "-map",
+    "0:v:0",
+    "-map",
+    "1:a:0",
+    "-c:v",
+    "mpeg4",
+    "-q:v",
+    "5",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "96k",
+    "-shortest",
+    "-movflags",
+    "+faststart",
+    mpeg4Mp4File,
+  ]);
+
   // A longer mkv used as the byte source for the FIFO late-join test below
   // (more frames/keyframes so ffmpeg emits the init segment well before EOF).
   if (process.platform !== "win32") {
@@ -181,6 +216,15 @@ beforeAll(async () => {
   remuxId = insert("real.mkv", remuxFile, null, "pending");
   wmvRemuxId = insert("real.wmv", wmvFile, null, "pending", "video", "wmv");
   aviRemuxId = insert("real.avi", aviFile, null, "pending", "video", "avi");
+  mp4TranscodeId = insert(
+    "real-mpeg4.mp4",
+    mpeg4Mp4File,
+    null,
+    "pending",
+    "video",
+    "mp4",
+    "mpeg4",
+  );
   brokenRemuxId = insert("broken.mkv", brokenFile, null, "pending");
 
   // Audio rows carry no thumbnail by design (thumb_status 'done', thumb_path NULL).
@@ -438,6 +482,32 @@ describe("frame serving (ffmpeg path)", () => {
 });
 
 describe("media remux (ffmpeg path)", () => {
+  function probeCodecs(buf: Buffer, name: string) {
+    const output = path.join(root, name);
+    fs.writeFileSync(output, buf);
+    const report = JSON.parse(
+      execFileSync(
+        FFPROBE,
+        [
+          "-v",
+          "error",
+          "-show_entries",
+          "stream=codec_type,codec_name",
+          "-of",
+          "json",
+          output,
+        ],
+        { encoding: "utf8" },
+      ),
+    ) as { streams?: { codec_type?: string; codec_name?: string }[] };
+    return Object.fromEntries(
+      (report.streams ?? []).map((stream) => [
+        stream.codec_type,
+        stream.codec_name,
+      ]),
+    ) as Record<string, string | undefined>;
+  }
+
   it("remuxes an mkv to fragmented MP4 with a 200", async () => {
     const res = await fetch(`${base}/ws/${WS}/media/${remuxId}`, authHeaders());
     expect(res.status).toBe(200);
@@ -471,6 +541,22 @@ describe("media remux (ffmpeg path)", () => {
     const buf = Buffer.from(await res.arrayBuffer());
     expect(buf.length).toBeGreaterThan(0);
     expect(buf.subarray(4, 8).toString("latin1")).toBe("ftyp");
+  });
+
+  it("transcodes an MP4 whose video codec cannot produce Chromium frames", async () => {
+    const res = await fetch(
+      `${base}/ws/${WS}/media/${mp4TranscodeId}`,
+      authHeaders(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("video/mp4");
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.length).toBeGreaterThan(0);
+    expect(buf.subarray(4, 8).toString("latin1")).toBe("ftyp");
+    expect(probeCodecs(buf, "served-mpeg4-transcoded.mp4")).toMatchObject({
+      video: "h264",
+      audio: "aac",
+    });
   });
 
   it("returns 500 when ffmpeg fails immediately (no output) instead of an empty 200", async () => {
