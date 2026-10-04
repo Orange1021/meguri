@@ -256,9 +256,9 @@ async function handle(
         res.writeHead(404).end();
         return;
       }
-      // Thumbnails get max-age + ETag (not `immutable` — see the note on
-      // THUMB_CACHE_CONTROL) so repeat grid renders hit the browser cache and
-      // revalidations come back as cheap 304s.
+      // Thumbnails are cacheable but always revalidated, so a cover replaced
+      // under the same URL is never answered from a stale entry — see the note
+      // on THUMB_CACHE_CONTROL.
       await serveFile(req, res, tp, THUMB_CACHE_CONTROL);
       return;
     }
@@ -335,12 +335,16 @@ function etagMatches(
   });
 }
 
-// Let the browser cache thumbnails instead of re-requesting on every grid
-// render. Not `immutable`: the renderer's `?v=` cache buster is a per-component
-// counter (not a persistent version), so a regenerated thumbnail can be
-// requested under an old `?v=`. The ETag below lets those revalidations come
-// back as a cheap 304 instead of a full body once max-age expires.
-const THUMB_CACHE_CONTROL = "public, max-age=3600";
+// Thumbnails are rewritten in place — a re-picked manual cover keeps its file
+// name — so only the ETag can tell a replaced cover from the one it replaced.
+// The renderer's `?v=` cache buster cannot stand in for that: it is a
+// per-component counter that starts over whenever a view mounts (a fresh
+// session, or another surface carrying its own counter), so an already-cached
+// URL is requested again for bytes that have since changed. A fixed max-age
+// therefore keeps answering with the previous cover. Cache the body but always
+// revalidate: an unchanged thumbnail comes back as a cheap 304 and a replaced
+// one as a fresh 200.
+const THUMB_CACHE_CONTROL = "public, max-age=0, must-revalidate";
 
 async function serveFile(
   req: http.IncomingMessage,

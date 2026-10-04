@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router";
+import { events, type ThumbDone } from "@/ipc/client";
 import "@/test/mockVirtualizer";
 import Home from "@/routes/Home";
 import MediaDetail from "@/routes/MediaDetail";
@@ -145,6 +146,36 @@ describe("Home + MediaDetail integration", () => {
       expect(screen.getByRole("heading", { name: "sample.mp4" })).toBeTruthy();
     });
     expect(mocks.fileGet).toHaveBeenCalledWith(1, WS_ID);
+  });
+
+  it("reloads a row's thumbnail when its thumb:done arrives", async () => {
+    // Every subscriber is captured: Home's own progress bar is one of them, and
+    // it is the one that bumps the list/grid version.
+    const listeners: ((event: ThumbDone) => void)[] = [];
+    vi.mocked(events.onThumbDone).mockImplementation((cb) => {
+      listeners.push(cb as (event: ThumbDone) => void);
+      return Promise.resolve(() => {});
+    });
+
+    renderWithProviders(<AppRoutes />);
+    const thumb = await screen.findByAltText("videos/sample.mp4");
+    expect(thumb.getAttribute("src")).toBe(
+      `http://127.0.0.1:17345/ws/${WS_ID}/thumb/1?v=0`,
+    );
+
+    act(() => {
+      for (const listener of listeners) {
+        listener({ id: sampleFileRow.id, workspaceId: WS_ID });
+      }
+    });
+
+    // The bump is coalesced into a single flush; the changed `?v=` is what makes
+    // the browser fetch the rewritten WebP instead of reusing the old bytes.
+    await waitFor(() =>
+      expect(thumb.getAttribute("src")).toBe(
+        `http://127.0.0.1:17345/ws/${WS_ID}/thumb/1?v=1`,
+      ),
+    );
   });
 
   it("toggles favorite from MediaDetail and patches react-query caches", async () => {

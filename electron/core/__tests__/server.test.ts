@@ -303,11 +303,44 @@ describe("thumb serving", () => {
     ).toBe(404);
   });
 
-  it("serves thumbnails with Cache-Control and an ETag", async () => {
+  it("serves thumbnails as cacheable but always revalidated, with an ETag", async () => {
     const res = await fetch(`${base}/ws/${WS}/thumb/${thumbId}`, authHeaders());
     expect(res.status).toBe(200);
-    expect(res.headers.get("cache-control")).toBe("public, max-age=3600");
+    // Never a bare max-age: the renderer's `?v=` buster is a per-component
+    // counter that resets when a view remounts, so the same URL can stand for a
+    // replaced cover and has to be revalidated before it is reused.
+    expect(res.headers.get("cache-control")).toBe(
+      "public, max-age=0, must-revalidate",
+    );
     expect(res.headers.get("etag")).toMatch(/^"\d+-\d+"$/);
+  });
+
+  it("revalidates a replaced cover instead of reusing its cached bytes", async () => {
+    // A re-picked manual cover keeps its file name, so the replacement rewrites
+    // the same path: only the ETag can tell the two apart.
+    const coverFile = path.join(dataDir, "thumbs", "replaced.webp");
+    fs.writeFileSync(coverFile, "OLDCOVER");
+    const coverId = insert(
+      "covered.mp4",
+      path.join(root, "covered.mp4"),
+      coverFile,
+      "done",
+    );
+
+    const first = await fetch(
+      `${base}/ws/${WS}/thumb/${coverId}`,
+      authHeaders(),
+    );
+    const etag = first.headers.get("etag")!;
+    expect(await first.text()).toBe("OLDCOVER");
+
+    fs.writeFileSync(coverFile, "BRAND-NEW-COVER-BYTES");
+
+    const revalidated = await fetch(`${base}/ws/${WS}/thumb/${coverId}`, {
+      headers: { ...authHeader(), "If-None-Match": etag },
+    });
+    expect(revalidated.status).toBe(200);
+    expect(await revalidated.text()).toBe("BRAND-NEW-COVER-BYTES");
   });
 
   it("answers a matching If-None-Match with 304 (incl. weak and list forms)", async () => {
