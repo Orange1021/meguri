@@ -12,7 +12,6 @@ import { registerShellHandlers } from "./shell.js";
 import { registerStatusHandlers } from "./status.js";
 import { registerTagHandlers } from "./tags.js";
 import { registerThumbHandlers } from "./thumbs.js";
-import { registerUpdateHandlers } from "./updates.js";
 import { registerWorkspaceHandlers } from "./workspaces.js";
 import { registerPlaylistHandlers } from "./playlists.js";
 
@@ -30,6 +29,5 @@ export function registerIpc(ctx: IpcContext): void {
   registerPlaylistHandlers(ctx);
   registerThumbHandlers(ctx);
   registerShellHandlers(ctx);
-  registerUpdateHandlers();
   registerLogoHandlers(ctx);
 }

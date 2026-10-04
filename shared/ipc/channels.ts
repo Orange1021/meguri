@@ -18,7 +18,6 @@ import type {
   SceneBookmark,
   SearchResult,
   TagList,
-  UpdateInfo,
   UserCollection,
   WorkspaceStats,
   WorkspacesList,
@@ -365,12 +364,6 @@ export const ChannelInputs = {
   open_log_directory: z.void(),
   open_devtools: z.void(),
   window_close: z.void(),
-  // Update check (GitHub Releases). `force` bypasses the throttle used by the
-  // background/startup check (manual "check now" button always hits the network).
-  update_check: z.object({ force: z.boolean().optional() }).default({}),
-  update_get_settings: z.void(),
-  update_set_auto_check: z.object({ enabled: z.boolean() }),
-  update_ignore: z.object({ version: z.string() }),
   logo_get: z.void(),
   logo_set: z.object({ logo: LogoIdSchema }),
 } as const satisfies Record<InvokeChannel, z.ZodTypeAny>;
@@ -518,11 +511,6 @@ export interface ChannelOutputs {
   open_log_directory: void;
   open_devtools: boolean;
   window_close: void;
-  // null when the check could not reach GitHub (offline / rate-limited).
-  update_check: UpdateInfo | null;
-  update_get_settings: UpdateSettings;
-  update_set_auto_check: void;
-  update_ignore: void;
   logo_get: LogoId;
   // Echoes the applied variant so the renderer can settle on main's value.
   logo_set: LogoId;
@@ -552,12 +540,5 @@ export interface AboutInfo {
   node: string;
 }
 
-/** User-facing update preferences (persisted in main's config.json). */
-export interface UpdateSettings {
-  /** Whether the app checks for updates on startup. */
-  autoCheck: boolean;
-  /** Version the user chose to skip ("don't notify me about this one"), if any. */
-  ignoredVersion: string | null;
-}
 export type ChannelOutput<C extends ChannelName> =
   Expect<AssertChannelOutputsMatch> extends true ? ChannelOutputs[C] : never;

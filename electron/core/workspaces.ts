@@ -68,13 +68,13 @@ export class Workspaces {
 
   /**
    * Persist our snapshot, refreshing the fields this class never owns first.
-   * `update` is written independently via `updateConfig()` (the update checker
-   * runs across awaits), so spreading our startup snapshot back wholesale would
-   * silently revert the user's update preferences. Every write below goes
-   * through here rather than calling saveConfig directly.
+   * `logo` is written independently via `updateConfig()` (the logo IPC) while a
+   * Workspaces instance holds its startup snapshot, so spreading that snapshot
+   * back wholesale would silently revert it. Every write below goes through here
+   * rather than calling saveConfig directly.
    */
   private persist(): void {
-    this.config.update = loadConfig(this.layout).update;
+    this.config.logo = loadConfig(this.layout).logo;
     saveConfig(this.config, this.layout);
   }
 

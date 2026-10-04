@@ -38,11 +38,6 @@ import {
   QueryWorkerClient,
 } from "./core/queryWorkerClient.js";
 import { startServer } from "./core/server.js";
-import {
-  checkForUpdates,
-  isAutoCheckEnabled,
-  updateDownloadUrl,
-} from "./core/updater.js";
 import { Workspaces } from "./core/workspaces.js";
 import { PositionWriter } from "./core/positionWriter.js";
 import { registerIpc } from "./ipc/index.js";
@@ -390,23 +385,6 @@ function applyLogo(): void {
   }
 }
 
-/**
- * On startup, check GitHub for a newer stable release (when auto-check is on)
- * and push an event to the renderer if one is available. Deferred so it never
- * competes with the initial scan/render, and failures are swallowed (it's a
- * best-effort convenience, not a critical path).
- */
-function scheduleStartupUpdateCheck(): void {
-  if (!isAutoCheckEnabled()) return;
-  setTimeout(() => {
-    void checkForUpdates()
-      .then((info) => {
-        if (info?.available) emit("update:available", info);
-      })
-      .catch((e) => log.warn("startup update check failed", e));
-  }, 8_000);
-}
-
 function createWindow(): void {
   rendererReloadTimes = []; // a fresh window gets a fresh crash budget
   mainWindow = new BrowserWindow({
@@ -472,33 +450,6 @@ function createTray(): void {
   tray.setToolTip(PRODUCT_NAME);
   const menu = Menu.buildFromTemplate([
     { label: `Show ${PRODUCT_NAME}`, click: () => showWindow() },
-    {
-      label: "Check for Updates…",
-      click: () => {
-        void checkForUpdates({ force: true })
-          .then((info) => {
-            if (info?.available) {
-              showWindow();
-              emit("update:available", info);
-            } else if (info) {
-              // Reached GitHub and we're current: take the user to the releases
-              // page (or the Store product page on Store installs).
-              void shell.openExternal(updateDownloadUrl(null));
-            } else {
-              // Couldn't reach GitHub (offline / rate-limited): don't silently
-              // open a browser; tell the user the check failed.
-              void dialog.showMessageBox({
-                type: "warning",
-                title: PRODUCT_NAME,
-                message: "Could not check for updates.",
-                detail: "Please check your internet connection and try again.",
-              });
-            }
-          })
-          .catch((e) => log.warn("manual update check failed", e));
-      },
-    },
-    { type: "separator" },
     {
       label: "Quit",
       click: () => app.quit(),
@@ -644,7 +595,6 @@ void app.whenReady().then(async () => {
     });
   }
   scanManager.start();
-  scheduleStartupUpdateCheck();
 
   app.on("activate", () => showWindow());
 });

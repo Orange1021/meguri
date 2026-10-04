@@ -64,7 +64,6 @@ const initialConfig = {
   activeWorkspaceId: null,
   collections: [],
   workspaceEmojis: {},
-  update: { autoCheck: false, ignoredVersion: null, lastCheckAt: null },
   logo: "dark",
 };
 let smokePassed = false;

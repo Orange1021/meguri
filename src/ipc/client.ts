@@ -16,7 +16,6 @@ import type {
   ScanProgress,
   TagRef,
   ThumbDone,
-  UpdateInfo,
 } from "@shared/ipc/schema";
 
 interface Bridge {
@@ -220,12 +219,6 @@ export const api = {
   openDevTools: () => invoke("open_devtools"),
   /** Close the main window (hides to tray when tray support is enabled). */
   windowClose: () => invoke("window_close"),
-  /** Check GitHub for a newer release. `force` bypasses the throttle. null = check failed. */
-  updateCheck: (force?: boolean) => invoke("update_check", { force }),
-  updateGetSettings: () => invoke("update_get_settings"),
-  updateSetAutoCheck: (enabled: boolean) =>
-    invoke("update_set_auto_check", { enabled }),
-  updateIgnore: (version: string) => invoke("update_ignore", { version }),
   /** App logo variant (window + tray icon), persisted in main's config.json. */
   logoGet: () => invoke("logo_get"),
   logoSet: (logo: LogoId) => invoke("logo_set", { logo }),
@@ -245,7 +238,6 @@ export type {
   ScanDone,
   ScanProgress,
   ThumbDone,
-  UpdateInfo,
 };
 
 // Returns a Promise so existing components can receive the unlisten function via `.then(unlisten => ...)`.
@@ -265,6 +257,4 @@ export const events = {
         cb((p as { activeId: string | null }).activeId),
       ),
     ),
-  onUpdateAvailable: (cb: (info: UpdateInfo) => void): Promise<Unlisten> =>
-    Promise.resolve(bridge.on("update:available", (p) => cb(p as UpdateInfo))),
 };

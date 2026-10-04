@@ -15,7 +15,6 @@ import { AudioPlayerBar } from "@/audio/AudioPlayerBar";
 import { StatusBar } from "@/components/StatusBar";
 import { useContentZoom } from "@/hooks/useContentZoom";
 import { useSelectAllGuard } from "@/hooks/useSelectAllGuard";
-import { useUpdateNotifier } from "@/hooks/useUpdateNotifier";
 import { registerRouterNavigate } from "@/lib/routerBridge";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/ipc/client";
@@ -51,7 +50,6 @@ export default function App() {
   });
   useContentZoom();
   useSelectAllGuard();
-  useUpdateNotifier();
   if (recovery.isLoading) {
     return (
       <RecoveryPage

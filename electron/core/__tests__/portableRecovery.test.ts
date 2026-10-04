@@ -203,11 +203,6 @@ describe("portable recovery", () => {
         activeWorkspaceId: workspaceId,
         collections: [],
         workspaceEmojis: {},
-        update: {
-          autoCheck: false,
-          ignoredVersion: null,
-          lastCheckAt: null,
-        },
         logo: "enso",
       }),
     );

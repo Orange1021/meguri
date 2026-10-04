@@ -43,11 +43,6 @@ export const test = base.extend<MeguriFixtures>({
         activeWorkspaceId: null,
         collections: [],
         workspaceEmojis: {},
-        update: {
-          autoCheck: false,
-          ignoredVersion: null,
-          lastCheckAt: null,
-        },
         logo: "dark",
       }),
     );

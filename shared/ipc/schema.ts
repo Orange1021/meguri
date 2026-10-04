@@ -464,24 +464,3 @@ export const ThumbDoneSchema = z.object({
   ready: z.boolean().optional(),
 });
 export type ThumbDone = z.infer<typeof ThumbDoneSchema>;
-
-// --- Update check (GitHub Releases) ---
-
-export const UpdateInfoSchema = z.object({
-  /** Currently running version (app.getVersion(), e.g. "0.1.0"). */
-  current: z.string(),
-  /** Latest stable release version, without the leading "v" (e.g. "0.2.0"). */
-  latest: z.string(),
-  /** True when `latest` is newer than `current` and not ignored by the user. */
-  available: z.boolean(),
-  /**
-   * Where the "View" action should send the user: the GitHub release page, or
-   * the MS Store product deep link (`ms-windows-store://`) on Store installs.
-   */
-  url: z.url(),
-  /** Release name/title, when present. */
-  name: z.string().nullable().optional(),
-  /** ISO timestamp the release was published, when present. */
-  publishedAt: z.string().nullable().optional(),
-});
-export type UpdateInfo = z.infer<typeof UpdateInfoSchema>;

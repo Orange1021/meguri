@@ -24,7 +24,6 @@ export interface AppConfigV2 {
   collections: UserCollectionConfig[];
   workspaceEmojis: Record<string, string>;
   logo: LogoId;
-  update: UpdateConfig;
 }
 
 export interface AppConfig {
@@ -39,8 +38,6 @@ export interface AppConfig {
   collections: UserCollectionConfig[];
   /** Optional per-workspace emoji icon, keyed by workspace ID (hash of root path). */
   workspaceEmojis: Record<string, string>;
-  /** Update-check preferences (GitHub Releases). */
-  update: UpdateConfig;
   /**
    * App logo variant applied to the window and tray icons. Lives here (not in
    * the renderer's localStorage) because the tray and window are created
@@ -60,21 +57,6 @@ export const DEFAULT_LOGO: LogoId = "orange";
 function parseLogo(value: unknown): LogoId {
   return LogoIdSchema.catch(DEFAULT_LOGO).parse(value);
 }
-
-export interface UpdateConfig {
-  /** Whether to check for updates on startup. Defaults to true. */
-  autoCheck: boolean;
-  /** Version the user chose to skip notifications for (without leading "v"). */
-  ignoredVersion: string | null;
-  /** Unix ms of the last successful network check; used to throttle. */
-  lastCheckAt: number | null;
-}
-
-const DEFAULT_UPDATE_CONFIG: UpdateConfig = {
-  autoCheck: true,
-  ignoredVersion: null,
-  lastCheckAt: null,
-};
 
 export interface UserCollectionItemConfig {
   workspaceId: string;
@@ -125,7 +107,6 @@ export function loadConfig(layout?: PortableLayout): AppConfig {
       activePath: null,
       collections: [],
       workspaceEmojis: {},
-      update: { ...DEFAULT_UPDATE_CONFIG },
       logo: DEFAULT_LOGO,
     };
   }
@@ -196,7 +177,6 @@ function parseConfig(
     activePath,
     collections: parseCollections(raw.collections),
     workspaceEmojis: parseEmojiMap(raw.workspaceEmojis),
-    update: parseUpdateConfig(raw.update),
     logo: parseLogo(raw.logo),
   };
 }
@@ -260,7 +240,6 @@ function serializeLegacy(c: AppConfig) {
     activePath: c.activePath,
     collections: c.collections,
     workspaceEmojis: c.workspaceEmojis,
-    update: c.update,
     logo: c.logo,
   };
 }
@@ -304,7 +283,6 @@ function serializeV2(c: AppConfig, layout: PortableLayout): AppConfigV2 & {
     collections: c.collections,
     workspaceEmojis: c.workspaceEmojis,
     logo: c.logo,
-    update: c.update,
     roots: c.roots,
     activePath: c.activePath,
   };
@@ -344,20 +322,6 @@ export function locatorForResolvedRoot(
         kind: "portable-relative",
         value: relative.split(path.sep).join("/"),
       };
-}
-
-function parseUpdateConfig(value: unknown): UpdateConfig {
-  if (!value || typeof value !== "object") return { ...DEFAULT_UPDATE_CONFIG };
-  const c = value as Record<string, unknown>;
-  return {
-    autoCheck:
-      typeof c.autoCheck === "boolean"
-        ? c.autoCheck
-        : DEFAULT_UPDATE_CONFIG.autoCheck,
-    ignoredVersion:
-      typeof c.ignoredVersion === "string" ? c.ignoredVersion : null,
-    lastCheckAt: typeof c.lastCheckAt === "number" ? c.lastCheckAt : null,
-  };
 }
 
 /**
@@ -407,11 +371,10 @@ export function saveConfig(c: AppConfig, layout?: PortableLayout): void {
 
 /**
  * Atomic read-modify-write of the config. Re-reads the current file, applies
- * `mutator`, and saves — all synchronously, so callers that hold a stale
- * snapshot across an `await` (e.g. the update checker fetching over the network)
- * can't clobber concurrent changes to unrelated fields (roots, collections, …).
- * Pass an `update`-only mutation here rather than spreading an old `loadConfig()`
- * result into `saveConfig`.
+ * `mutator`, and saves — all synchronously, so a caller holding a stale
+ * snapshot across an `await` can't clobber concurrent changes to unrelated
+ * fields (roots, collections, …). Pass a narrow mutation here rather than
+ * spreading an old `loadConfig()` result into `saveConfig`.
  */
 export function updateConfig(
   mutator: (c: AppConfig) => AppConfig,

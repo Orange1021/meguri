@@ -25,11 +25,6 @@ test("dragging in manual order reorders without opening the detail view", async 
       activeWorkspaceId: null,
       collections: [],
       workspaceEmojis: {},
-      update: {
-        autoCheck: false,
-        ignoredVersion: null,
-        lastCheckAt: null,
-      },
       logo: "dark",
     }),
   );

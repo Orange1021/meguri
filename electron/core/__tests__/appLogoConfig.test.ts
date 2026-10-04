@@ -34,7 +34,6 @@ function writeConfig(layout: PortableLayout, logo: unknown): void {
       activeWorkspaceId: null,
       collections: [],
       workspaceEmojis: {},
-      update: { autoCheck: true, ignoredVersion: null, lastCheckAt: null },
       logo,
     }),
   );
@@ -72,7 +71,6 @@ describe("Logo config compatibility", () => {
         activePath: null,
         collections: [],
         workspaceEmojis: {},
-        update: { autoCheck: true, ignoredVersion: null, lastCheckAt: null },
         logo: "orange",
       },
       layout,

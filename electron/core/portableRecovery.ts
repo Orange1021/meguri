@@ -303,28 +303,6 @@ function buildConfig(
   activePath: string | null,
   activeWorkspaceId: string | null,
 ): AppConfigV2 & { roots: string[]; activePath: string | null } {
-  const rawUpdate = raw.update;
-  const updateRecord =
-    rawUpdate && typeof rawUpdate === "object"
-      ? (rawUpdate as Record<string, unknown>)
-      : null;
-  const update =
-    updateRecord
-      ? {
-          autoCheck:
-            typeof updateRecord.autoCheck === "boolean"
-              ? updateRecord.autoCheck
-              : true,
-          ignoredVersion:
-            typeof updateRecord.ignoredVersion === "string"
-              ? updateRecord.ignoredVersion
-              : null,
-          lastCheckAt:
-            typeof updateRecord.lastCheckAt === "number"
-              ? updateRecord.lastCheckAt
-              : null,
-        }
-      : { autoCheck: true, ignoredVersion: null, lastCheckAt: null };
   return {
     formatVersion: 2,
     workspaces,
@@ -337,7 +315,6 @@ function buildConfig(
         ? (raw.workspaceEmojis as Record<string, string>)
         : {},
     logo: LogoIdSchema.catch(DEFAULT_LOGO).parse(raw.logo),
-    update,
   };
 }
 
@@ -514,10 +491,5 @@ function emptyPortableConfig() {
     collections: [],
     workspaceEmojis: {},
     logo: DEFAULT_LOGO,
-    update: {
-      autoCheck: true,
-      ignoredVersion: null,
-      lastCheckAt: null,
-    },
   };
 }

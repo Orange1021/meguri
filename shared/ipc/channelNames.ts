@@ -76,10 +76,6 @@ export const INVOKE_CHANNELS = [
   "open_log_directory",
   "open_devtools",
   "window_close",
-  "update_check",
-  "update_get_settings",
-  "update_set_auto_check",
-  "update_ignore",
   "logo_get",
   "logo_set",
 ] as const;
@@ -99,7 +95,6 @@ export const EVENT_CHANNELS = [
   "thumb:done",
   "scan:done",
   "workspace:changed",
-  "update:available",
 ] as const;
 
 export type PreloadInvokeChannel = (typeof PRELOAD_INVOKE_CHANNELS)[number];

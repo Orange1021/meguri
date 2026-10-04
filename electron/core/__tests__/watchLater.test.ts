@@ -133,41 +133,22 @@ describe("Watch Later seeding", () => {
 });
 
 describe("config writes preserve fields this class does not own", () => {
-  // The update checker writes `update` through updateConfig() while Workspaces
-  // holds a startup snapshot. Since opening a file now writes the config (Watch
-  // Later auto-removal), a stale wholesale write-back would revert the user's
-  // update preferences on something as routine as viewing a video.
-  it("keeps update preferences written elsewhere after an auto-removal", () => {
+  // Workspaces holds a startup snapshot while other writers (the logo setting)
+  // go through updateConfig(). Since opening a file now writes the config (Watch
+  // Later auto-removal), a stale wholesale write-back would revert an unrelated
+  // setting on something as routine as viewing a video. `persist()` therefore
+  // re-reads the file first — the invariant pinned here, since the only field
+  // left that this class does not own (the logo) has a single valid id and so
+  // cannot show the difference by value.
+  it("re-reads the config before writing its own snapshot back", () => {
     const ws = new Workspaces();
-    ws.addToCollection(WATCH_LATER_ID, "wsA", 1);
-
-    const config = loadConfig();
-    config.update = {
-      autoCheck: false,
-      ignoredVersion: "9.9.9",
-      lastCheckAt: 1234,
-    };
-    saveConfig(config);
-
-    ws.removeFromWatchLater("wsA", 1);
-
-    expect(loadConfig().update).toEqual({
-      autoCheck: false,
-      ignoredVersion: "9.9.9",
-      lastCheckAt: 1234,
-    });
-  });
-
-  it("keeps them across collection edits too", () => {
-    const ws = new Workspaces();
-
-    const config = loadConfig();
-    config.update = { ...config.update, autoCheck: false };
-    saveConfig(config);
-
-    ws.addCollection("Mine");
-
-    expect(loadConfig().update.autoCheck).toBe(false);
+    const readFile = vi.spyOn(fs, "readFileSync");
+    try {
+      ws.addCollection("Mine");
+      expect(readFile).toHaveBeenCalledWith(configFile(), "utf8");
+    } finally {
+      readFile.mockRestore();
+    }
   });
 });
 
