@@ -12,6 +12,7 @@ import {
   invalidateCollectionSearches,
   invalidatePlayedSearches,
   invalidateTagSearches,
+  patchThumbnailInCaches,
   syncFileRowAcrossCaches,
 } from "@/lib/queryCache";
 
@@ -73,6 +74,26 @@ describe("syncFileRowAcrossCaches", () => {
     const detail = qc.getQueryData<FileDetail>(["file_get", "ws", 1]);
     expect(detail?.favorite).toBe(1);
     expect(detail?.rating).toBe(4);
+
+    patchThumbnailInCaches(qc, "ws", 1, false);
+    expect(
+      qc.getQueryData<InfiniteData<SearchResult>>([
+        "files_search",
+        "ws",
+        {},
+      ])?.pages[0].items[0],
+    ).toMatchObject({ thumbStatus: "error", hasThumb: 0 });
+    expect(
+      qc.getQueryData<FileRow[]>(["files_random", "ws", {}])?.[0],
+    ).toMatchObject({ thumbStatus: "error", hasThumb: 0 });
+    expect(
+      qc.getQueryData<FileDetail>(["file_get", "ws", 1]),
+    ).toMatchObject({ thumbStatus: "error", hasThumb: 0 });
+
+    patchThumbnailInCaches(qc, "ws", 1, true);
+    expect(
+      qc.getQueryData<FileDetail>(["file_get", "ws", 1]),
+    ).toMatchObject({ thumbStatus: "done", hasThumb: 1 });
   });
 });
 

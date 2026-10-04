@@ -6,6 +6,9 @@ import type { Core } from "../index.js";
 import type { DB } from "../db.js";
 import { runScan, type JobEvent } from "../jobs.js";
 import type { Kind } from "../types.js";
+import { assetAbsolutePath } from "../assets.js";
+import { importManualCover } from "../assetService.js";
+import { setThumb } from "../queries.js";
 
 vi.mock("../media.js", () => ({
   extractMeta: vi.fn(() => ({
@@ -106,6 +109,43 @@ describe("runScan identity integration", () => {
         )
         .all(),
     ).toEqual([{ status: "queued", count: 2 }]);
+  });
+
+  it("does not replace a manual cover selected while scan thumbnail work is running", async () => {
+    const media = await import("../media.js");
+    const selectedCover = path.join(root, "selected.jpg");
+    await fsp.writeFile(selectedCover, "manual cover");
+
+    let manualPath: string | null = null;
+    vi.mocked(media.generateThumb).mockImplementationOnce(
+      async (_src, _kind, destination) => {
+        const row = db
+          .prepare(
+            "SELECT id, video_id AS videoId FROM files WHERE rel_path = ?",
+          )
+          .get("clip.mp4") as { id: number; videoId: string };
+        const manual = await importManualCover(
+          core,
+          row.videoId,
+          selectedCover,
+          2,
+        );
+        manualPath = assetAbsolutePath(core.assetsDir(), manual.path);
+        setThumb(db, row.id, manualPath, "done");
+        await fsp.writeFile(destination, "automatic thumbnail");
+        return true;
+      },
+    );
+
+    await runScan(core, "job-manual-race", () => {});
+
+    expect(
+      db
+        .prepare(
+          "SELECT thumb_path AS thumbPath, thumb_status AS thumbStatus FROM files WHERE rel_path = ?",
+        )
+        .get("clip.mp4"),
+    ).toEqual({ thumbPath: manualPath, thumbStatus: "done" });
   });
 
   it("indexes images without generating a thumbnail", async () => {

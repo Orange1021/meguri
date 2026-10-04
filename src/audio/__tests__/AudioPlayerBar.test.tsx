@@ -397,6 +397,20 @@ describe("AudioPlayerBar", () => {
     );
   });
 
+  it("does not create a cover after a failed thumbnail attempt", async () => {
+    setup(sampleAudioRowWithCover);
+    loadTrack();
+    expect(await screen.findByRole("presentation")).toBeTruthy();
+
+    await thumbDone({
+      id: sampleAudioRowWithCover.id,
+      workspaceId: WS_ID,
+      ready: false,
+    });
+
+    expect(screen.queryByRole("presentation")).toBeNull();
+  });
+
   it("keeps thumb:done cover updates while the bar is suppressed", async () => {
     setup();
     loadTrack();

@@ -338,6 +338,7 @@ export async function runScan(
     const persistOne = (r: ThumbResult): void => {
       q.updateExtractedMeta(db, r.id, r.meta);
       identityAttemptedIds.add(r.id);
+      let videoId: string | null = null;
       if (r.identityError) {
         q.recordScanIssue(db, {
           runId,
@@ -355,6 +356,7 @@ export async function runScan(
         if (row?.videoId == null) {
           throw new Error(`file ${r.id} has no provisional video identity`);
         }
+        videoId = row.videoId;
         const target = identityTargetsByFileId.get(r.id);
         const result = reconcileFileIdentity(db, {
           runId,
@@ -366,6 +368,7 @@ export async function runScan(
           now: nowUnix(),
           probeFailed: r.preparedIdentity.probeFailed,
         });
+        videoId = result.videoId;
         identityStats.reconciled++;
         if (result.issueType) identityStats.issues++;
       }
@@ -389,16 +392,28 @@ export async function runScan(
           now: nowUnix(),
         });
       }
-      if (r.skipThumb) {
-        q.setThumb(db, r.id, null, "done");
-      } else {
-        q.setThumb(db, r.id, r.ok ? r.dest : null, r.ok ? "done" : "error");
+      if (videoId == null) {
+        const row = db
+          .prepare("SELECT video_id AS videoId FROM files WHERE id = ?")
+          .get(r.id) as { videoId: string | null } | undefined;
+        videoId = row?.videoId ?? null;
       }
-      const identity = db
-        .prepare("SELECT video_id AS videoId FROM files WHERE id = ?")
-        .get(r.id) as { videoId: string | null } | undefined;
-      if (identity?.videoId) {
-        queueDerivedAssets(db, { videoId: identity.videoId, kind: r.kind });
+      const hasManualCover =
+        videoId != null && q.hasReadyManualCover(db, videoId);
+      if (!hasManualCover) {
+        if (r.skipThumb) {
+          q.setThumb(db, r.id, null, "done");
+        } else {
+          q.setThumb(
+            db,
+            r.id,
+            r.ok ? r.dest : null,
+            r.ok ? "done" : "error",
+          );
+        }
+      }
+      if (videoId) {
+        queueDerivedAssets(db, { videoId, kind: r.kind });
       }
       // Derive from what was just written, and before syncFts — which rebuilds
       // tags_text by re-reading meta_tags.

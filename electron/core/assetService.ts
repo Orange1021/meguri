@@ -11,6 +11,7 @@ import {
 import { nowUnix, type DB } from "./db.js";
 import {
   claimAssetTasks,
+  claimAutomaticCoverTaskForVideo,
   completeAssetTask,
   enqueueAssetTask,
   failAssetTask,
@@ -227,8 +228,8 @@ export async function recoverRunningAssetTasksSafely(
   db: DB,
   now = nowUnix(),
 ): Promise<number> {
-  return withAssetTaskLock(db, async () =>
-    recoverRunningAssetTasksQuery(db, now),
+  return withAssetTaskLock(db, () =>
+    Promise.resolve(recoverRunningAssetTasksQuery(db, now)),
   );
 }
 
@@ -354,6 +355,14 @@ async function processPendingAssetTasksUnlocked(
 ): Promise<{ completed: number; failed: number }> {
   const now = options.now ?? nowUnix();
   const tasks = claimAssetTasks(core.db, now, options.limit ?? 4);
+  return processClaimedAssetTasksUnlocked(core, tasks, options);
+}
+
+async function processClaimedAssetTasksUnlocked(
+  core: Core,
+  tasks: ReturnType<typeof claimAssetTasks>,
+  options: { signal?: AbortSignal; now?: number } = {},
+): Promise<{ completed: number; failed: number }> {
   let completed = 0;
   let failed = 0;
   for (const task of tasks) {
@@ -382,16 +391,31 @@ async function processPendingAssetTasksUnlocked(
   return { completed, failed };
 }
 
+async function processAutomaticCoverForVideoUnlocked(
+  core: Core,
+  videoId: string,
+  options: { signal?: AbortSignal; limit?: number; now?: number } = {},
+): Promise<void> {
+  const task = claimAutomaticCoverTaskForVideo(
+    core.db,
+    videoId,
+    options.now ?? nowUnix(),
+  );
+  if (!task) return;
+  await processClaimedAssetTasksUnlocked(core, [task], options);
+}
+
 /** Restore an automatic cover and process it without racing the background worker. */
 export async function restoreAutomaticCoverAndProcess(
   core: Core,
   videoId: string,
   options: { limit?: number } = {},
-): Promise<void> {
+): Promise<AssetRow | null> {
+  restoreAutomaticCover(core.db, videoId);
   await withAssetTaskLock(core.db, async () => {
-    restoreAutomaticCover(core.db, videoId);
-    await processPendingAssetTasksUnlocked(core, options);
+    await processAutomaticCoverForVideoUnlocked(core, videoId, options);
   });
+  return preferredAsset(core.db, videoId, "cover");
 }
 
 function dbTransaction(db: DB, work: () => void): void {

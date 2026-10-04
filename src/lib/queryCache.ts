@@ -117,6 +117,21 @@ export function patchFileDetailInCache(
   );
 }
 
+/** Project the result of a thumbnail attempt into every cached file view. */
+export function patchThumbnailInCaches(
+  qc: QueryClient,
+  workspaceId: string,
+  fileId: number,
+  ready: boolean,
+): void {
+  const patch: Partial<FileRow> = {
+    thumbStatus: ready ? "done" : "error",
+    hasThumb: ready ? 1 : 0,
+  };
+  patchFileRowInCaches(qc, workspaceId, fileId, patch);
+  patchFileDetailInCache(qc, workspaceId, fileId, patch);
+}
+
 /**
  * Invalidate only the searches affected by recording a play: a played/unplayed
  * filter (membership changes) or an "accessed" sort (recording bumps

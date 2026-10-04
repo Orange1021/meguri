@@ -460,6 +460,8 @@ export type ScanDone = z.infer<typeof ScanDoneSchema>;
 export const ThumbDoneSchema = z.object({
   id: z.number(),
   workspaceId: z.string().nullable().optional(),
+  /** False means the thumbnail attempt finished without a usable file. */
+  ready: z.boolean().optional(),
 });
 export type ThumbDone = z.infer<typeof ThumbDoneSchema>;
 

@@ -327,6 +327,68 @@ describe("atomic asset storage", () => {
     await expect(recovery).resolves.toBe(0);
   });
 
+  it("restores and processes only the requested video's automatic cover", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "meguri-asset-target-"));
+    const dataRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "meguri-asset-target-data-"),
+    );
+    dirs.push(root, dataRoot);
+    const core = Core.init(root, { dataDir: dataRoot });
+    cores.push(core);
+
+    const targetPath = path.join(root, "target.mp4");
+    const otherPath = path.join(root, "other.mp4");
+    await fsp.writeFile(targetPath, "target");
+    await fsp.writeFile(otherPath, "other");
+    const targetVideoId = "6e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f72";
+    const otherVideoId = "5e9d0c19-5b43-4f4d-bc2e-53e7ac2f0f71";
+    addVideo(core.db, targetVideoId, "video");
+    addVideo(core.db, otherVideoId, "video");
+    for (const [videoId, source] of [
+      [targetVideoId, targetPath],
+      [otherVideoId, otherPath],
+    ] as const) {
+      core.db
+        .prepare(
+          `INSERT INTO files
+            (root_id, rel_path, abs_path, kind, ext, size, video_id, thumb_status, created_at)
+           VALUES (?, ?, ?, 'video', 'mp4', 6, ?, 'done', 0)`,
+        )
+        .run(core.rootId, path.basename(source), source, videoId);
+      enqueueAssetTask(core.db, {
+        videoId,
+        kind: "cover",
+        source: "auto",
+        now: 1,
+      });
+    }
+
+    const media = await import("../media.js");
+    vi.mocked(media.generateThumb).mockImplementation(
+      async (_source, _kind, destination) => {
+        await fsp.writeFile(destination, "generated");
+        return true;
+      },
+    );
+
+    const asset = (await assetService.restoreAutomaticCoverAndProcess(
+      core,
+      targetVideoId,
+    )) as { source?: string } | null;
+
+    expect(asset?.source).toBe("auto");
+    expect(
+      core.db
+        .prepare(
+          "SELECT video_id AS videoId, status FROM asset_tasks ORDER BY video_id",
+        )
+        .all(),
+    ).toEqual([
+      { videoId: otherVideoId, status: "queued" },
+      { videoId: targetVideoId, status: "completed" },
+    ]);
+  });
+
   it("writes and reads a completed asset without exposing a partial file", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "meguri-assets-"));
     dirs.push(root);

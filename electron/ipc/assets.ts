@@ -5,10 +5,13 @@ import {
   restoreAutomaticCoverAndProcess,
 } from "../core/assetService.js";
 import { assetAbsolutePath } from "../core/assets.js";
-import { listAssets, preferredAsset } from "../core/queries/assets.js";
+import { listAssets } from "../core/queries/assets.js";
 import * as q from "../core/queries.js";
+import { scopedLog } from "../core/logger.js";
 import type { IpcContext } from "./context.js";
 import { coreById, ensureFileInsideRoot } from "./helpers.js";
+
+const log = scopedLog("assets");
 
 function assetSummary(row: ReturnType<typeof listAssets>[number]) {
   return {
@@ -65,19 +68,34 @@ export function registerAssetHandlers(ctx: IpcContext): void {
     return assetSummary(asset);
   });
 
-  handle("asset_restore_auto_cover", async ({ id, workspaceId }) => {
+  handle("asset_restore_auto_cover", ({ id, workspaceId }) => {
     const core = coreById(ws, workspaceId);
     ensureFileInsideRoot(core, id);
     const videoId = videoIdForFile(core, id);
     // Do not let the old manual thumb become the source of the regenerated
     // automatic cover. It is cleared before the retryable task is claimed.
     q.setThumb(core.db, id, null, "pending");
-    await restoreAutomaticCoverAndProcess(core, videoId, { limit: 2 });
-    const asset = preferredAsset(core.db, videoId, "cover");
-    const assetPath = asset
-      ? assetAbsolutePath(core.assetsDir(), asset.path)
-      : null;
-    if (assetPath) q.setThumb(core.db, id, assetPath, "done");
-    ctx.emit("thumb:done", { id, workspaceId });
+    void restoreAutomaticCoverAndProcess(core, videoId, { limit: 1 })
+      .then((asset) => {
+        const assetPath = asset
+          ? assetAbsolutePath(core.assetsDir(), asset.path)
+          : null;
+        q.setThumb(
+          core.db,
+          id,
+          assetPath,
+          assetPath ? "done" : "error",
+        );
+        ctx.emit("thumb:done", {
+          id,
+          workspaceId,
+          ready: assetPath != null,
+        });
+      })
+      .catch((error: unknown) => {
+        log.warn("automatic cover restore failed:", error);
+        q.setThumb(core.db, id, null, "error");
+        ctx.emit("thumb:done", { id, workspaceId, ready: false });
+      });
   });
 }

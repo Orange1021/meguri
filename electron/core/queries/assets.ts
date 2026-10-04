@@ -98,6 +98,16 @@ export function preferredAsset(
     : null;
 }
 
+export function hasReadyManualCover(db: DB, videoId: string): boolean {
+  return (
+    db
+      .prepare(
+        "SELECT 1 FROM assets WHERE video_id = ? AND kind = 'cover' AND source = 'manual' AND status = 'ready' LIMIT 1",
+      )
+      .get(videoId) != null
+  );
+}
+
 export function upsertAsset(
   db: DB,
   input: {
@@ -220,6 +230,35 @@ export function claimAssetTasks(
     )
     .all(now, capped) as AssetTaskRow[];
   if (rows.length === 0) return [];
+  return claimTaskRows(db, rows, now);
+}
+
+export function claimAutomaticCoverTaskForVideo(
+  db: DB,
+  videoId: string,
+  now: number,
+): AssetTaskRow | null {
+  const row = db
+    .prepare(
+      `SELECT task_id AS taskId, video_id AS videoId, kind, source,
+              generation_version AS generationVersion, status, attempts,
+              next_attempt_at AS nextAttemptAt, error_code AS errorCode
+         FROM asset_tasks
+        WHERE video_id = ? AND kind = 'cover' AND source = 'auto'
+          AND status IN ('queued', 'failed') AND next_attempt_at <= ?
+        ORDER BY next_attempt_at, created_at
+        LIMIT 1`,
+    )
+    .get(videoId, now) as AssetTaskRow | undefined;
+  if (!row) return null;
+  return claimTaskRows(db, [row], now)[0] ?? null;
+}
+
+function claimTaskRows(
+  db: DB,
+  rows: AssetTaskRow[],
+  now: number,
+): AssetTaskRow[] {
   const mark = db.prepare(
     "UPDATE asset_tasks SET status = 'running', attempts = attempts + 1, updated_at = ? WHERE task_id = ? AND status IN ('queued','failed')",
   );

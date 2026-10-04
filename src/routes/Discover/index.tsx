@@ -9,7 +9,10 @@ import { Maximize2, Minimize2, RefreshCw, Sparkles, X } from "lucide-react";
 import { api, events } from "@/ipc/client";
 import { useAppStatus } from "@/hooks/useAppStatus";
 import { useWatchLater } from "@/hooks/useWatchLater";
-import { syncFileRowAcrossCaches } from "@/lib/queryCache";
+import {
+  patchThumbnailInCaches,
+  syncFileRowAcrossCaches,
+} from "@/lib/queryCache";
 import { cn } from "@/lib/utils";
 import type { FileRow } from "@/ipc/types";
 import { Button } from "@/components/ui/button";
@@ -109,6 +112,14 @@ export default function Discover() {
     let unlisten: (() => void) | undefined;
     void events
       .onThumbDone((event) => {
+        if (event.workspaceId) {
+          patchThumbnailInCaches(
+            qc,
+            event.workspaceId,
+            event.id,
+            event.ready !== false,
+          );
+        }
         const key = event.workspaceId
           ? `${event.workspaceId}:${event.id}`
           : String(event.id);
@@ -116,7 +127,7 @@ export default function Discover() {
       })
       .then((u) => (unlisten = u));
     return () => unlisten?.();
-  }, []);
+  }, [qc]);
 
   const [embla, setEmbla] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);

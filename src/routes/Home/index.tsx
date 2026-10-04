@@ -62,6 +62,7 @@ import { useFolderNavKeys } from "./useFolderNavKeys";
 import { useFolderPlaylist } from "./useFolderPlaylist";
 import { HomeHeader } from "./HomeHeader";
 import { SelectionLayer } from "./SelectionLayer";
+import { patchThumbnailInCaches } from "@/lib/queryCache";
 import {
   VIEW_KEY,
   type ViewMode,
@@ -398,6 +399,14 @@ export default function Home() {
   );
   const onThumbDone = useCallback(
     (event: ThumbDone) => {
+      if (event.workspaceId) {
+        patchThumbnailInCaches(
+          qc,
+          event.workspaceId,
+          event.id,
+          event.ready !== false,
+        );
+      }
       const key = event.workspaceId
         ? `${event.workspaceId}:${event.id}`
         : String(event.id);
@@ -416,7 +425,7 @@ export default function Home() {
         if (folderViewRef.current) scheduleFolderRefresh();
       }, 100);
     },
-    [scheduleFolderRefresh],
+    [qc, scheduleFolderRefresh],
   );
 
   // Recent searches for the command menu. A query that narrows nothing is

@@ -38,7 +38,8 @@ function outsideRouterOrigin(): string {
  *  The row the track was started from is a snapshot: a track played while the
  *  scan is still extracting covers has `hasThumb: 0` at that moment, and a cover
  *  regenerated later sits behind the same URL. `thumb:done` for this file says
- *  a cover now exists, so it flips availability and busts the cache.
+ *  whether the attempt produced a cover, so it updates availability and busts
+ *  the cache.
  *
  *  Lives in the bar component (which stays mounted, rendering nothing, while
  *  the detail view suppresses it) rather than in the cover element, so an
@@ -70,7 +71,7 @@ function useTrackCover(track: AudioTrack | null): {
         if (event.workspaceId && event.workspaceId !== workspaceId) return;
         setSeen((prev) => {
           const version = prev?.key === key ? (prev.version ?? 0) + 1 : 1;
-          return { key, hasCover: true, version };
+          return { key, hasCover: event.ready !== false, version };
         });
       })
       .then((u) => {
