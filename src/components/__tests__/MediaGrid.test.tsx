@@ -2,7 +2,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import "@/test/mockVirtualizer";
 import { MediaGrid } from "@/components/MediaGrid";
-import { defaultWorkspacesList, sampleFileRow, WS_ID } from "@/test/fixtures";
+import {
+  defaultWorkspacesList,
+  sampleAudioRow,
+  sampleFileRow,
+  WS_ID,
+} from "@/test/fixtures";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
 const mocks = vi.hoisted(() => ({
@@ -537,6 +542,50 @@ describe("MediaGrid", () => {
         />,
       );
       expect(screen.getByText("Nothing in this folder matches")).toBeTruthy();
+    });
+  });
+
+  describe("cover preview", () => {
+    // The button lives inside the card's thumbnail link, so the click must both
+    // open the dialog and be kept from navigating to the detail view.
+    it("opens a versioned cover preview from a video card", async () => {
+      renderWithProviders(
+        <MediaGrid
+          items={[sampleFileRow]}
+          mediaBase="http://127.0.0.1:17345"
+          workspaceId={WS_ID}
+          loading={false}
+          thumbVersion={{ [`${WS_ID}:1`]: 3 }}
+        />,
+      );
+
+      const viewButton = await screen.findByRole("button", {
+        name: "View cover",
+      });
+      const before = window.location.hash;
+      fireEvent.click(viewButton);
+
+      const dialog = await screen.findByRole("dialog");
+      expect(dialog.textContent).toContain("videos/sample.mp4");
+      expect(dialog.querySelector("img")?.getAttribute("src")).toBe(
+        `http://127.0.0.1:17345/ws/${WS_ID}/thumb/1?v=3`,
+      );
+      expect(window.location.hash).toBe(before);
+    });
+
+    it("does not show a cover preview button without a video cover", async () => {
+      renderWithProviders(
+        <MediaGrid
+          items={[{ ...sampleFileRow, hasThumb: 0 }, sampleAudioRow]}
+          mediaBase="http://127.0.0.1:17345"
+          workspaceId={WS_ID}
+          loading={false}
+          thumbVersion={{}}
+        />,
+      );
+
+      await screen.findByText("sample.mp4");
+      expect(screen.queryByRole("button", { name: "View cover" })).toBeNull();
     });
   });
 

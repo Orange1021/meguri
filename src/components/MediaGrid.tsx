@@ -33,6 +33,8 @@ import {
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RatingButton } from "@/components/RatingButton";
 import { MediaThumbnail } from "@/components/MediaThumbnail";
+import { CoverPreviewButton } from "@/components/CoverPreviewButton";
+import { CoverPreviewDialog } from "@/components/CoverPreviewDialog";
 import { TagChips } from "@/components/TagChips";
 import { SelectionCheck } from "@/components/SelectionCheck";
 import { useSelectableClick } from "@/hooks/useSelectableClick";
@@ -49,6 +51,7 @@ import { useGridKeyboardNav, useScrollToRow } from "@/hooks/useGridKeyboardNav";
 import { useWatchLaterHotkey } from "@/hooks/useWatchLaterHotkey";
 import { usePublishFocusedFile } from "@/hooks/useFocusedFile";
 import { useInfiniteScrollTrigger } from "@/hooks/useInfiniteScrollTrigger";
+import { hasThumbFile, thumbUrl } from "@/lib/thumbUrl";
 
 const GRID_CLASS =
   "grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 p-4";
@@ -105,6 +108,8 @@ interface Props {
 
 const noop = () => {};
 
+type CoverPreview = { url: string; title: string };
+
 // Memoized: Home re-renders on every thumbVersion flush and its other props are
 // referentially stable, so the grid only re-renders when the data actually changes.
 export const MediaGrid = memo(function MediaGrid({
@@ -130,6 +135,9 @@ export const MediaGrid = memo(function MediaGrid({
   inFolder = false,
 }: Props) {
   const watchLaterMembership = useWatchLater();
+  // Local to the grid: the row only asks to view a cover, the grid owns the
+  // dialog (mirrors MediaList, which shares one dialog across its rows).
+  const [coverPreview, setCoverPreview] = useState<CoverPreview | null>(null);
 
   // Scroll parent. Virtualization DOM-renders only the visible rows relative to this element.
   // Because the scroll element mounts later when transitioning from loading to data,
@@ -395,6 +403,7 @@ export const MediaGrid = memo(function MediaGrid({
                       watchLater={watchLaterMembership}
                       watchLaterRef={focused ? focusedWatchLaterRef : undefined}
                       fileDraggable={!reorder}
+                      onViewCover={setCoverPreview}
                     />
                   );
                   const key = mediaSortId(f);
@@ -411,6 +420,14 @@ export const MediaGrid = memo(function MediaGrid({
           ))}
         </div>
       </ScrollArea>
+      <CoverPreviewDialog
+        open={coverPreview !== null}
+        coverUrl={coverPreview?.url ?? null}
+        title={coverPreview?.title ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setCoverPreview(null);
+        }}
+      />
     </MediaReorderProvider>
   );
 });
@@ -427,6 +444,7 @@ const MediaCard = memo(function MediaCard({
   watchLater,
   watchLaterRef,
   fileDraggable,
+  onViewCover,
 }: {
   file: FileRow;
   /** Position in the loaded list — what a Shift-click ranges from. */
@@ -440,6 +458,8 @@ const MediaCard = memo(function MediaCard({
   watchLaterRef?: Ref<HTMLButtonElement>;
   /** Can be dragged onto a collection in the rail (off while reordering). */
   fileDraggable: boolean;
+  /** Opens the cover preview for this video (the grid owns the dialog). */
+  onViewCover: (preview: CoverPreview) => void;
 }) {
   // The card is split into two click regions so the click target controls
   // whether the detail view auto-plays. Thumbnail click → auto-play (default);
@@ -449,6 +469,13 @@ const MediaCard = memo(function MediaCard({
   const { onThumbnailClick } = useActivateFile();
   const { selected, onSelectableClick } = useSelectableClick(file, index);
   const dragProps = useFileDrag(file, selected, fileDraggable);
+  // Same rule as the list row: only a video with a real thumbnail file has a
+  // cover to open (an image is already its own cover, and audio may be "done"
+  // with no embedded art).
+  const coverUrl =
+    file.kind === "video" && hasThumbFile(file)
+      ? thumbUrl(mediaBase, file.workspaceId, file.id, version)
+      : null;
   return (
     <div
       {...dragProps}
@@ -479,6 +506,14 @@ const MediaCard = memo(function MediaCard({
           <span className="absolute bottom-1 right-1 rounded bg-bg/70 px-1 text-[10px] text-fg">
             {formatDuration(file.duration)}
           </span>
+        )}
+        {/* View cover: video-only, always visible (mirrors the list row). Sits
+            left of the favorite toggle so the top-right actions read as one row. */}
+        {coverUrl && (
+          <CoverPreviewButton
+            className="absolute right-9 top-1 z-20"
+            onClick={() => onViewCover({ url: coverUrl, title: file.relPath })}
+          />
         )}
         {/* Favorite toggle. Always visible when favorited; on hover otherwise. */}
         <FavoriteButton
