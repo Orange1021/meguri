@@ -91,21 +91,13 @@ export const en: Record<TranslationKey, string> = {
   "settings.keybinding": "Keybinds",
   "settings.keybindingDesc":
     "Key bindings for moving focus in the list, file paging, scrolling, and focusing search.",
-  "settings.support": "Support development",
-  "settings.supportDesc":
-    "If you enjoy this app, please consider supporting its development.",
-  "settings.buyMeCoffee": "Buy Me a Coffee",
-  "settings.hideSupport": "Hide support link",
   "settings.about": "About",
   "about.version": "{name} version {version}",
   "about.appLicense": "{name} is released under the MIT License.",
   "about.ossTitle": "Open-source licenses",
   "about.ossDesc": "This app includes the following open-source software.",
   "about.ffmpegNotice":
-    "The bundled FFmpeg / FFprobe binaries are licensed under GPL v3. The full license text and source code are available via the links below.",
-  "about.license": "License",
-  "about.source": "Source",
-  "about.fullDependencies": "View all dependencies (package.json)",
+    "The bundled FFmpeg / FFprobe binaries are licensed under GPL v3.",
   "about.logs": "Diagnostic logs",
   "about.logsDesc":
     "Scan and media-tool errors are saved in Data/logs/main.log.",

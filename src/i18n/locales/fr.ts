@@ -93,11 +93,6 @@ export const fr: Record<TranslationKey, string> = {
   "settings.keybinding": "Raccourcis clavier",
   "settings.keybindingDesc":
     "Raccourcis pour déplacer le focus dans la liste, naviguer entre les fichiers, faire défiler et cibler la recherche.",
-  "settings.support": "Soutenir le développement",
-  "settings.supportDesc":
-    "Si vous aimez cette application, envisagez de soutenir son développement.",
-  "settings.buyMeCoffee": "Buy Me a Coffee",
-  "settings.hideSupport": "Masquer le lien de soutien",
   "settings.about": "À propos",
   "about.version": "{name} version {version}",
   "about.appLicense": "{name} est publié sous licence MIT.",
@@ -105,10 +100,7 @@ export const fr: Record<TranslationKey, string> = {
   "about.ossDesc":
     "Cette application inclut les logiciels open source suivants.",
   "about.ffmpegNotice":
-    "Les binaires FFmpeg / FFprobe inclus sont sous licence GPL v3. Le texte complet de la licence et le code source sont disponibles via les liens ci-dessous.",
-  "about.license": "Licence",
-  "about.source": "Source",
-  "about.fullDependencies": "Voir toutes les dépendances (package.json)",
+    "Les binaires FFmpeg / FFprobe inclus sont sous licence GPL v3.",
   "about.logs": "Journaux de diagnostic",
   "about.logsDesc":
     "Les erreurs de scan et des outils sont enregistrées dans Data/logs/main.log.",

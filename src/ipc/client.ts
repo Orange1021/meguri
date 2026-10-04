@@ -214,7 +214,6 @@ export const api = {
     invoke("folder_copy_path", { workspaceId, path }),
   copyFilePath: (id: number, workspaceId: string) =>
     invoke("copy_file_path", { id, workspaceId }),
-  openUrl: (url: string) => invoke("open_url", { url }),
   openLogDirectory: () => invoke("open_log_directory"),
   openDevTools: () => invoke("open_devtools"),
   /** Close the main window (hides to tray when tray support is enabled). */

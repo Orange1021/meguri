@@ -91,21 +91,13 @@ export const ja = {
   "settings.keybinding": "キーバインド",
   "settings.keybindingDesc":
     "一覧のフォーカス移動・ファイルの前後移動・スクロール・検索フォーカスのキー割り当て。",
-  "settings.support": "開発を応援",
-  "settings.supportDesc":
-    "このアプリが気に入ったら、開発の支援をご検討ください。",
-  "settings.buyMeCoffee": "Buy Me a Coffee",
-  "settings.hideSupport": "サポートリンクを非表示にする",
   "settings.about": "このアプリについて",
   "about.version": "{name} バージョン {version}",
   "about.appLicense": "{name}は MIT License の下で公開されています。",
   "about.ossTitle": "オープンソースライセンス",
   "about.ossDesc": "本アプリは以下のオープンソースソフトウェアを含んでいます。",
   "about.ffmpegNotice":
-    "FFmpeg / FFprobe は GPL v3 でライセンスされたバイナリを同梱しています。ライセンス全文とソースコードは各リンクから参照できます。",
-  "about.license": "ライセンス",
-  "about.source": "ソース",
-  "about.fullDependencies": "すべての依存パッケージを見る (package.json)",
+    "FFmpeg / FFprobe は GPL v3 でライセンスされたバイナリを同梱しています。",
   "about.logs": "診断ログ",
   "about.logsDesc":
     "スキャンとメディアツールのエラーは Data/logs/main.log に保存されます。",

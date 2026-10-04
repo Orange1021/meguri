@@ -90,20 +90,13 @@ export const ko: Record<TranslationKey, string> = {
   "settings.keybinding": "키 바인딩",
   "settings.keybindingDesc":
     "목록 포커스 이동·파일 이동·스크롤·검색 포커스의 키 할당입니다.",
-  "settings.support": "개발 응원하기",
-  "settings.supportDesc": "이 앱이 마음에 드신다면 개발 지원을 고려해 주세요.",
-  "settings.buyMeCoffee": "Buy Me a Coffee",
-  "settings.hideSupport": "지원 링크 숨기기",
   "settings.about": "정보",
   "about.version": "{name} 버전 {version}",
   "about.appLicense": "{name}는 MIT License로 공개되어 있습니다.",
   "about.ossTitle": "오픈소스 라이선스",
   "about.ossDesc": "이 앱은 다음 오픈소스 소프트웨어를 포함합니다.",
   "about.ffmpegNotice":
-    "동봉된 FFmpeg / FFprobe 바이너리는 GPL v3 라이선스입니다. 라이선스 전문과 소스 코드는 아래 링크에서 확인할 수 있습니다.",
-  "about.license": "라이선스",
-  "about.source": "소스",
-  "about.fullDependencies": "모든 의존성 보기 (package.json)",
+    "동봉된 FFmpeg / FFprobe 바이너리는 GPL v3 라이선스입니다.",
   "about.logs": "진단 로그",
   "about.logsDesc":
     "스캔 및 미디어 도구 오류는 Data/logs/main.log에 저장됩니다.",

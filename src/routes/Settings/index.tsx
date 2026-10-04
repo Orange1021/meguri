@@ -2,9 +2,8 @@
 // (as a modal) over the list.
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Check, Coffee, Moon, Sun, X } from "lucide-react";
+import { Check, Moon, Sun, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { api } from "@/ipc/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SettingsTabs, type SettingsTab } from "./SettingsTabs";
 import { Switch } from "@/components/ui/switch";
@@ -45,8 +44,6 @@ import {
   SPECTRUM_PATTERN_OPTIONS,
   type SpectrumPattern,
 } from "@/audio/spectrumPatterns";
-
-const BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/amgsk";
 
 // Swatches for the theme picker. Derived tokens, not raw palette slots, so what the swatch
 // shows is what the UI will actually use — and the chrome colors that used to be invisible in
@@ -127,8 +124,6 @@ export default function Settings() {
     setSceneCount,
     keybindingPreset,
     setKeybindingPreset,
-    hideSupportLink,
-    setHideSupportLink,
     hoverPreview,
     setHoverPreview,
     frameQuality,
@@ -673,41 +668,6 @@ export default function Settings() {
 
           {tab === "app" && (
             <>
-              {/* Support / donation link (dismissible; hidden permanently once closed) */}
-              {!hideSupportLink && (
-                <section className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-bright-fg">
-                      {t("settings.support")}
-                    </span>
-                    <span className="text-xs text-muted">
-                      {t("settings.supportDesc")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => void api.openUrl(BUY_ME_A_COFFEE_URL)}
-                    >
-                      <Coffee className="size-4" />
-                      {t("settings.buyMeCoffee")}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2"
-                      onClick={() => setHideSupportLink(true)}
-                      aria-label={t("settings.hideSupport")}
-                      title={t("settings.hideSupport")}
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                </section>
-              )}
-
               {/* About / license attributions */}
               <AboutSection />
             </>

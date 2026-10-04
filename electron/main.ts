@@ -9,7 +9,6 @@ import {
   nativeImage,
   powerMonitor,
   session,
-  shell,
   Tray,
 } from "electron";
 import { randomBytes } from "node:crypto";
@@ -206,7 +205,8 @@ function startControlServer(): Promise<http.Server | null> {
 }
 
 // Restrict in-window navigation to the bundled renderer (or the Vite dev server
-// in development). Anything else is sent to the OS browser via shell.openExternal.
+// in development). Anything else is refused outright — the app never hands a URL
+// to the OS browser.
 // setWindowOpenHandler is also applied here so a future BrowserWindow inherits it.
 // `file:` is always permitted (bundled renderer); the dev origin is read on each
 // call so a late-resolved ELECTRON_RENDERER_URL is honored.
@@ -307,15 +307,9 @@ app.on("web-contents-created", (_e, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
   contents.on("will-navigate", (event, url) => {
     if (isAppUrl(url)) return;
+    // Nothing in the app links out, so a navigation away from the app URL is
+    // simply refused — never handed to the OS browser.
     event.preventDefault();
-    try {
-      const u = new URL(url);
-      if (u.protocol === "http:" || u.protocol === "https:") {
-        void shell.openExternal(url);
-      }
-    } catch {
-      /* drop */
-    }
   });
 });
 

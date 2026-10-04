@@ -72,7 +72,6 @@ export const INVOKE_CHANNELS = [
   "folder_open_in_file_manager",
   "folder_copy_path",
   "copy_file_path",
-  "open_url",
   "open_log_directory",
   "open_devtools",
   "window_close",

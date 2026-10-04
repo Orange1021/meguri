@@ -77,7 +77,6 @@ export function isListThumbSize(v: unknown): v is ListThumbSize {
 interface Prefs {
   sceneCount: number;
   keybindingPreset: KeybindingPreset;
-  hideSupportLink: boolean;
   hoverPreview: boolean;
   frameQuality: FrameQuality;
   emojiStyle: EmojiStyle;
@@ -117,7 +116,6 @@ interface Prefs {
 const DEFAULTS: Prefs = {
   sceneCount: DEFAULT_SCENE_COUNT,
   keybindingPreset: DEFAULT_KEYBINDING_PRESET,
-  hideSupportLink: false,
   hoverPreview: true,
   frameQuality: DEFAULT_FRAME_QUALITY,
   emojiStyle: DEFAULT_EMOJI_STYLE,
@@ -160,10 +158,6 @@ function loadPrefs(): Prefs {
         keybindingPreset: isKeybindingPreset(parsed.keybindingPreset)
           ? parsed.keybindingPreset
           : DEFAULT_KEYBINDING_PRESET,
-        hideSupportLink:
-          typeof parsed.hideSupportLink === "boolean"
-            ? parsed.hideSupportLink
-            : DEFAULTS.hideSupportLink,
         hoverPreview:
           typeof parsed.hoverPreview === "boolean"
             ? parsed.hoverPreview
@@ -223,7 +217,6 @@ function loadPrefs(): Prefs {
 interface PrefsCtx extends Prefs {
   setSceneCount: (n: number) => void;
   setKeybindingPreset: (p: KeybindingPreset) => void;
-  setHideSupportLink: (hidden: boolean) => void;
   setHoverPreview: (enabled: boolean) => void;
   setFrameQuality: (q: FrameQuality) => void;
   setEmojiStyle: (s: EmojiStyle) => void;
@@ -267,8 +260,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         setPrefs((p) => ({ ...p, sceneCount: clampSceneCount(n) })),
       setKeybindingPreset: (kp) =>
         setPrefs((p) => ({ ...p, keybindingPreset: kp })),
-      setHideSupportLink: (hidden) =>
-        setPrefs((p) => ({ ...p, hideSupportLink: hidden })),
       setHoverPreview: (enabled) =>
         setPrefs((p) => ({ ...p, hoverPreview: enabled })),
       setFrameQuality: (q) => setPrefs((p) => ({ ...p, frameQuality: q })),

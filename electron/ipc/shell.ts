@@ -74,23 +74,6 @@ export function registerShellHandlers(ctx: IpcContext): void {
     clipboard.writeText(abs);
   });
 
-  // Open an arbitrary external URL (e.g. the support/donation link). Only
-  // http(s) plus the MS Store deep link (update notification on Store installs)
-  // are allowed.
-  handle("open_url", ({ url }) => {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      throw new Error("invalid url");
-    }
-    const allowed = ["http:", "https:", "ms-windows-store:"];
-    if (!allowed.includes(parsed.protocol)) {
-      throw new Error("unsupported protocol");
-    }
-    void shell.openExternal(parsed.toString());
-  });
-
   handle("open_log_directory", async () => {
     const dataDir = ctx.dataDir?.();
     if (!dataDir) throw new Error("data directory unavailable");
