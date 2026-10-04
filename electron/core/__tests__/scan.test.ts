@@ -130,7 +130,8 @@ describe("looksLikeMpegTs", () => {
   });
 
   it("keeps the extension's verdict when the file exists but can't be read", async () => {
-    // A directory opens but fails to read (EISDIR), standing in for an I/O error.
+    // A directory stands in for an I/O error: Linux fails the read with EISDIR,
+    // whereas Windows opens it and reads zero bytes — both are "unreadable".
     const sub = path.join(dir, "unreadable.ts");
     await fsp.mkdir(sub);
     expect(await looksLikeMpegTs(sub)).toBe(true);

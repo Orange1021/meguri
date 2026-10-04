@@ -107,6 +107,10 @@ export async function looksLikeMpegTs(file: string): Promise<boolean> {
     return (err as NodeJS.ErrnoException).code !== "ENOENT";
   }
   try {
+    // Windows opens a directory successfully and then reads zero bytes instead
+    // of failing the way other platforms do (EISDIR). A path that is not a
+    // regular file counts as unreadable, so the extension's verdict stands.
+    if ((await fd.stat()).isDirectory()) return true;
     // Network filesystems may return short reads; fill the probe window.
     while (len < buf.length) {
       const { bytesRead } = await fd.read(buf, len, buf.length - len, len);
