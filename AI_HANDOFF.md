@@ -109,8 +109,27 @@ npm run test:portable-smoke
 
 ## 6. 后续 AI 的工作方式
 
-1. 先读本文件，再按任务读取对应的 `docs/` 文档和源码入口。
-2. 先复现问题并定位原因，再修改；功能或 bug 修复要补针对性测试。
-3. 修改后至少运行相关测试、`npm run typecheck` 和 `npm run build`；涉及 Windows 便携版时再运行 `dist:portable` 和 `test:portable-smoke`。
-4. 不要删除或重建用户的 `Data/`、`Media/`，不要把本地媒体或数据库加入提交。
-5. 面向用户用中文、直白说明；避免未经要求的大范围重构和改变现有便携目录约定。
+### 6.1 文件读取范围（硬性）
+
+- **只能读本项目工作区 `D:\Projects\PortableVideoLibrary` 下的文件。**
+- 不要读取 D 盘其他位置、系统盘（C 盘）或其他磁盘上的任何文件；不要浏览、列举或索引用户的个人媒体、文档、桌面文件。
+- 需要理解"磁盘上有什么"时，通过项目代码、配置和日志定位，不要用 AI 直接遍历用户磁盘。
+
+### 6.2 每次修改的固定流程（硬性，不可跳过）
+
+任何一次修改（功能、bug 修复、重构、文档变更）完成后，按顺序执行以下步骤，**全部通过才算完成**：
+
+1. **测试**：运行相关测试，并至少运行 `npm run test:core` 和 `npm run test:renderer`。
+2. **静态检查与构建**：`npm run typecheck` 和 `npm run build`。
+3. **打包 EXE**：`npm run dist:portable`，产出唯一的 `橙映/橙映.exe`，并保持 `橙映/` 只含 `橙映.exe` + `Data/` + `Media/` 的约定结构。
+4. **便携版冒烟测试**：`npm run test:portable-smoke`（确认替换 EXE 后 `Data/` 保留）。
+5. **提交并推送**：按仓库约定写 **英文** conventional commit（`<type>: <summary>`，`<type>` 取 `feat` / `fix` / `docs` / `chore` / `ci` / `build`，见 `CONTRIBUTING.md` 与现有历史），并 `git push` 到 `origin/main`。
+
+任何一步失败都要停下来定位原因，**不要带着失败或红色的状态继续打包或推送**；也不要跳过打包步骤直接提交。
+
+### 6.3 其他约定
+
+- 先读本文件，再按任务读取对应的 `docs/` 文档和源码入口。
+- 先复现问题并定位原因，再修改；功能或 bug 修复要补针对性测试。
+- 不要删除或重建用户的 `Data/`、`Media/`，不要把本地媒体或数据库加入提交。
+- 面向用户用中文、直白说明；避免未经要求的大范围重构和改变现有便携目录约定。
