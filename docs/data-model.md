@@ -63,11 +63,12 @@ The main tables:
 - `files` — the file index: `rel_path`, `abs_path`, `kind` (`video` | `image` |
   `audio`), size/mtime/inode, `content_hash`, media metadata (`width`, `height`,
   `duration`, `codec`, `fps`, `captured_at`), `thumb_path` / `thumb_status`, and
-  `deleted_at` / `excluded_at` markers. `sort_key` is `rel_path` lower-cased with
-  every run of digits padded to a fixed width (`nameSortKey` in
-  `electron/core/nameSort.ts`), written on scan and backfilled once for rows that
-  predate it: `sort=name` orders and pages on it so "clip-9" comes before
-  "clip-10", which byte-wise collation would invert. For audio, `width` /
+  `deleted_at` / `excluded_at` markers. `sort_key` is the file's own name (not its
+  folder) lower-cased with every run of digits padded to a fixed width
+  (`nameSortKey` in `electron/core/nameSort.ts`), written on scan and backfilled
+  by migration 5: `sort=name` orders and pages on it, so "clip-9" comes before
+  "clip-10" — which byte-wise collation would invert — and a list of files from
+  several folders sorts by name rather than folder by folder. For audio, `width` /
   `height` / `fps`
   stay NULL even when the file embeds cover art — the artwork's dimensions
   describe the jacket, not the track. Images keep `fps` NULL too, except

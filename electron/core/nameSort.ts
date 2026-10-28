@@ -5,6 +5,10 @@
 // scan that sorting and keyset paging are built on. So the order is computed
 // once, when the row is written, and stored as files.sort_key.
 //
+// The key is built from the file's own name, not its path: "B/clip-9" sorts with
+// the other clip-9s rather than under B, which is what a list sorted by name is
+// expected to do. Rows with the same name fall back to the id tiebreak.
+//
 // Folders are ordered in JS with an `Intl.Collator` (numeric, case-insensitive);
 // this key is the SQL-side equivalent: lower-cased, with every run of digits
 // padded to a fixed width so that comparing the padded text byte for byte gives
@@ -19,8 +23,12 @@ const DIGIT_WIDTH = 18;
 
 const DIGIT_RUN = /\d+/g;
 
+/** Matches relPath's separator, which is platform-dependent (see relPath.ts). */
+const PATH_SEPARATOR = /[\\/]/;
+
 export function nameSortKey(relPath: string): string {
-  return relPath
+  const name = relPath.split(PATH_SEPARATOR).pop() || relPath;
+  return name
     .toLowerCase()
     .replace(DIGIT_RUN, (digits) => digits.padStart(DIGIT_WIDTH, "0"));
 }

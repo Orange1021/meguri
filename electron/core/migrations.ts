@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DB } from "./db.js";
+import { nameSortKey } from "./nameSort.js";
 
 export interface MigrationContext {
   now: () => number;
@@ -194,6 +195,27 @@ export const DEFAULT_MIGRATION_REGISTRY: MigrationRegistry = {
       sql: PLAYLIST_SQL,
       apply: (db) => {
         db.exec(PLAYLIST_SQL);
+      },
+    },
+    {
+      version: 5,
+      name: "name-sort-by-file-name",
+      // sort_key used to be built from the whole rel_path, so a named sort
+      // grouped the list by folder first. It now comes from the file's own
+      // name; every row is recomputed once here (see nameSort.ts).
+      sql: "-- recompute files.sort_key from the file name",
+      apply: (db) => {
+        // A schema old enough to have no rel_path predates file rows worth
+        // ordering; nothing to recompute.
+        const columns = db.prepare("PRAGMA table_info(files)").all() as {
+          name: string;
+        }[];
+        if (!columns.some((column) => column.name === "rel_path")) return;
+        const rows = db
+          .prepare("SELECT id, rel_path AS relPath FROM files")
+          .all() as { id: number; relPath: string }[];
+        const update = db.prepare("UPDATE files SET sort_key = ? WHERE id = ?");
+        for (const row of rows) update.run(nameSortKey(row.relPath), row.id);
       },
     },
   ],

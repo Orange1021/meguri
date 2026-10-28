@@ -36,6 +36,9 @@ export default defineConfig({
           name: "core",
           environment: "node",
           include: ["electron/**/*.test.ts"],
+          // Several suites build their media fixtures with ffmpeg in beforeAll,
+          // which outruns the 10s default on a cold cache or a busy machine.
+          hookTimeout: 120_000,
         },
       },
       {

@@ -59,6 +59,7 @@ describe("applyMigrations", () => {
       { version: 2 },
       { version: 3 },
       { version: 4 },
+      { version: 5 },
     ]);
   });
 
@@ -76,12 +77,13 @@ describe("applyMigrations", () => {
       { version: 2 },
       { version: 3 },
       { version: 4 },
+      { version: 5 },
     ]);
 
     applyMigrations(db, { context: { now: () => 1_700_000_001 } });
     expect(
       db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get(),
-    ).toEqual({ count: 5 });
+    ).toEqual({ count: 6 });
   });
 
   it("rejects a changed checksum instead of silently accepting a migration", () => {

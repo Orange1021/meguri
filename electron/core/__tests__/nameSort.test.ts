@@ -25,21 +25,25 @@ describe("nameSortKey", () => {
     ]);
   });
 
-  it("treats each digit run on its own, folder names included", () => {
+  it("orders by the file's own name, not by its folder", () => {
     const paths = ["S2/Ep10.mp4", "S2/Ep9.mp4", "S10/Ep1.mp4"];
     expect([...paths].sort(byKey)).toEqual([
+      "S10/Ep1.mp4",
       "S2/Ep9.mp4",
       "S2/Ep10.mp4",
-      "S10/Ep1.mp4",
     ]);
+  });
+
+  it("reads the name off either separator", () => {
+    expect(nameSortKey("S2\\Ep10.mp4")).toBe(nameSortKey("S2/Ep10.mp4"));
   });
 
   it("folds case so Alpha and alpha are neighbours", () => {
     expect(nameSortKey("Alpha.mp4")).toBe(nameSortKey("alpha.mp4"));
   });
 
-  it("folds case for a name without numbers too", () => {
-    expect(nameSortKey("Movies/Holiday.MKV")).toBe("movies/holiday.mkv");
+  it("folds case, and drops the folder entirely", () => {
+    expect(nameSortKey("Movies/Holiday.MKV")).toBe("holiday.mkv");
   });
 });
 
@@ -66,16 +70,18 @@ describe("sort=name", () => {
     ]);
   });
 
-  it("keeps a folder's files together and orders the folders by number", () => {
+  it("sorts across folders by file name, not folder by folder", () => {
     for (const name of ["S10/a.mp4", "S2/b.mp4", "S2/a.mp4", "S9/c.mp4"]) {
       insertFile(db, rootId, { relPath: name });
     }
     const page = searchFiles(db, { sort: "name", sortDir: "asc", limit: 10 });
+    // Both a.mp4s first (same key, so the id tiebreak keeps them together), then
+    // b and c — a folder never pulls its own files ahead of the name order.
     expect(names(page.items)).toEqual([
+      "S10/a.mp4",
       "S2/a.mp4",
       "S2/b.mp4",
       "S9/c.mp4",
-      "S10/a.mp4",
     ]);
   });
 
