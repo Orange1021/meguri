@@ -222,6 +222,7 @@ describe("migrateKindCheck", () => {
       "idx_files_meta_key",
       "idx_files_alive",
       "idx_files_alive_rel_path",
+      "idx_files_alive_sort_key",
       "idx_files_alive_captured",
       "idx_files_btime",
       "idx_files_alive_btime",

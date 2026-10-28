@@ -4,6 +4,7 @@
 import { MAX_DUPLICATE_GROUPS } from "../../shared/duplicates.js";
 import { MAX_TAG_LIST, qualifiedTagName } from "../../shared/tags.js";
 import { resolveSortDir } from "../../shared/sortDir.js";
+import { nameSortKey } from "./nameSort.js";
 import type { Core } from "./index.js";
 import {
   attachTags,
@@ -976,9 +977,10 @@ function comparatorFor(
         cmpNullableNum(a.btime, b.btime, direction) || tiebreak(a, b);
     case "name":
       // orderByFor()'s name sort tiebreaks on id following the sort direction
-      // (so the index can serve the DESC scan); mirror that here.
+      // (so the index can serve the DESC scan); mirror that here. The comparison
+      // is on the same natural key the rows are stored and ordered by.
       return (a, b) =>
-        cmpStr(a.relPath, b.relPath, direction) ||
+        cmpStr(nameSortKey(a.relPath), nameSortKey(b.relPath), direction) ||
         cmpStr(a.workspaceId, b.workspaceId) ||
         cmpNum(a.id, b.id, direction);
     case "accessed":

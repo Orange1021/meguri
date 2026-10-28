@@ -1,5 +1,6 @@
 // Shared helpers for core DB tests. Not a test file itself (no ".test" suffix).
 import { openDb, nowUnix, type DB } from "../db.js";
+import { nameSortKey } from "../nameSort.js";
 import { upsertScanRoot } from "../queries.js";
 
 export interface FileSeed {
@@ -31,8 +32,8 @@ export function insertFile(db: DB, rootId: number, seed: FileSeed): number {
     .prepare(
       `INSERT INTO files
         (root_id, rel_path, abs_path, kind, ext, size, mtime, btime, content_hash,
-         width, height, duration, codec, captured_at, thumb_status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+         width, height, duration, codec, captured_at, thumb_status, created_at, sort_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
     )
     .run(
       rootId,
@@ -50,6 +51,7 @@ export function insertFile(db: DB, rootId: number, seed: FileSeed): number {
       seed.codec ?? null,
       seed.capturedAt ?? null,
       nowUnix(),
+      nameSortKey(seed.relPath),
     );
   return Number(info.lastInsertRowid);
 }

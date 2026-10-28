@@ -19,6 +19,7 @@ import type {
   SearchResult,
 } from "../types.js";
 import { insertFile, newDb } from "./helpers.js";
+import { nameSortKey } from "../nameSort.js";
 
 function coreTarget(id: string, db: DB): CoreTarget {
   return { id, core: { db } as Core };
@@ -61,7 +62,8 @@ function comparatorFor(
       return (a, b) => cmpNum(a.rating, b.rating, direction) || tiebreak(a, b);
     case "name":
       return (a, b) =>
-        cmpStr(a.relPath, b.relPath, direction) || tiebreak(a, b);
+        cmpStr(nameSortKey(a.relPath), nameSortKey(b.relPath), direction) ||
+        tiebreak(a, b);
     default:
       return (a, b) =>
         cmpStr(a.workspaceId, b.workspaceId) || cmpNum(a.id, b.id, direction);
@@ -387,11 +389,14 @@ describe("searchCollection k-way merge", () => {
 
     const merged = [...page0.items, ...page1.items];
     const paths = merged.map((f) => f.relPath);
+    // The expected order is the natural one sort=name uses (nameSortKey), not
+    // the raw path order: "a/9.mp4" comes before "a/10.mp4".
+    const byKey = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
     expect(paths).toEqual(
       [...merged]
         .sort(
           (x, y) =>
-            x.relPath.localeCompare(y.relPath) ||
+            byKey(nameSortKey(x.relPath), nameSortKey(y.relPath)) ||
             x.workspaceId.localeCompare(y.workspaceId) ||
             x.id - y.id,
         )

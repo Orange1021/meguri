@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { DB } from "./db.js";
 import { nowUnix } from "./db.js";
 import { migrateMetaKey } from "./queries.js";
+import { nameSortKey } from "./nameSort.js";
 import { pool } from "./concurrency.js";
 import type { Kind } from "./types.js";
 
@@ -348,9 +349,11 @@ export async function syncFiles(
   );
 
   // btime is refreshed here too so rows scanned before the column existed get
-  // backfilled on the next scan without a content change.
+  // backfilled on the next scan without a content change. sort_key rides along
+  // for the same reason: it is derived from rel_path, and rewriting it here lets
+  // a change to nameSortKey reach existing rows on the next scan.
   const touchUnchanged = db.prepare(
-    "UPDATE files SET deleted_at = NULL, abs_path = ?, inode = ?, btime = ? WHERE id = ?",
+    "UPDATE files SET deleted_at = NULL, abs_path = ?, inode = ?, btime = ?, sort_key = ? WHERE id = ?",
   );
   // Recompute content_hash for changed files so meta_key stays anchored to the hash
   // (rather than dropping to the rel_path fallback) and metadata keeps linking.
@@ -358,11 +361,11 @@ export async function syncFiles(
     "UPDATE files SET size = ?, mtime = ?, btime = ?, abs_path = ?, inode = ?, content_hash = ?, video_id = ?, thumb_status = 'pending', deleted_at = NULL WHERE id = ?",
   );
   const moveStmt = db.prepare(
-    "UPDATE files SET rel_path = ?, abs_path = ?, inode = ?, mtime = ?, btime = ?, size = ?, deleted_at = NULL WHERE id = ?",
+    "UPDATE files SET rel_path = ?, abs_path = ?, inode = ?, mtime = ?, btime = ?, size = ?, sort_key = ?, deleted_at = NULL WHERE id = ?",
   );
   const insertStmt = db.prepare(
-    `INSERT INTO files (root_id, rel_path, abs_path, kind, ext, size, mtime, btime, inode, content_hash, video_id, thumb_status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    `INSERT INTO files (root_id, rel_path, abs_path, kind, ext, size, mtime, btime, inode, content_hash, video_id, thumb_status, created_at, sort_key)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
   );
   const insertVideoStmt = db.prepare(
     "INSERT INTO videos " +
@@ -479,7 +482,13 @@ export async function syncFiles(
       const existing = existingOf[i];
       if (existing) {
         if (existing.size === d.size && existing.mtime === d.mtime) {
-          touchUnchanged.run(d.absPath, d.inode, d.btime, existing.id);
+          touchUnchanged.run(
+            d.absPath,
+            d.inode,
+            d.btime,
+            nameSortKey(d.relPath),
+            existing.id,
+          );
           if (!existing.video_id) {
             const videoId = createProvisionalVideo(d.kind);
             bindVideoStmt.run(videoId, existing.id);
@@ -552,6 +561,7 @@ export async function syncFiles(
           d.mtime,
           d.btime,
           d.size,
+          nameSortKey(d.relPath),
           moved.id,
         );
         // Re-derive kind/ext from the new name; a changed kind also invalidates
@@ -588,6 +598,7 @@ export async function syncFiles(
           hash,
           provisionalVideoId,
           now,
+          nameSortKey(d.relPath),
         );
         const id = Number(info.lastInsertRowid);
         identityTargets.push({

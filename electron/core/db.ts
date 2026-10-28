@@ -1,6 +1,7 @@
 // SQLite (better-sqlite3). Schema definition and connection.
 import Database from "better-sqlite3";
 import { applyMigrations } from "./migrations.js";
+import { nameSortKey } from "./nameSort.js";
 
 export type DB = Database.Database;
 
@@ -52,6 +53,9 @@ CREATE TABLE IF NOT EXISTS files (
   thumb_path TEXT, thumb_status TEXT NOT NULL DEFAULT 'pending'
     CHECK (thumb_status IN ('pending','done','error')),
   deleted_at INTEGER, excluded_at INTEGER, created_at INTEGER NOT NULL, meta TEXT,
+  -- Natural file-name order (see nameSort.ts): what sort=name orders and pages
+  -- on. NULL only for rows written before the column existed.
+  sort_key TEXT,
   -- Stable identity for metadata, independent of the autoincrement id: content_hash
   -- when available (survives move/rename), else a root-scoped rel_path fallback.
   meta_key TEXT GENERATED ALWAYS AS
@@ -220,6 +224,33 @@ function backfillColumns(db: DB): void {
   db.exec(
     "CREATE INDEX IF NOT EXISTS idx_files_alive_btime ON files((btime IS NULL), btime DESC, id) WHERE deleted_at IS NULL",
   );
+  // Natural file-name order (see nameSort.ts): what sort=name orders and pages
+  // on, and the index that keeps both a forward and a backward scan cheap. The
+  // column arrives here rather than in FILES_DDL alone so DBs that predate it
+  // gain it too; a table rebuild carries it over empty, hence the backfill.
+  if (!hasColumn(db, "files", "sort_key")) {
+    db.exec("ALTER TABLE files ADD COLUMN sort_key TEXT");
+  }
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_files_alive_sort_key ON files(sort_key, id) WHERE deleted_at IS NULL",
+  );
+  backfillSortKeys(db);
+}
+
+/**
+ * Fill in sort_key for rows written before the column existed (or carried
+ * across a table rebuild without it). One pass over the missing rows only, so a
+ * library that is already filled costs a single indexed probe.
+ */
+function backfillSortKeys(db: DB): void {
+  const missing = db
+    .prepare("SELECT id, rel_path AS relPath FROM files WHERE sort_key IS NULL")
+    .all() as { id: number; relPath: string }[];
+  if (missing.length === 0) return;
+  const update = db.prepare("UPDATE files SET sort_key = ? WHERE id = ?");
+  db.transaction(() => {
+    for (const row of missing) update.run(nameSortKey(row.relPath), row.id);
+  })();
 }
 
 /** Versionless idempotent migration: DBs created before audio support carry a

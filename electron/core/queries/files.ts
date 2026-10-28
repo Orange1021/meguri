@@ -4,6 +4,7 @@ import { fileTags } from "../tags.js";
 import { listBookmarksByMetaKey } from "./bookmarks.js";
 import { thumbOffsetByKey } from "./meta.js";
 import { resolveSortDir } from "../../../shared/sortDir.js";
+import { nameSortKey } from "../nameSort.js";
 import {
   FOLDER_FILE_FROM,
   folderCondition,
@@ -304,7 +305,9 @@ function sortSpecFor(sort?: string, dir?: string): SortSpec {
     case "btime":
       return { expr: "f.btime", nullable: true, cmp, idCmp: ">" };
     case "name":
-      return { expr: "f.rel_path", nullable: false, cmp, idCmp: cmp };
+      // Natural order: the column holds nameSortKey(rel_path) (see nameSort.ts),
+      // so "clip-9" sorts before "clip-10" instead of after it.
+      return { expr: "f.sort_key", nullable: false, cmp, idCmp: cmp };
     case "accessed":
       return { expr: "m.last_accessed_at", nullable: true, cmp, idCmp: ">" };
     case "hash":
@@ -328,7 +331,9 @@ export function sortValueOf(
     case "btime":
       return row.btime;
     case "name":
-      return row.relPath;
+      // Recomputed rather than selected: it is the seek key, and the value the
+      // row stores is by construction the same string.
+      return nameSortKey(row.relPath);
     case "accessed":
       return row.lastAccessedAt;
     case "hash":
@@ -448,10 +453,12 @@ export function orderByFor(sort?: string, dir?: string): string {
     case "btime":
       return `f.btime IS NULL ASC, f.btime ${direction}, f.id ASC`;
     case "name":
-      // The id tiebreak follows the main direction so both directions map onto
-      // a single scan of idx_files_alive_rel_path (forward/backward); a fixed
-      // "id ASC" would force a temp b-tree for the DESC case.
-      return `f.rel_path ${direction}, f.id ${direction}`;
+      // sort_key is nameSortKey(rel_path) (see nameSort.ts): lower-cased, with
+      // digit runs padded so byte order matches numeric order. The id tiebreak
+      // follows the main direction so both directions map onto a single scan of
+      // idx_files_alive_sort_key (forward/backward); a fixed "id ASC" would
+      // force a temp b-tree for the DESC case.
+      return `f.sort_key ${direction}, f.id ${direction}`;
     case "accessed":
       return `m.last_accessed_at IS NULL ASC, m.last_accessed_at ${direction}, f.id ASC`;
     case "hash":
