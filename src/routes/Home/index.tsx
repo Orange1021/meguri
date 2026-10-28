@@ -634,6 +634,14 @@ export default function Home() {
   // fight the player's.)
   const peekDocked = usePeekDocked();
   const listShortcutsActive = location.pathname === "/" || peekDocked;
+  // The file the docked sheet is showing, for the list to point at. Only while
+  // docked: a modal covers the list, so scrolling underneath it would leave the
+  // list displaced for no one to have seen it happen.
+  const activeFileId = useMemo(() => {
+    if (!peekDocked) return null;
+    const match = /^\/file\/(\d+)/.exec(location.pathname);
+    return match ? Number(match[1]) : null;
+  }, [peekDocked, location.pathname]);
   useEffect(() => {
     if (!listShortcutsActive) return;
     const onKey = (e: KeyboardEvent) => {
@@ -908,6 +916,7 @@ export default function Home() {
                 onOpenFolder={folderNav.enter}
                 resetKey={folderView ? `folder:${folderNav.path}` : undefined}
                 inFolder={folderSearching}
+                activeFileId={activeFileId}
               />
             ) : (
               // By folder, either view gets the folders ahead of the files
@@ -933,6 +942,7 @@ export default function Home() {
                 onOpenFolder={folderNav.enter}
                 resetKey={folderView ? `folder:${folderNav.path}` : undefined}
                 inFolder={folderSearching}
+                activeFileId={activeFileId}
               />
             )}
           </main>

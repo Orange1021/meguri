@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import "@/test/mockVirtualizer";
+import { virtualizerScrollToIndex } from "@/test/mockVirtualizer";
 import { MediaGrid } from "@/components/MediaGrid";
 import {
   defaultWorkspacesList,
@@ -620,5 +620,56 @@ describe("MediaGrid", () => {
       "media-card",
     ]);
     expect(rows[1].children).toHaveLength(1);
+  });
+});
+
+// The list points at the file the detail sheet is showing: a file opened from
+// Discovery can land anywhere in the order, and the card sitting under the
+// sheet is what tells the user where they are.
+describe("the file the detail view is showing", () => {
+  const files = () =>
+    [1, 2, 3].map((id) => ({
+      ...sampleFileRow,
+      id,
+      relPath: `clip-${id}.mp4`,
+    }));
+
+  const render = (activeFileId: number | null) =>
+    renderWithProviders(
+      <MediaGrid
+        items={files()}
+        mediaBase="http://127.0.0.1:17345"
+        workspaceId={WS_ID}
+        loading={false}
+        thumbVersion={{}}
+        activeFileId={activeFileId}
+      />,
+    );
+
+  it("marks that card and scrolls it into view", async () => {
+    virtualizerScrollToIndex.mockClear();
+    render(1);
+    const cards = await screen.findAllByTestId("media-card");
+    expect(cards[0].dataset.active).toBe("true");
+    expect(cards[0].getAttribute("aria-current")).toBe("page");
+    expect(cards[1].dataset.active).toBeUndefined();
+    // The first card sits on the first row whatever the column count is.
+    expect(virtualizerScrollToIndex).toHaveBeenCalledWith(0, { align: "auto" });
+  });
+
+  it("leaves the list where it is when the file is not among the loaded entries", async () => {
+    virtualizerScrollToIndex.mockClear();
+    render(999);
+    const cards = await screen.findAllByTestId("media-card");
+    expect(cards.some((card) => card.dataset.active === "true")).toBe(false);
+    expect(virtualizerScrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it("stays out of the way while the detail is a modal", async () => {
+    virtualizerScrollToIndex.mockClear();
+    render(null);
+    const cards = await screen.findAllByTestId("media-card");
+    expect(cards.some((card) => card.dataset.active === "true")).toBe(false);
+    expect(virtualizerScrollToIndex).not.toHaveBeenCalled();
   });
 });

@@ -15,9 +15,13 @@ choice inside a webview. `/` (`src/routes/Home/`) is the parent route, and
 stays mounted underneath. The file detail can alternatively dock as a **side
 peek** — a sheet docked beside the list as a flex sibling, so the list narrows
 and stays fully usable along with the toolbar and the bottom player bar
-(`MediaModal`'s `presentation` prop). Its left edge is a drag handle; the
+(`MediaModal`'s `presentation` prop). Its inner edge is a drag handle; the
 choice, the modal size and the peek width are all remembered in
-`localStorage`.
+`localStorage`. While the sheet is docked, both list views point at the file it
+is showing (`activeFileId`): that row or card is marked, and scrolled into view
+when the file was opened from somewhere other than the list itself — Discovery,
+the play history, a bookmark — so the sheet never sits over a list that is
+looking elsewhere.
 
 Each route is a directory: `index.tsx` is the entry point and composes the
 route, sitting alongside its companion components and hooks — for example

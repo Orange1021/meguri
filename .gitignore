@@ -8,6 +8,11 @@ dist-ssr
 /out
 /release
 /.portable-build
+# Same output under another directory (rebuilding when the default one is locked)
+/.portable-build*/
+
+# Local agent workspace (never part of the app)
+/.workbuddy/
 
 # Final local portable package (contains user data and media)
 /橙映/

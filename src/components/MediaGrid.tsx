@@ -104,6 +104,13 @@ interface Props {
   resetKey?: string;
   /** The list is a search inside a folder: its empty state says so. */
   inFolder?: boolean;
+  /**
+   * The file the detail view is showing. While the detail is docked beside the
+   * list, the grid scrolls to that card: a file opened from Discovery (or from
+   * the play history) can sit anywhere in the order, and the card under the
+   * sheet is what tells the user where they are.
+   */
+  activeFileId?: number | null;
 }
 
 const noop = () => {};
@@ -133,6 +140,7 @@ export const MediaGrid = memo(function MediaGrid({
   onOpenFolder,
   resetKey,
   inFolder = false,
+  activeFileId = null,
 }: Props) {
   const watchLaterMembership = useWatchLater();
   // Local to the grid: the row only asks to view a cover, the grid owns the
@@ -306,6 +314,35 @@ export const MediaGrid = memo(function MediaGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wsId, resetKey]);
 
+  // Keep the card the detail view is showing on screen. Called out here rather
+  // than from the click: the file may have been opened from Discovery, the play
+  // history or a bookmark, with the list left wherever it was standing.
+  // `align: "auto"` leaves the list alone when the card is already visible, so
+  // clicking a card on screen does not nudge it.
+  const activeIndex = useMemo(
+    () =>
+      activeFileId == null
+        ? -1
+        : entries.findIndex(
+            (e) => e.kind === "file" && e.file.id === activeFileId,
+          ),
+    [entries, activeFileId],
+  );
+  // One scroll per file: the list also re-runs this when more pages arrive,
+  // and dragging it away after that is the user's business.
+  const scrolledToFile = useRef<number | null>(null);
+  useEffect(() => {
+    if (activeIndex < 0) {
+      // Not (yet) among the loaded entries: nothing to scroll to, and a later
+      // page may bring it in, so leave the door open.
+      scrolledToFile.current = null;
+      return;
+    }
+    if (scrolledToFile.current === activeFileId) return;
+    scrolledToFile.current = activeFileId;
+    scrollToRow(Math.floor((activeIndex + leadCells) / cols));
+  }, [activeIndex, activeFileId, cols, leadCells, scrollToRow]);
+
   // Fetch the next page when a row near the end becomes visible (replaces the old IntersectionObserver sentinel).
   useInfiniteScrollTrigger({
     virtualRows,
@@ -379,6 +416,10 @@ export const MediaGrid = memo(function MediaGrid({
                     return <div key={`lead:${cell}`} aria-hidden />;
                   }
                   const focused = cell - leadCells === focusedIndex;
+                  // The card the detail sheet is showing: marked even when it
+                  // arrived from somewhere other than this grid.
+                  const active =
+                    entry.kind === "file" && entry.file.id === activeFileId;
                   if (entry.kind === "folder") {
                     return (
                       <FolderCard
@@ -400,6 +441,7 @@ export const MediaGrid = memo(function MediaGrid({
                       mediaBase={mediaBase}
                       onTagClick={onTagClick}
                       focused={focused}
+                      active={active}
                       watchLater={watchLaterMembership}
                       watchLaterRef={focused ? focusedWatchLaterRef : undefined}
                       fileDraggable={!reorder}
@@ -441,6 +483,7 @@ const MediaCard = memo(function MediaCard({
   mediaBase,
   onTagClick,
   focused,
+  active = false,
   watchLater,
   watchLaterRef,
   fileDraggable,
@@ -453,6 +496,8 @@ const MediaCard = memo(function MediaCard({
   mediaBase: string;
   onTagClick?: (name: string) => void;
   focused?: boolean;
+  /** Whether the detail sheet is showing this file. */
+  active?: boolean;
   watchLater: WatchLaterMembership;
   /** Set only on the focused card, so the "W" shortcut can drive this toggle. */
   watchLaterRef?: Ref<HTMLButtonElement>;
@@ -480,11 +525,13 @@ const MediaCard = memo(function MediaCard({
     <div
       {...dragProps}
       data-testid="media-card"
-      aria-current={focused ? "true" : undefined}
+      data-active={active ? "true" : undefined}
+      aria-current={focused ? "true" : active ? "page" : undefined}
       className={cn(
         "group flex flex-col overflow-hidden rounded-md border border-border bg-surface transition-colors hover:border-primary",
         focused && "border-primary ring-2 ring-primary",
         selected && "border-primary ring-1 ring-primary",
+        active && "border-primary",
       )}
     >
       <Link
